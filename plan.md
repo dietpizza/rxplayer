@@ -418,8 +418,8 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 34 | Tab switches are instant (no transition); settings toggle rows don't highlight, only the switch shows state | 2026-11-09 |
 | 35 | **Activities for navigation** (one per full-screen destination, system transitions); Navigation 3 removed; tabs are state in MainActivity; viewer + full player share `PlayerActivity` | 2026-11-09 |
 | 36 | Media3 pinned to 1.9.x to match the Jellyfin FFmpeg decoder; M1 uses an activity-owned MediaSession, no service | 2026-11-09 |
-| 38 | Viewer decodes full-size images with ImageDecoder (not Coil); inline→full morph animates the single SurfaceView's bounds with a corner mask inside `PlayerActivity`; `PlaybackController.playInline/promoteInline` keep inline plays out of resume/history | 2026-11-10 |
 | 37 | Network server configs live in a separate small Room DB inside `:core:netfs` (`netfs.db`), not `RxDatabase`, to keep modules decoupled; custom schemes plug into playback via `SchemeDataSourceFactory` multibinding | 2026-11-09 |
+| 38 | Viewer decodes full-size images with ImageDecoder (not Coil); inline→full morph animates the single SurfaceView's bounds with a corner mask inside `PlayerActivity`; `PlaybackController.playInline/promoteInline` keep inline plays out of resume/history | 2026-11-10 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:
