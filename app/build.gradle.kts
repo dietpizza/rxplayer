@@ -10,6 +10,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
     }
+    packaging {
+        // BouncyCastle (sshj/SFTP in :core:netfs) ships the same license file in three jars.
+        resources { excludes += "/META-INF/LICENSE.md" }
+    }
     buildTypes {
         release {
             optimization { enable = true }

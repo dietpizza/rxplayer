@@ -40,13 +40,16 @@ data class BrowserUiState(
     val showAll: Boolean = false,
     val serverMissing: Boolean = false,
 ) {
-    val rows: List<RemoteEntry>
-        get() = (listing as? Listing.Loaded)?.entries?.let { BrowserListing.visible(it, showAll) }.orEmpty()
+    // Derived once per state (not part of equals); sorting a big folder on every read would add up.
+    val rows: List<RemoteEntry> by lazy(LazyThreadSafetyMode.NONE) {
+        (listing as? Listing.Loaded)?.entries?.let { BrowserListing.visible(it, showAll) }.orEmpty()
+    }
 
-    val hidesFiles: Boolean
-        get() = !showAll && (listing as? Listing.Loaded)?.entries?.let(BrowserListing::hidesFiles) == true
+    val hidesFiles: Boolean by lazy(LazyThreadSafetyMode.NONE) {
+        !showAll && (listing as? Listing.Loaded)?.entries?.let(BrowserListing::hidesFiles) == true
+    }
 
-    val crumbs: List<RemotePath.Crumb> get() = RemotePath.breadcrumbs(root, path, serverName)
+    val crumbs: List<RemotePath.Crumb> by lazy(LazyThreadSafetyMode.NONE) { RemotePath.breadcrumbs(root, path, serverName) }
 
     val canGoUp: Boolean get() = path != root
 }

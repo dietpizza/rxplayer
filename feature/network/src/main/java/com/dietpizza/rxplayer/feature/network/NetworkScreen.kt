@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lan
+import com.dietpizza.rxplayer.core.ui.RxIntents
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -106,8 +107,8 @@ internal fun NetworkContent(
                     IconButton(onClick = onAdd) {
                         Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.network_add_server))
                     }
-                    // Search lands in M5.
-                    IconButton(onClick = {}, enabled = false) {
+                    val context = LocalContext.current
+                    IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.network_search))
                     }
                     IconButton(onClick = onOpenSettings) {
