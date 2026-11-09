@@ -212,10 +212,18 @@ class PlaybackController @Inject constructor(
 
     /** Seek-bar thumbnails of the current item (local files, setting on), else null. */
     val seekSprites: StateFlow<SeekSprites?> = seekPreview.sprites
+
+    private val _isHdrVideo = MutableStateFlow(false)
+
+    /** The selected video track is HDR (PQ / HLG transfer), so a host can switch the window to HDR. */
+    val isHdrVideo: StateFlow<Boolean> = _isHdrVideo.asStateFlow()
     // endregion
 
     private var playlist: List<MediaKey> = emptyList()
     private var index = -1
+
+    /** Loaded by [playInline] and not yet [promoteInline]d: no resume, no progress/history, loops. */
+    private var inlinePreview = false
     private var loadJob: Job? = null
     private var tickerJob: Job? = null
     private var session: ItemSession? = null
@@ -298,6 +306,29 @@ class PlaybackController @Inject constructor(
         load(startIndex.coerceIn(0, playlist.lastIndex))
     }
 
+    /**
+     * Gallery viewer inline playback (plan §4.1): [key] alone, from the start, with no resume
+     * prompt, looping, and no progress or history saved until [promoteInline]. Plays (at the
+     * global mute state) once the host is visible.
+     */
+    fun playInline(key: MediaKey) {
+        saveProgress()
+        playlist = listOf(key)
+        autoPause.start()
+        load(0, inline = true)
+    }
+
+    /**
+     * The inline item became the full player (the viewer's morph): from now on it saves progress
+     * and history like any other item and stops looping. Never re-prepares.
+     */
+    fun promoteInline() {
+        if (!inlinePreview) return
+        inlinePreview = false
+        session?.tracking = true
+        player.repeatMode = Player.REPEAT_MODE_OFF
+    }
+
     /** True when [keys]/[startIndex] are what's already loaded (e.g. the activity was recreated). */
     fun isShowing(keys: List<MediaKey>, startIndex: Int): Boolean =
         playlist == keys && player.playbackState != Player.STATE_IDLE &&
@@ -312,8 +343,11 @@ class PlaybackController @Inject constructor(
         if (index <= 0 || player.currentPosition > RESTART_THRESHOLD_MS) seekTo(0) else load(index - 1)
     }
 
-    private fun load(newIndex: Int) {
+    private fun load(newIndex: Int, inline: Boolean = false) {
         saveProgress()
+        inlinePreview = inline
+        player.repeatMode = if (inline) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        _isHdrVideo.value = false
         index = newIndex
         val key = playlist[newIndex]
         loadJob?.cancel()
@@ -342,12 +376,12 @@ class PlaybackController @Inject constructor(
             val title = async { resolveTitle(key) }
             val sidecars = async { findSidecars(key) }
             val saved = async {
-                if (key.tracksProgress) runCatching { playbackStateRepository.get(key) }.getOrNull() else null
+                if (key.tracksProgress && !inline) runCatching { playbackStateRepository.get(key) }.getOrNull() else null
             }
             settingsLoaded.await()
             val decision = ResumePolicy.decide(_settings.value.resumeMode, saved.await())
             val resolvedTitle = title.await()
-            session = ItemSession(key, resolvedTitle)
+            session = ItemSession(key, resolvedTitle).also { it.tracking = !inlinePreview }
             _nowPlaying.value = NowPlaying(key, resolvedTitle, newIndex, playlist.size)
 
             val startMs = when (decision) {
@@ -400,6 +434,9 @@ class PlaybackController @Inject constructor(
         playlist = emptyList()
         index = -1
         session = null
+        inlinePreview = false
+        player.repeatMode = Player.REPEAT_MODE_OFF
+        _isHdrVideo.value = false
         manualSubtitles.clear()
         sidecarSubtitles = emptyList()
         pendingTextLabel = null
@@ -587,7 +624,7 @@ class PlaybackController @Inject constructor(
 
     private fun saveProgress() {
         val s = session ?: return
-        if (!s.started || !s.key.tracksProgress) return
+        if (!s.started || !s.tracking || !s.key.tracksProgress) return
         if (player.currentMediaItem?.mediaId != s.key.value) return
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0) return
@@ -701,11 +738,24 @@ class PlaybackController @Inject constructor(
 
         override fun onTracksChanged(tracks: Tracks) {
             _trackMenu.value = TrackNames.menu(tracks)
+            _isHdrVideo.value = selectedVideoIsHdr(tracks)
             selectPendingText(tracks)
             if (_error.value?.fatal == true) return
             _error.value = unsupportedTrackWarning(tracks, C.TRACK_TYPE_VIDEO)
                 ?: unsupportedTrackWarning(tracks, C.TRACK_TYPE_AUDIO)
         }
+    }
+
+    private fun selectedVideoIsHdr(tracks: Tracks): Boolean {
+        for (group in tracks.groups) {
+            if (group.type != C.TRACK_TYPE_VIDEO) continue
+            for (t in 0 until group.length) {
+                if (!group.isTrackSelected(t)) continue
+                val transfer = group.getTrackFormat(t).colorInfo?.colorTransfer
+                if (transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG) return true
+            }
+        }
+        return false
     }
 
     private fun unsupportedTrackWarning(tracks: Tracks, type: Int): PlayerError? {
@@ -968,6 +1018,9 @@ class PlaybackController @Inject constructor(
 
         /** countAsPlay already sent for this item this session. */
         var counted = false
+
+        /** False while it's an inline viewer preview ([playInline]): nothing is saved. */
+        var tracking = true
     }
 
     /** Media-session facing wrapper: our playlist, our resume prompt, our seek step. */

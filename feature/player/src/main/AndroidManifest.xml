@@ -7,7 +7,10 @@
             - Own task (singleTask + taskAffinity): PiP (M3) shrinks only this task, never the
               main tabs task behind it; re-opening a video while one plays reuses this instance
               (onNewIntent). autoRemoveFromRecents drops the card once the player is closed.
-            - supportsPictureInPicture is declared now; entering PiP is M3.
+            - supportsPictureInPicture: auto-PiP from the full player (M3); never from the viewer's
+              inline video (M4b).
+            - Also hosts the gallery viewer (M4b, plan §3.2a): the inline→full morph needs the
+              same surface and player in one activity.
         -->
         <activity
             android:name=".PlayerActivity"
@@ -26,6 +29,14 @@
                 <data android:scheme="file" />
                 <data android:scheme="content" />
                 <data android:mimeType="video/*" />
+            </intent-filter>
+            <!-- Plan §4 #15: images from other apps open in a single-item viewer. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="image/*" />
             </intent-filter>
         </activity>
     </application>

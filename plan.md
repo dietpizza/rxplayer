@@ -363,11 +363,11 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | **M0** | Foundations | build-logic, module skeleton, Hilt, theme/design system, nav shell with three tabs, permissions onboarding | ✅ done
 | **M1** | Core player + spike | `PlaybackController` + MediaSessionService, full player with controls, swipe-seek, double-tap pause, mute, no-focus audio policy, auto-pause, resume. **Spike:** SurfaceView shared-element morph | ✅ built, morph spike awaiting on-device verdict
 | **M2** | Videos tab | MX folder list, video list (list/grid), NEW badges, resume bars, auto-next | ✅ built
-| **M3** | Player polish | seek sprites, long-press 2×, pinch zoom, lock, aspect, tracks, subtitles (basic), speed, orientation, auto-PiP, swipe-down minimise |
-| **M4** | Gallery | Albums, album detail grid (pinch columns, multiselect), viewer pager, **inline video + morph**, HDR, animated formats, info sheet |
-| **M5** | Data features | favourites, custom albums, playlists, history, file ops (rename/move/copy/delete), search |
-| **M6** | Network | server CRUD with encrypted secrets, SMB/WebDAV/FTP/SFTP browsers, seekable Media3 DataSources, sidecar subs over the network |
-| **M7** | Perf & polish | baseline profile, manual perf pass against §10, adaptive basics, accessibility pass, settings complete |
+| **M3** | Player polish | seek sprites, long-press 2×, pinch zoom, lock, aspect, tracks, subtitles (basic), speed, orientation, auto-PiP, swipe-down minimise | ✅ built (PiP = activity mode + RemoteActions, no service; subtitles drawn by a Compose overlay)
+| **M4** | Gallery | Albums, album detail grid (pinch columns, multiselect), viewer pager, **inline video + morph**, HDR, animated formats, info sheet | ✅ built (morph = bounds + corner mask on one SurfaceView, no reparenting); needs on-device verdict
+| **M5** | Data features | favourites, custom albums, playlists, history, file ops (rename/move/copy/delete), search | ✅ built
+| **M6** | Network | server CRUD with encrypted secrets, SMB/WebDAV/FTP/SFTP browsers, seekable Media3 DataSources, sidecar subs over the network | ✅ built
+| **M7** | Perf & polish | baseline profile, manual perf pass against §10, adaptive basics, accessibility pass, settings complete | ✅ built (floor baseline profile; device-generated profile + manual perf pass pending)
 | v2 | Music tab | library, queue, now playing, mini-player |
 
 ---
@@ -418,11 +418,12 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 34 | Tab switches are instant (no transition); settings toggle rows don't highlight, only the switch shows state | 2026-11-09 |
 | 35 | **Activities for navigation** (one per full-screen destination, system transitions); Navigation 3 removed; tabs are state in MainActivity; viewer + full player share `PlayerActivity` | 2026-11-09 |
 | 36 | Media3 pinned to 1.9.x to match the Jellyfin FFmpeg decoder; M1 uses an activity-owned MediaSession, no service | 2026-11-09 |
+| 38 | Viewer decodes full-size images with ImageDecoder (not Coil); inline→full morph animates the single SurfaceView's bounds with a corner mask inside `PlayerActivity`; `PlaybackController.playInline/promoteInline` keep inline plays out of resume/history | 2026-11-10 |
 | 37 | Network server configs live in a separate small Room DB inside `:core:netfs` (`netfs.db`), not `RxDatabase`, to keep modules decoupled; custom schemes plug into playback via `SchemeDataSourceFactory` multibinding | 2026-11-09 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:
 1. The exact coral hex and the icon artwork (M0)
 2. The SurfaceView morph spike outcome. This decides the TextureView fallback (M1)
-3. Whether Coil keeps gainmaps, or Ultra HDR needs a custom decoder (M4)
+3. ~~Whether Coil keeps gainmaps~~ → full-size viewer images decode with ImageDecoder directly (gainmap + animated); on-device HDR check pending (M4)
 4. The FTP `REST` seeking quality on your actual servers (M6). Live swipe-seek over FTP/SMB may need heavier throttling

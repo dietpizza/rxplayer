@@ -1,11 +1,19 @@
 package com.dietpizza.rxplayer.feature.player
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.provider.OpenableColumns
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -34,6 +42,12 @@ import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.feature.player.ui.FullPlayer
 import com.dietpizza.rxplayer.feature.player.ui.FullPlayerHost
 import com.dietpizza.rxplayer.feature.player.ui.OrientationMode
+import com.dietpizza.rxplayer.feature.player.viewer.PageKinds
+import com.dietpizza.rxplayer.feature.player.viewer.ViewerHost
+import com.dietpizza.rxplayer.feature.player.viewer.ViewerItem
+import com.dietpizza.rxplayer.feature.player.viewer.ViewerRequest
+import com.dietpizza.rxplayer.feature.player.viewer.ViewerScreen
+import com.dietpizza.rxplayer.feature.player.viewer.ViewerViewModel
 import kotlinx.coroutines.flow.combine
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -43,13 +57,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Full-screen player (plan §6). Always black and immersive; owns a [MediaSession] for hardware /
- * Bluetooth media keys while it exists (no service, no notification: see [PlayerPip]).
+ * Full-screen player (plan §6) and the gallery viewer it morphs out of (plan §3.2a, §4.1).
+ * Always black and immersive; owns a [MediaSession] for hardware / Bluetooth media keys while it
+ * exists (no service, no notification: see [PlayerPip]).
  *
  * Activity-level concerns live here (the [FullPlayerHost]): PiP, orientation, immersive bars,
- * the session, the subtitle picker. The player UI itself is [FullPlayer], which M4b's viewer
- * pager will host in this same activity ([RxIntents.MODE_VIEWER] is treated as MODE_PLAYER
- * until then).
+ * the session, the subtitle picker, the window colour mode (HDR). Two modes:
+ * - [RxIntents.MODE_PLAYER] (default) and `ACTION_VIEW` of a video: [FullPlayer] straight away;
+ *   swipe-down closes.
+ * - [RxIntents.MODE_VIEWER] and `ACTION_VIEW` of an image: [ViewerScreen], whose video pages morph
+ *   into the full player and back. Orientation, auto-PiP and HDR video only apply while the
+ *   full player is shown ([fullPlayerShown]).
  *
  * Leaving it pauses playback (decision 28) unless auto-PiP takes over (decision 10); coming
  * back resumes if it was playing when you left (plan §6.4). Closing it saves progress and
@@ -64,13 +82,45 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
     private var mediaSession: MediaSession? = null
     private lateinit var pip: PlayerPip
 
+    private val viewerModel: ViewerViewModel by viewModels()
+    private var viewerUsed = false
+
+    /** What the window shows. [Mode.Pending] while an ACTION_VIEW type is being resolved. */
+    private enum class Mode { Pending, Player, Viewer }
+
+    private var mode by mutableStateOf(Mode.Pending)
+    private var viewerRequest by mutableStateOf<ViewerRequest?>(null)
+
+    /** The full player is on screen: always in player mode, only once morphed in viewer mode. */
+    private var fullPlayerShown by mutableStateOf(true)
+    private var hdrPhoto by mutableStateOf(false)
+
     override var rotationLocked by mutableStateOf(false)
         private set
     override var orientationMode by mutableStateOf(OrientationMode.Auto)
         private set
     override var isInPip by mutableStateOf(false)
         private set
-    override val canEnterPip: Boolean get() = pip.canEnter
+    override val canEnterPip: Boolean get() = pip.canEnter && fullPlayerShown
+
+    private val viewerHost = object : ViewerHost {
+        override fun setFullPlayerShown(shown: Boolean) {
+            fullPlayerShown = shown
+        }
+
+        override fun onInlineSettled() {
+            rotationLocked = false
+            if (!isInPip) requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+
+        override fun setHdrPhoto(hdr: Boolean) {
+            hdrPhoto = hdr
+        }
+
+        override fun share(item: ViewerItem) = shareItem(item)
+
+        override fun close() = finish()
+    }
 
     private val subtitlePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onSubtitlePicked(uri)
@@ -99,14 +149,25 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
                     pureBlack = true,
                 ),
             ) {
-                FullPlayer(
-                    controller = controller,
-                    host = this,
-                    // Standalone player: swipe-down closes (plan §4.1). M4b's viewer mode
-                    // minimises into the pager instead.
-                    onMinimize = ::finish,
-                    onBack = ::finish,
-                )
+                val request = viewerRequest
+                when {
+                    mode == Mode.Viewer && request != null -> ViewerScreen(
+                        viewModel = viewerModel,
+                        request = request,
+                        controller = controller,
+                        playerHost = this,
+                        host = viewerHost,
+                    )
+                    mode == Mode.Player -> FullPlayer(
+                        controller = controller,
+                        host = this,
+                        // Standalone player: swipe-down closes (plan §4.1). The viewer's full
+                        // player minimises into the pager instead.
+                        onMinimize = ::finish,
+                        onBack = ::finish,
+                    )
+                    else -> Box(Modifier.fillMaxSize().background(Color.Black))
+                }
             }
         }
 
@@ -119,18 +180,34 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { controller.videoSize.collect { applyOrientation(it) } }
+                val fullShown = snapshotFlow { fullPlayerShown }
                 launch {
+                    combine(controller.videoSize, fullShown) { size, full -> size to full }
+                        .collect { (size, full) -> if (full) applyOrientation(size) }
+                }
+                launch {
+                    // Auto-PiP only from the full player: never while only an inline video shows.
                     combine(
                         controller.settings,
                         controller.playWhenReady,
                         controller.isEnded,
                         controller.resumePrompt,
-                        controller.videoSize,
-                    ) { s, pwr, ended, prompt, size ->
+                        fullShown,
+                    ) { s, pwr, ended, prompt, full ->
                         val playing = pwr && !ended
-                        PipInputs(s.autoPip && playing && prompt == null, playing, size)
+                        (s.autoPip && playing && prompt == null && full) to playing
+                    }.combine(controller.videoSize) { (autoEnter, playing), size ->
+                        PipInputs(autoEnter, playing, size)
                     }.collect { pip.update(it.autoEnter, it.playing, it.size) }
+                }
+                launch {
+                    // Ultra HDR photo settled, or HDR video in the full player (plan §5).
+                    combine(snapshotFlow { hdrPhoto && !fullPlayerShown }, fullShown, controller.isHdrVideo) { photo, full, video ->
+                        photo || (full && video)
+                    }.collect { hdr ->
+                        val wanted = if (hdr) ActivityInfo.COLOR_MODE_HDR else ActivityInfo.COLOR_MODE_DEFAULT
+                        if (window.colorMode != wanted) window.colorMode = wanted
+                    }
                 }
                 launch {
                     controller.isPlaying.collect { playing ->
@@ -176,7 +253,10 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
         pip.unregister()
         mediaSession?.release()
         mediaSession = null
-        if (isFinishing) controller.stop()
+        if (isFinishing) {
+            controller.stop()
+            if (viewerUsed) viewerModel.images.clearNetworkCache()
+        }
         super.onDestroy()
     }
 
@@ -187,20 +267,68 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
         if (!playlist.isNullOrEmpty()) {
             val keys = playlist.map(::MediaKey)
             val start = intent.getIntExtra(RxIntents.EXTRA_START_INDEX, 0)
+            if (intent.getStringExtra(RxIntents.EXTRA_MODE) == RxIntents.MODE_VIEWER) {
+                showViewer(ViewerRequest(keys, start.coerceIn(0, keys.lastIndex)))
+                return
+            }
+            showPlayer()
             if (!(restoring && controller.isShowing(keys, start))) controller.setPlaylist(keys, start)
             return
         }
         val data = intent.data
         if (intent.action == Intent.ACTION_VIEW && data != null) {
+            // Plan §4 #15: a video opens the full player, an image a single-item viewer.
+            val declared = intent.type?.takeIf { it.startsWith("image/") || it.startsWith("video/") }
+            if (declared == null) mode = Mode.Pending
             lifecycleScope.launch {
-                val key = withContext(Dispatchers.IO) { keyFor(applicationContext, data) }
+                val (key, type) = withContext(Dispatchers.IO) {
+                    keyFor(applicationContext, data) to (declared ?: typeFor(applicationContext, data))
+                }
+                if (type?.startsWith("image/") == true) {
+                    showViewer(ViewerRequest(listOf(key), 0, external = true, mimeHint = type))
+                    return@launch
+                }
+                showPlayer()
                 if (!(restoring && controller.isShowing(listOf(key), 0))) {
                     controller.setPlaylist(listOf(key), 0)
                 }
             }
+            if (declared != null && !declared.startsWith("image/")) showPlayer()
             return
         }
         finish()
+    }
+
+    private fun showPlayer() {
+        viewerRequest = null
+        hdrPhoto = false
+        fullPlayerShown = true
+        mode = Mode.Player
+    }
+
+    private fun showViewer(request: ViewerRequest) {
+        // Whatever was playing (a previous video, PiP) gives way; the viewer loads its own.
+        if (viewerRequest != request) controller.stop()
+        viewerUsed = true
+        fullPlayerShown = false
+        hdrPhoto = false
+        rotationLocked = false
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        viewerModel.open(request)
+        viewerRequest = request
+        mode = Mode.Viewer
+    }
+
+    private fun shareItem(item: ViewerItem) {
+        val uri = Uri.parse(item.shareUri ?: return)
+        val type = item.mimeType ?: if (item.isVideo) "video/*" else "image/*"
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(type)
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // ClipData carries the read grant through the chooser to the target.
+        send.clipData = ClipData.newRawUri(null, uri)
+        runCatching { startActivity(Intent.createChooser(send, null)) }
     }
 
     // endregion
@@ -301,6 +429,14 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
             size.isPortrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             size.width > 0 -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else -> null
+        }
+
+        /** MIME type of an ACTION_VIEW URI without a declared type (IO). */
+        private fun typeFor(context: Context, uri: Uri): String? {
+            if (uri.scheme == "content") {
+                runCatching { context.contentResolver.getType(uri) }.getOrNull()?.let { return it }
+            }
+            return PageKinds.imageMimeFor(uri.toString())
         }
 
         /**

@@ -1,0 +1,259 @@
+package com.dietpizza.rxplayer.feature.player.viewer
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.dietpizza.rxplayer.core.player.PlaybackController
+
+/** Height of the bottom action row (above the navigation bar). */
+internal val ActionRowHeight = 72.dp
+
+/** Top bar height (below the status bar). */
+internal val TopBarHeight = 64.dp
+
+private val Scrim = Color.Black.copy(alpha = 0.55f)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Modifier.chromeInsets(): Modifier =
+    // Ignoring visibility: the chrome doesn't jump when the bars hide with it.
+    windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
+
+/**
+ * Viewer chrome (plan §4 #4): top bar (back, title, date) and the bottom action row. Fades in
+ * and out with a tap, and out with the morph (alpha in a layer, read per frame in draw only).
+ */
+@Composable
+internal fun ViewerChrome(
+    visible: Boolean,
+    item: ViewerItem?,
+    subtitle: String?,
+    isFavourite: Boolean,
+    morphAlpha: () -> Float,
+    onBack: () -> Unit,
+    onFavourite: () -> Unit,
+    onShare: () -> Unit,
+    onInfo: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(motion.defaultEffectsSpec()),
+        exit = fadeOut(motion.defaultEffectsSpec()),
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                alpha = morphAlpha()
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            },
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .background(Brush.verticalGradient(listOf(Scrim, Color.Transparent))),
+            )
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
+            )
+            Row(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .chromeInsets()
+                    .fillMaxWidth()
+                    .height(TopBarHeight)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text(
+                        item?.title.orEmpty(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.75f),
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            if (item != null) {
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .chromeInsets()
+                        .fillMaxWidth()
+                        .height(ActionRowHeight),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (item.canFavourite) {
+                        ActionButton(
+                            if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            if (isFavourite) "Remove from favourites" else "Add to favourites",
+                            onFavourite,
+                        )
+                    }
+                    if (item.shareUri != null) ActionButton(Icons.Rounded.Share, "Share", onShare)
+                    ActionButton(Icons.Outlined.Info, "Details", onInfo)
+                    if (item.canDelete) ActionButton(Icons.Outlined.Delete, "Delete", onDelete)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+        Icon(icon, contentDescription = description, tint = Color.White)
+    }
+}
+
+/** Info sheet (plan §4 #12): file and camera details. Never shows location. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ViewerInfoSheet(
+    item: ViewerItem,
+    meta: ImageMeta?,
+    images: ViewerImages,
+    controller: PlaybackController,
+    videoLoaded: Boolean,
+    onDismiss: () -> Unit,
+) {
+    val rows by produceState<List<Pair<String, String>>?>(null, item, meta, videoLoaded) {
+        val base = images.info(item, meta)
+        val codec = if (item.isVideo && videoLoaded) {
+            controller.mediaInfo()?.rows.orEmpty().filter { it.first in VIDEO_ROWS }
+        } else {
+            emptyList()
+        }
+        value = if (codec.isEmpty()) {
+            base
+        } else {
+            val at = base.indexOfFirst { it.first == "Type" }.let { if (it < 0) base.size else it + 1 }
+            base.take(at) + codec + base.drop(at)
+        }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp),
+        ) {
+            Text(
+                "Details",
+                style = MaterialTheme.typography.titleLargeEmphasized,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
+            val list = rows
+            if (list == null) {
+                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    LoadingIndicator(Modifier.size(40.dp))
+                }
+            } else {
+                SelectionContainer {
+                    Column(
+                        Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        for ((label, value) in list) {
+                            Column {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(value, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val VIDEO_ROWS = setOf("Video", "Audio", "Frame rate", "HDR", "Video bitrate", "Overall bitrate")
+
+/** Permanent delete confirmation (decision 20: no trash). */
+@Composable
+internal fun DeleteDialog(item: ViewerItem, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (item.isVideo) "Delete this video?" else "Delete this photo?") },
+        text = { Text("“${item.title}” will be permanently deleted from this device.") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Delete") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}

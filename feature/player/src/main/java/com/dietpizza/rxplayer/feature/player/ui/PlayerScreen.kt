@@ -87,6 +87,9 @@ private const val TOAST_MS = 900L
  *   without it, it's called right at release with [state] still holding the drag offset, so a
  *   host (the M4b viewer) can morph from there and then reset [FullPlayerState.dismissOffsetPx].
  * @param onBack the back button in the top bar (and the error/resume "close").
+ * @param externalSurface the host draws the video itself, below this composable (the viewer's
+ *   single hoisted surface, plan §4.1): no ContentFrame and no black background here. The host
+ *   applies [FullPlayerState.scaleX]/[FullPlayerState.scaleY] and the swipe-down transform.
  */
 @Composable
 fun FullPlayer(
@@ -97,6 +100,7 @@ fun FullPlayer(
     modifier: Modifier = Modifier,
     state: FullPlayerState = rememberFullPlayerState(),
     animateExit: Boolean = true,
+    externalSurface: Boolean = false,
 ) {
     val ui = state
     val settings by controller.settings.collectAsStateWithLifecycle()
@@ -178,7 +182,7 @@ fun FullPlayer(
     Box(
         modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .then(if (externalSurface) Modifier else Modifier.background(Color.Black))
             .onSizeChanged {
                 handler.widthPx = it.width.toFloat()
                 handler.heightPx = it.height.toFloat()
@@ -200,16 +204,18 @@ fun FullPlayer(
                     alpha = 1f - DISMISS_FADE * f
                 },
         ) {
-            ContentFrame(
-                player = controller.player,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = ui.scaleX
-                        scaleY = ui.scaleY
-                    },
-                contentScale = ContentScale.Fit,
-            )
+            if (!externalSurface) {
+                ContentFrame(
+                    player = controller.player,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            scaleX = ui.scaleX
+                            scaleY = ui.scaleY
+                        },
+                    contentScale = ContentScale.Fit,
+                )
+            }
             SubtitleOverlay(
                 controller = controller,
                 liftForControls = chromeVisible,
@@ -281,8 +287,8 @@ fun FullPlayer(
     }
 }
 
-private const val DISMISS_SHRINK = 0.2f
-private const val DISMISS_FADE = 0.6f
+internal const val DISMISS_SHRINK = 0.2f
+internal const val DISMISS_FADE = 0.6f
 
 /** "125%" while pinching. Only this leaf recomposes, and only when the integer changes. */
 @Composable
