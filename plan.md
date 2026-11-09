@@ -360,9 +360,9 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 ## 11. Milestones
 | # | Milestone | Done when |
 |---|---|---|
-| **M0** | Foundations | build-logic, module skeleton, Hilt, theme/design system, nav shell with three tabs, permissions onboarding |
-| **M1** | Core player + spike | `PlaybackController` + MediaSessionService, full player with controls, swipe-seek, double-tap pause, mute, no-focus audio policy, auto-pause, resume. **Spike:** SurfaceView shared-element morph |
-| **M2** | Videos tab | MX folder list, video list (list/grid), NEW badges, resume bars, auto-next |
+| **M0** | Foundations | build-logic, module skeleton, Hilt, theme/design system, nav shell with three tabs, permissions onboarding | ✅ done
+| **M1** | Core player + spike | `PlaybackController` + MediaSessionService, full player with controls, swipe-seek, double-tap pause, mute, no-focus audio policy, auto-pause, resume. **Spike:** SurfaceView shared-element morph | ✅ built, morph spike awaiting on-device verdict
+| **M2** | Videos tab | MX folder list, video list (list/grid), NEW badges, resume bars, auto-next | ✅ built
 | **M3** | Player polish | seek sprites, long-press 2×, pinch zoom, lock, aspect, tracks, subtitles (basic), speed, orientation, auto-PiP, swipe-down minimise |
 | **M4** | Gallery | Albums, album detail grid (pinch columns, multiselect), viewer pager, **inline video + morph**, HDR, animated formats, info sheet |
 | **M5** | Data features | favourites, custom albums, playlists, history, file ops (rename/move/copy/delete), search |
