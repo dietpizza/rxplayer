@@ -38,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dietpizza.rxplayer.core.designsystem.component.RxEmptyState
 import com.dietpizza.rxplayer.core.model.MediaKey
 import com.dietpizza.rxplayer.core.ui.RxIntents
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 
 // ---- Playlists ---------------------------------------------------------------------------------
 
@@ -156,7 +158,9 @@ internal fun HistorySection(
                             stringResource(R.string.history_recent),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics { heading() },
                         )
                         TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.history_clear)) }
                     }

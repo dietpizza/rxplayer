@@ -16,6 +16,10 @@
     <string name="folder_empty_body">This folder doesn\'t contain any videos any more.</string>
     <string name="folder_new">New folder</string>
     <string name="favourite">Favourite</string>
+    <string name="video_new">New</string>
+    <string name="action_select">Select</string>
+    <string name="video_watched">Watched</string>
+    <string name="video_progress">%1$d%% watched</string>
 
     <string name="sort">Sort</string>
     <string name="sort_name">Name</string>

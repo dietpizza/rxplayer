@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.rx.android.application)
     alias(libs.plugins.rx.hilt)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -25,7 +26,20 @@ android {
     }
 }
 
+baselineProfile {
+    // Generation needs a device; never run it implicitly from assembleRelease. Regenerate with
+    // ./gradlew :app:generateReleaseBaselineProfile (see BaselineProfileGenerator KDoc).
+    automaticGenerationDuringBuild = false
+    // Lay out startup classes first in the primary dex (startup profile -> dex layout).
+    dexLayoutOptimization = true
+}
+
 dependencies {
+    baselineProfile(project(":baselineprofile"))
+    implementation(libs.androidx.profileinstaller)
+    // Debug-only frame metrics (JankStats), installed by a debug-manifest provider.
+    debugImplementation(libs.androidx.metrics.performance)
+
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:datastore"))

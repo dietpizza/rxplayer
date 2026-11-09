@@ -79,6 +79,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -247,14 +252,15 @@ private fun Details(
         horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
     ) {
         Text(
-            text = "Rx Player",
+            text = stringResource(R.string.onboarding_app_name),
             style = MaterialTheme.typography.displaySmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() },
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Your photos and videos, one beautiful player",
+            text = stringResource(R.string.onboarding_tagline),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = if (centered) TextAlign.Center else TextAlign.Start,
@@ -264,11 +270,11 @@ private fun Details(
         PermissionRow(
             icon = Icons.Rounded.FolderOpen,
             iconShape = MaterialShapes.Cookie9Sided,
-            title = "All files access",
-            badge = "Required",
-            body = "To browse, play, rename, move and delete your media.",
+            title = stringResource(R.string.onboarding_files_title),
+            badge = stringResource(R.string.onboarding_required),
+            body = stringResource(R.string.onboarding_files_body),
             granted = filesGranted,
-            actionLabel = "Allow",
+            actionLabel = stringResource(R.string.onboarding_allow),
             onAction = onGrantFiles,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -276,11 +282,11 @@ private fun Details(
         PermissionRow(
             icon = Icons.Rounded.NotificationsActive,
             iconShape = MaterialShapes.Clover4Leaf,
-            title = "Notifications",
-            badge = "Optional",
-            body = "Playback controls in Picture-in-Picture.",
+            title = stringResource(R.string.onboarding_notifications_title),
+            badge = stringResource(R.string.onboarding_optional),
+            body = stringResource(R.string.onboarding_notifications_body),
             granted = notificationsGranted,
-            actionLabel = if (notificationsDenied) "Settings" else "Allow",
+            actionLabel = stringResource(if (notificationsDenied) R.string.onboarding_open_settings else R.string.onboarding_allow),
             onAction = onGrantNotifications,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -294,7 +300,7 @@ private fun Details(
             contentPadding = ButtonDefaults.contentPaddingFor(height),
             modifier = Modifier.fillMaxWidth().heightIn(min = height),
         ) {
-            Text("Continue", style = ButtonDefaults.textStyleFor(height))
+            Text(stringResource(R.string.onboarding_continue), style = ButtonDefaults.textStyleFor(height))
             Spacer(Modifier.size(ButtonDefaults.iconSpacingFor(height)))
             Icon(
                 Icons.AutoMirrored.Rounded.ArrowForward,
@@ -308,7 +314,7 @@ private fun Details(
             label = "continueHint",
         ) { granted ->
             Text(
-                text = if (granted) "You're all set." else "Allow all files access to continue.",
+                text = stringResource(if (granted) R.string.onboarding_all_set else R.string.onboarding_allow_to_continue),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -353,7 +359,7 @@ private fun PermissionRow(
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -394,12 +400,16 @@ private fun PermissionRow(
                     ) {
                         Icon(
                             Icons.Rounded.Check,
-                            contentDescription = "$title granted",
+                            contentDescription = stringResource(R.string.onboarding_granted, title),
                             tint = MaterialTheme.colorScheme.onPrimary,
                         )
                     }
                 } else {
-                    FilledTonalButton(onClick = onAction) { Text(actionLabel) }
+                    val spoken = stringResource(R.string.onboarding_action_for, actionLabel, title)
+                    FilledTonalButton(
+                        onClick = onAction,
+                        modifier = Modifier.semantics { contentDescription = spoken },
+                    ) { Text(actionLabel) }
                 }
             }
         }
@@ -436,7 +446,8 @@ private fun HeroIllustration(modifier: Modifier = Modifier) {
     val path = remember { Path() }
     val matrix = remember { Matrix() }
 
-    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
+    // Purely decorative: hidden from accessibility services.
+    BoxWithConstraints(modifier = modifier.clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         val side = minOf(maxWidth, maxHeight)
         Canvas(Modifier.fillMaxSize()) {
             // Soft halo.

@@ -25,6 +25,9 @@ enum class TopLevelDestination(
     Network(R.string.tab_network, Icons.Rounded.Lan, Icons.Outlined.Lan),
     ;
 
+    /** UI-test / baseline-profile selector ("tab_gallery", …). */
+    val testTag: String get() = "tab_" + name.lowercase()
+
     companion object {
         val Start = Gallery
     }

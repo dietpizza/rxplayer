@@ -97,6 +97,8 @@ import com.dietpizza.rxplayer.core.model.ThemeMode
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 import kotlin.math.roundToInt
 import kotlinx.coroutines.isActive
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
 
 @Composable
 internal fun AlbumScreen(
@@ -483,6 +485,7 @@ private fun MediaGrid(
             verticalArrangement = Arrangement.spacedBy(TileGap),
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("album_grid")
                 .pinchToChangeColumns(gridState, columns = { columns }, onColumnsChange = { columns = it })
                 .dragToSelect(
                     state = gridState,
@@ -562,7 +565,8 @@ private fun DateHeader(label: String, background: Color) {
         modifier = Modifier
             .fillMaxWidth()
             .background(background)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .semantics { heading() },
     )
 }
 
@@ -582,13 +586,14 @@ private fun MediaTile(
 ) {
     val scale by animateFloatAsState(if (selected) SELECTED_SCALE else 1f, label = "tileScale")
     val description = stringResource(if (cell.isVideo) R.string.album_video else R.string.album_photo)
+    val selectLabel = stringResource(R.string.album_select)
     Box(
         Modifier
             .aspectRatio(1f)
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .semantics {
                 this.selected = selected
-                onLongClick { onLongClick(); true }
+                onLongClick(label = selectLabel) { onLongClick(); true }
             }
             .clickable(onClick = onClick),
     ) {

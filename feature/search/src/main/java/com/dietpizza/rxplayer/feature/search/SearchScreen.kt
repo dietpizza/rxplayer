@@ -70,6 +70,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dietpizza.rxplayer.core.designsystem.component.RxEmptyState
 import com.dietpizza.rxplayer.core.model.MediaKey
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
 
 @Composable
 internal fun SearchScreen(
@@ -311,6 +314,7 @@ private fun <T> FilterMenuChip(
                     } else {
                         null
                     },
+                    modifier = Modifier.semantics { this.selected = choice.value == current },
                     onClick = {
                         expanded = false
                         onSelect(choice.value)
@@ -410,7 +414,7 @@ private fun ResultTileView(tile: ResultTile, requestWidth: androidx.compose.ui.u
     Box(
         Modifier
             .aspectRatio(1f)
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick),
     ) {
         MediaThumbnail(
             contentUri = tile.contentUri,

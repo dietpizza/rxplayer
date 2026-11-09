@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -57,7 +58,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -95,7 +100,7 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
     var sortDialog by rememberSaveable { mutableStateOf(false) }
     var columnsDialog by rememberSaveable { mutableStateOf(false) }
     val count = 4
-    SectionHeader("Library")
+    SectionHeader(stringResource(R.string.settings_section_library))
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
@@ -104,13 +109,13 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
                 ConnectedChoices(
                     options = VideoViewMode.entries,
                     selected = library.videoViewMode,
-                    label = { if (it == VideoViewMode.LIST) "List" else "Grid" },
+                    label = { stringResource(if (it == VideoViewMode.LIST) R.string.settings_view_list else R.string.settings_view_grid) },
                     icon = { if (it == VideoViewMode.LIST) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView },
                     onSelect = actions.onVideoViewMode,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             },
-        ) { Text("Video list view") }
+        ) { Text(stringResource(R.string.settings_video_view)) }
 
         SegmentedListItem(
             onClick = { sortDialog = true },
@@ -118,22 +123,22 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null) },
             supportingContent = { Text(sortLabel(library.videoSort)) },
             trailingContent = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null) },
-        ) { Text("Default video sort") }
+        ) { Text(stringResource(R.string.settings_default_sort)) }
 
         SegmentedListItem(
             onClick = { columnsDialog = true },
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
             leadingContent = { Icon(Icons.Rounded.GridView, contentDescription = null) },
-            supportingContent = { Text(columnsLabel(library.galleryGridColumns) + " · pinch an album to change it") },
+            supportingContent = { Text(stringResource(R.string.settings_grid_columns_summary, columnsLabel(library.galleryGridColumns))) },
             trailingContent = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null) },
-        ) { Text("Default grid columns") }
+        ) { Text(stringResource(R.string.settings_grid_columns)) }
 
         SwitchRow(
             index = 3,
             count = count,
             icon = Icons.Rounded.Visibility,
-            title = "Show hidden folders",
-            supporting = "Include folders with a .nomedia file or a name starting with a dot",
+            title = stringResource(R.string.settings_show_hidden),
+            supporting = stringResource(R.string.settings_show_hidden_summary),
             checked = library.showHidden,
             onChange = actions.onShowHidden,
         )
@@ -148,11 +153,11 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
     }
     if (columnsDialog) {
         ChoiceDialog(
-            title = "Default grid columns",
+            title = stringResource(R.string.settings_grid_columns),
             options = listOf(LibrarySettings.GRID_COLUMNS_AUTO) +
                 (LibrarySettings.MIN_GRID_COLUMNS..LibrarySettings.MAX_GRID_COLUMNS).toList(),
             selected = library.galleryGridColumns,
-            label = ::columnsLabel,
+            label = { columnsLabel(it) },
             onSelect = {
                 actions.onGridColumns(it)
                 columnsDialog = false
@@ -162,31 +167,40 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
     }
 }
 
+@Composable
 private fun columnsLabel(columns: Int): String =
-    if (columns == LibrarySettings.GRID_COLUMNS_AUTO) "Automatic" else "$columns columns"
+    if (columns == LibrarySettings.GRID_COLUMNS_AUTO) {
+        stringResource(R.string.settings_grid_columns_auto)
+    } else {
+        pluralStringResource(R.plurals.settings_grid_columns_count, columns, columns)
+    }
 
-private fun VideoSortField.label(): String = when (this) {
-    VideoSortField.NAME -> "Name"
-    VideoSortField.DATE_MODIFIED -> "Date modified"
-    VideoSortField.SIZE -> "Size"
-    VideoSortField.DURATION -> "Duration"
-}
+@Composable
+private fun VideoSortField.label(): String = stringResource(
+    when (this) {
+        VideoSortField.NAME -> R.string.settings_sort_name
+        VideoSortField.DATE_MODIFIED -> R.string.settings_sort_date_modified
+        VideoSortField.SIZE -> R.string.settings_sort_size
+        VideoSortField.DURATION -> R.string.settings_sort_duration
+    },
+)
 
+@Composable
 private fun sortLabel(sort: VideoSort): String {
     val direction = when (sort.field) {
-        VideoSortField.NAME -> if (sort.descending) "Z to A" else "A to Z"
-        VideoSortField.DATE_MODIFIED -> if (sort.descending) "newest first" else "oldest first"
-        VideoSortField.SIZE -> if (sort.descending) "largest first" else "smallest first"
-        VideoSortField.DURATION -> if (sort.descending) "longest first" else "shortest first"
+        VideoSortField.NAME -> if (sort.descending) R.string.settings_sort_z_a else R.string.settings_sort_a_z
+        VideoSortField.DATE_MODIFIED -> if (sort.descending) R.string.settings_sort_newest else R.string.settings_sort_oldest
+        VideoSortField.SIZE -> if (sort.descending) R.string.settings_sort_largest else R.string.settings_sort_smallest
+        VideoSortField.DURATION -> if (sort.descending) R.string.settings_sort_longest else R.string.settings_sort_shortest
     }
-    return sort.field.label() + ", " + direction
+    return stringResource(R.string.settings_sort_summary, sort.field.label(), stringResource(direction))
 }
 
 @Composable
 private fun SortDialog(current: VideoSort, onSelect: (VideoSort) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Default video sort") },
+        title = { Text(stringResource(R.string.settings_default_sort)) },
         text = {
             Column {
                 Column(Modifier.selectableGroup()) {
@@ -201,14 +215,14 @@ private fun SortDialog(current: VideoSort, onSelect: (VideoSort) -> Unit, onDism
                 ConnectedChoices(
                     options = listOf(false, true),
                     selected = current.descending,
-                    label = { if (it) "Descending" else "Ascending" },
+                    label = { stringResource(if (it) R.string.settings_sort_descending else R.string.settings_sort_ascending) },
                     icon = null,
                     onSelect = { onSelect(current.copy(descending = it)) },
                     modifier = Modifier.padding(top = 16.dp),
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_done)) } },
     )
 }
 
@@ -220,7 +234,7 @@ private val LongPressSpeeds = listOf(1.5f, 2f, 3f)
 @Composable
 internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
     val edit = actions.onPlayer
-    SectionHeader("Player")
+    SectionHeader(stringResource(R.string.settings_section_player))
     // Gestures
     SettingsGroup {
         val count = 7
@@ -231,19 +245,19 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
                 ConnectedChoices(
                     options = SeekSteps,
                     selected = player.seekStepSeconds,
-                    label = { "${it}s" },
+                    label = { stringResource(R.string.settings_seek_step_seconds, it) },
                     icon = null,
                     onSelect = { step -> edit { it.copy(seekStepSeconds = step) } },
                     modifier = Modifier.padding(top = 12.dp),
                 )
             },
-        ) { Text("Seek step") }
+        ) { Text(stringResource(R.string.settings_seek_step)) }
 
         SliderRow(
             index = 1,
             count = count,
             icon = Icons.Rounded.Swipe,
-            title = "Swipe-seek sensitivity",
+            title = stringResource(R.string.settings_swipe_sensitivity),
             value = player.swipeSeekSensitivity,
             range = 0.5f..2f,
             steps = 5,
@@ -255,8 +269,8 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 2,
             count = count,
             icon = Icons.Rounded.TouchApp,
-            title = "Double-tap to play/pause",
-            supporting = "Double-tap the sides to seek",
+            title = stringResource(R.string.settings_double_tap),
+            supporting = stringResource(R.string.settings_double_tap_summary),
             checked = player.doubleTapPlayPause,
             onChange = { v -> edit { it.copy(doubleTapPlayPause = v) } },
         )
@@ -265,8 +279,8 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 3,
             count = count,
             icon = Icons.Rounded.Speed,
-            title = "Long-press for speed",
-            supporting = "Hold to play faster",
+            title = stringResource(R.string.settings_long_press),
+            supporting = stringResource(R.string.settings_long_press_summary),
             checked = player.longPressSpeedEnabled,
             onChange = { v -> edit { it.copy(longPressSpeedEnabled = v) } },
         )
@@ -279,20 +293,20 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
                 ConnectedChoices(
                     options = LongPressSpeeds,
                     selected = player.longPressSpeed,
-                    label = ::speedLabel,
+                    label = { speedLabel(it) },
                     icon = null,
                     enabled = player.longPressSpeedEnabled,
                     onSelect = { speed -> edit { it.copy(longPressSpeed = speed) } },
                     modifier = Modifier.padding(top = 12.dp),
                 )
             },
-        ) { Text("Long-press speed") }
+        ) { Text(stringResource(R.string.settings_long_press_speed)) }
 
         SwitchRow(
             index = 5,
             count = count,
             icon = Icons.Rounded.ZoomIn,
-            title = "Pinch to zoom",
+            title = stringResource(R.string.settings_pinch_zoom),
             supporting = null,
             checked = player.pinchToZoom,
             onChange = { v -> edit { it.copy(pinchToZoom = v) } },
@@ -302,7 +316,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 6,
             count = count,
             icon = Icons.Rounded.SwipeDown,
-            title = "Swipe down to close",
+            title = stringResource(R.string.settings_swipe_down_close),
             supporting = null,
             checked = player.swipeDownToClose,
             onChange = { v -> edit { it.copy(swipeDownToClose = v) } },
@@ -322,25 +336,27 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
                     options = ResumeMode.entries,
                     selected = player.resumeMode,
                     label = {
-                        when (it) {
-                            ResumeMode.ASK -> "Ask"
-                            ResumeMode.AUTO -> "Always"
-                            ResumeMode.NEVER -> "Never"
-                        }
+                        stringResource(
+                            when (it) {
+                                ResumeMode.ASK -> R.string.settings_resume_ask
+                                ResumeMode.AUTO -> R.string.settings_resume_always
+                                ResumeMode.NEVER -> R.string.settings_resume_never
+                            },
+                        )
                     },
                     icon = null,
                     onSelect = { mode -> edit { it.copy(resumeMode = mode) } },
                     modifier = Modifier.padding(top = 12.dp),
                 )
             },
-        ) { Text("Resume where you left off") }
+        ) { Text(stringResource(R.string.settings_resume)) }
 
         SwitchRow(
             index = 1,
             count = count,
             icon = Icons.Rounded.Image,
-            title = "Seek-bar thumbnails",
-            supporting = "Preview frames while scrubbing",
+            title = stringResource(R.string.settings_seek_thumbnails),
+            supporting = stringResource(R.string.settings_seek_thumbnails_summary),
             checked = player.seekBarThumbnails,
             onChange = { v -> edit { it.copy(seekBarThumbnails = v) } },
         )
@@ -349,8 +365,8 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 2,
             count = count,
             icon = Icons.Rounded.SkipNext,
-            title = "Auto-play next",
-            supporting = "Play the next video in the folder or playlist",
+            title = stringResource(R.string.settings_auto_next),
+            supporting = stringResource(R.string.settings_auto_next_summary),
             checked = player.autoPlayNext,
             onChange = { v -> edit { it.copy(autoPlayNext = v) } },
         )
@@ -359,8 +375,8 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 3,
             count = count,
             icon = Icons.Rounded.PictureInPictureAlt,
-            title = "Picture-in-picture",
-            supporting = "Keep playing in a small window when you leave the app",
+            title = stringResource(R.string.settings_pip),
+            supporting = stringResource(R.string.settings_pip_summary),
             checked = player.autoPip,
             onChange = { v -> edit { it.copy(autoPip = v) } },
         )
@@ -375,7 +391,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 0,
             count = count,
             icon = Icons.Rounded.Headphones,
-            title = "Pause when headphones disconnect",
+            title = stringResource(R.string.settings_pause_headphones),
             supporting = null,
             checked = player.pauseOnHeadphonesUnplugged,
             onChange = { v -> edit { it.copy(pauseOnHeadphonesUnplugged = v) } },
@@ -384,7 +400,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 1,
             count = count,
             icon = Icons.Rounded.Call,
-            title = "Pause during calls",
+            title = stringResource(R.string.settings_pause_calls),
             supporting = null,
             checked = player.pauseDuringCalls,
             onChange = { v -> edit { it.copy(pauseDuringCalls = v) } },
@@ -393,7 +409,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             index = 2,
             count = count,
             icon = Icons.Rounded.PhoneCallback,
-            title = "Resume after a call",
+            title = stringResource(R.string.settings_resume_after_call),
             supporting = null,
             checked = player.resumeAfterCall,
             enabled = player.pauseDuringCalls,
@@ -411,14 +427,14 @@ private fun speedLabel(speed: Float): String =
 internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActions) {
     val edit = actions.onSubtitles
     val count = 3
-    SectionHeader("Subtitles")
+    SectionHeader(stringResource(R.string.settings_section_subtitles))
     SettingsGroup {
         SwitchRow(
             index = 0,
             count = count,
             icon = Icons.Rounded.Subtitles,
-            title = "Load subtitle files automatically",
-            supporting = "Same-name .srt, .ass, .ssa or .vtt next to the video",
+            title = stringResource(R.string.settings_subs_autoload),
+            supporting = stringResource(R.string.settings_subs_autoload_summary),
             checked = subtitles.autoLoadSidecar,
             onChange = { v -> edit { it.copy(autoLoadSidecar = v) } },
         )
@@ -426,7 +442,7 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
             index = 1,
             count = count,
             icon = Icons.Rounded.FormatSize,
-            title = "Text size",
+            title = stringResource(R.string.settings_subs_text_size),
             value = subtitles.textScale,
             range = SubtitleSettings.MIN_SCALE..SubtitleSettings.MAX_SCALE,
             steps = 7,
@@ -437,8 +453,8 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
             index = 2,
             count = count,
             icon = Icons.Rounded.ClosedCaption,
-            title = "Background box",
-            supporting = "Draw a dark box behind the text",
+            title = stringResource(R.string.settings_subs_background),
+            supporting = stringResource(R.string.settings_subs_background_summary),
             checked = subtitles.background,
             onChange = { v -> edit { it.copy(background = v) } },
         )
@@ -451,7 +467,7 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
 internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
     var confirmHistory by rememberSaveable { mutableStateOf(false) }
     val count = 2
-    SectionHeader("Storage")
+    SectionHeader(stringResource(R.string.settings_section_storage))
     SettingsGroup {
         SegmentedListItem(
             onClick = actions.onClearCache,
@@ -460,23 +476,27 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
             leadingContent = { Icon(Icons.Rounded.DeleteSweep, contentDescription = null) },
             supportingContent = {
                 Text(
-                    if (cacheBytes == null) "Calculating…" else "Thumbnails and seek previews · " + formatBytes(cacheBytes),
+                    if (cacheBytes == null) {
+                        stringResource(R.string.settings_cache_calculating)
+                    } else {
+                        stringResource(R.string.settings_cache_summary, formatBytes(cacheBytes))
+                    },
                 )
             },
-        ) { Text("Clear thumbnail cache") }
+        ) { Text(stringResource(R.string.settings_clear_cache)) }
         SegmentedListItem(
             onClick = { confirmHistory = true },
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
             leadingContent = { Icon(Icons.Rounded.History, contentDescription = null) },
-            supportingContent = { Text("Resume positions are kept") },
-        ) { Text("Clear history") }
+            supportingContent = { Text(stringResource(R.string.settings_clear_history_summary)) },
+        ) { Text(stringResource(R.string.settings_clear_history)) }
     }
 
     if (confirmHistory) {
         AlertDialog(
             onDismissRequest = { confirmHistory = false },
-            title = { Text("Clear history?") },
-            text = { Text("Every video is removed from History. Resume positions and watched marks are kept.") },
+            title = { Text(stringResource(R.string.settings_clear_history_title)) },
+            text = { Text(stringResource(R.string.settings_clear_history_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -484,9 +504,9 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
                         confirmHistory = false
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Clear") }
+                ) { Text(stringResource(R.string.settings_clear)) }
             },
-            dismissButton = { TextButton(onClick = { confirmHistory = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmHistory = false }) { Text(stringResource(R.string.settings_cancel)) } },
         )
     }
 }
@@ -551,16 +571,17 @@ private fun SliderRow(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     steps: Int,
-    valueLabel: (Float) -> String,
+    valueLabel: @Composable (Float) -> String,
     onChange: (Float) -> Unit,
 ) {
     var dragging by remember { mutableStateOf(false) }
     var local by remember { mutableFloatStateOf(value) }
     val shown = if (dragging) local else value
+    val shownLabel = valueLabel(shown)
     SegmentedListItem(
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         leadingContent = { Icon(icon, contentDescription = null) },
-        trailingContent = { Text(valueLabel(shown), style = MaterialTheme.typography.labelLarge) },
+        trailingContent = { Text(shownLabel, style = MaterialTheme.typography.labelLarge) },
         supportingContent = {
             Slider(
                 value = shown,
@@ -574,7 +595,12 @@ private fun SliderRow(
                 },
                 valueRange = range,
                 steps = steps,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .semantics {
+                        contentDescription = title
+                        stateDescription = shownLabel
+                    },
             )
         },
     ) { Text(title) }
@@ -585,14 +611,16 @@ private fun SliderRow(
 private fun <T> ConnectedChoices(
     options: List<T>,
     selected: T,
-    label: (T) -> String,
+    label: @Composable (T) -> String,
     icon: ((T) -> ImageVector)?,
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
         options.forEachIndexed { index, option ->
@@ -630,7 +658,7 @@ private fun <T> ChoiceDialog(
     title: String,
     options: List<T>,
     selected: T,
-    label: (T) -> String,
+    label: @Composable (T) -> String,
     onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -645,7 +673,7 @@ private fun <T> ChoiceDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_cancel)) } },
     )
 }
 
@@ -656,6 +684,7 @@ private fun RadioRow(text: String, selected: Boolean, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
             .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
             .padding(vertical = 10.dp),
     ) {

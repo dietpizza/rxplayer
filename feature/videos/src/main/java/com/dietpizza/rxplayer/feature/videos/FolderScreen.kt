@@ -85,6 +85,10 @@ import com.dietpizza.rxplayer.core.model.VideoSort
 import com.dietpizza.rxplayer.core.model.VideoSortField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.Role
 
 @Composable
 internal fun FolderScreen(
@@ -452,6 +456,7 @@ private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
                     } else {
                         null
                     },
+                    modifier = Modifier.semantics { selected = current },
                     onClick = {
                         open = false
                         // Picking the current field flips its direction.
@@ -486,7 +491,9 @@ private fun VideoList(
         state = state,
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("folder_list"),
     ) {
         itemsIndexed(videos, key = { _, v -> v.key }, contentType = { _, _ -> "video" }) { index, video ->
             VideoListItem(
@@ -599,7 +606,9 @@ private fun VideoGrid(
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("folder_grid"),
     ) {
         itemsIndexed(videos, key = { _, v -> v.key }, contentType = { _, _ -> "video" }) { index, video ->
             VideoGridItem(
@@ -620,7 +629,16 @@ private fun VideoGridItem(video: VideoRow, selected: Boolean, onClick: () -> Uni
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
-        Column(Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
+        Column(
+            Modifier
+                .semantics { this.selected = selected }
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                    onLongClickLabel = stringResource(R.string.action_select),
+                    role = Role.Button,
+                ),
+        ) {
             Box {
                 VideoThumbnail(
                     contentUri = video.contentUri,

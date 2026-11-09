@@ -272,7 +272,9 @@ private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 4.dp),
+            .padding(start = 4.dp)
+            // One TalkBack node: "<label>, switch, on" (the switch's toggle action is merged in).
+            .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

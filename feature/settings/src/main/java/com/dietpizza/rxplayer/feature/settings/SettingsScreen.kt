@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BrightnessAuto
@@ -40,6 +42,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
@@ -110,10 +114,10 @@ internal fun SettingsContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.settings_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -132,7 +136,9 @@ internal fun SettingsContent(
                 top = innerPadding.calculateTopPadding() + 8.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp,
             ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("settings_list"),
         ) {
             item(key = "appearance") {
                 AppearanceSection(
@@ -177,7 +183,7 @@ private fun AppearanceSection(
     onPureBlackChange: (Boolean) -> Unit,
 ) {
     val count = 3
-    SectionHeader("Appearance")
+    SectionHeader(stringResource(R.string.settings_section_appearance))
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
@@ -189,7 +195,7 @@ private fun AppearanceSection(
                     modifier = Modifier.padding(top = 12.dp),
                 )
             },
-        ) { Text("Theme") }
+        ) { Text(stringResource(R.string.settings_theme)) }
 
         SegmentedListItem(
             // onClick (not checked/onCheckedChange) so the row itself never takes a "selected" highlight;
@@ -198,9 +204,9 @@ private fun AppearanceSection(
             modifier = Modifier.switchSemantics(appearance.dynamicColor),
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
             leadingContent = { Icon(Icons.Rounded.Palette, contentDescription = null) },
-            supportingContent = { Text("Use colours from your wallpaper") },
+            supportingContent = { Text(stringResource(R.string.settings_dynamic_colour_summary)) },
             trailingContent = { Switch(checked = appearance.dynamicColor, onCheckedChange = null) },
-        ) { Text("Dynamic colour") }
+        ) { Text(stringResource(R.string.settings_dynamic_colour)) }
 
         val canBeDark = appearance.themeMode != ThemeMode.LIGHT
         SegmentedListItem(
@@ -210,12 +216,16 @@ private fun AppearanceSection(
             enabled = canBeDark,
             leadingContent = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
             supportingContent = {
-                Text(if (canBeDark) "True black backgrounds in dark theme" else "Only applies to the dark theme")
+                Text(
+                    stringResource(
+                        if (canBeDark) R.string.settings_pure_black_summary else R.string.settings_pure_black_disabled,
+                    ),
+                )
             },
             trailingContent = {
                 Switch(checked = appearance.pureBlack, onCheckedChange = null, enabled = canBeDark)
             },
-        ) { Text("Pure black") }
+        ) { Text(stringResource(R.string.settings_pure_black)) }
     }
 }
 
@@ -227,7 +237,9 @@ private fun ThemeModeButtonGroup(
 ) {
     val options = ThemeMode.entries
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
         options.forEachIndexed { index, mode ->
@@ -250,7 +262,7 @@ private fun ThemeModeButtonGroup(
                     modifier = Modifier.size(ToggleButtonDefaults.IconSize),
                 )
                 Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
-                Text(mode.label, maxLines = 1)
+                Text(stringResource(mode.label), maxLines = 1)
             }
         }
     }
@@ -262,11 +274,12 @@ internal fun Modifier.switchSemantics(checked: Boolean) = semantics {
     toggleableState = ToggleableState(checked)
 }
 
-private val ThemeMode.label: String
+@get:StringRes
+private val ThemeMode.label: Int
     get() = when (this) {
-        ThemeMode.SYSTEM -> "System"
-        ThemeMode.LIGHT -> "Light"
-        ThemeMode.DARK -> "Dark"
+        ThemeMode.SYSTEM -> R.string.settings_theme_system
+        ThemeMode.LIGHT -> R.string.settings_theme_light
+        ThemeMode.DARK -> R.string.settings_theme_dark
     }
 
 private val ThemeMode.icon
@@ -278,18 +291,18 @@ private val ThemeMode.icon
 
 @Composable
 private fun AboutSection(appInfo: AppInfo) {
-    SectionHeader("About")
+    SectionHeader(stringResource(R.string.settings_section_about))
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
             leadingContent = { Icon(Icons.Rounded.PlayCircle, contentDescription = null) },
-            supportingContent = { Text("Gallery and video player") },
+            supportingContent = { Text(stringResource(R.string.settings_about_summary)) },
         ) { Text(appInfo.appName) }
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
             leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null) },
             supportingContent = { Text(appInfo.versionName) },
-        ) { Text("Version") }
+        ) { Text(stringResource(R.string.settings_version)) }
     }
 }
 

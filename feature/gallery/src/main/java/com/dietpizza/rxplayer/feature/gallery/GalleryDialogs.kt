@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.semantics.Role
 
 // File-op dialogs, matching the Videos tab's (feature/videos LibraryDialogs.kt) so both libraries
 // look and behave the same. Features can't depend on each other, hence the small copy.
@@ -169,7 +170,8 @@ private fun PickerRow(icon: ImageVector, title: String, supporting: String?, onC
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
+            .heightIn(min = 48.dp)
             .padding(vertical = 12.dp),
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -8,9 +8,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -59,7 +63,15 @@ abstract class RxActivity : ComponentActivity() {
                 }
                 onDispose {}
             }
-            RxTheme(current, content)
+            RxTheme(current) {
+                // Expose Modifier.testTag as the view resource id so UiAutomator journeys
+                // (:baselineprofile) can select nodes with By.res(tag). No layout effect:
+                // propagateMinConstraints keeps the root's exact window constraints.
+                Box(
+                    modifier = Modifier.semantics { testTagsAsResourceId = true },
+                    propagateMinConstraints = true,
+                ) { content() }
+            }
         }
     }
 

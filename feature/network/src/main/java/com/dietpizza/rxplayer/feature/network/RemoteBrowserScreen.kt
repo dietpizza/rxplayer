@@ -74,6 +74,13 @@ import com.dietpizza.rxplayer.core.netfs.model.MediaType
 import com.dietpizza.rxplayer.core.netfs.model.NetProtocol
 import com.dietpizza.rxplayer.core.netfs.model.RemoteEntry
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 
 @Composable
 internal fun RemoteBrowserScreen(
@@ -264,6 +271,10 @@ private fun OverflowMenu(showAll: Boolean, onShowAll: (Boolean) -> Unit, onRefre
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.browser_show_all)) },
                 trailingIcon = { Checkbox(checked = showAll, onCheckedChange = null) },
+                modifier = Modifier.semantics {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(showAll)
+                },
                 onClick = {
                     open = false
                     onShowAll(!showAll)
@@ -357,10 +368,19 @@ private fun EntryItem(
     var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val type = entry.type
+    val renameLabel = stringResource(R.string.browser_rename)
+    val deleteLabel = stringResource(R.string.browser_delete)
     Box {
         SegmentedListItem(
             onClick = onClick,
             onLongClick = { menu = true },
+            // The rename/delete menu is long-press only; expose it as TalkBack actions too.
+            modifier = Modifier.semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(renameLabel) { onRename(); true },
+                    CustomAccessibilityAction(deleteLabel) { onDelete(); true },
+                )
+            },
             shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
             verticalAlignment = Alignment.CenterVertically,
             leadingContent = {

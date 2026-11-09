@@ -10,6 +10,7 @@ import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 internal val Project.libs: VersionCatalog
     get() = extensions.getByType<VersionCatalogsExtension>().named("libs")
@@ -40,6 +41,20 @@ internal fun Project.configureKotlinAndroid(common: CommonExtension) {
 internal fun Project.configureCompose(common: CommonExtension) {
     pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
     common.buildFeatures.compose = true
+    extensions.configure<ComposeCompilerGradlePluginExtension> {
+        // Compose compiler stability reports + metrics, off by default:
+        //   ./gradlew :feature:gallery:compileReleaseKotlin -Prx.composeReports=true
+        // Output: <module>/build/compose-reports (*-classes.txt, *-composables.txt/csv) and
+        // <module>/build/compose-metrics (*-module.json).
+        if (providers.gradleProperty("rx.composeReports").orNull.toBoolean()) {
+            reportsDestination.set(layout.buildDirectory.dir("compose-reports"))
+            metricsDestination.set(layout.buildDirectory.dir("compose-metrics"))
+        }
+        // Types the compiler can't infer as stable but that we treat as immutable (see file).
+        stabilityConfigurationFiles.add(
+            rootProject.layout.projectDirectory.file("build-logic/compose-stability.conf"),
+        )
+    }
     dependencies {
         val bom = libs.lib("androidx-compose-bom")
         add("implementation", platform(bom))

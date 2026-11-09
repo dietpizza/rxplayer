@@ -54,6 +54,8 @@ import com.dietpizza.rxplayer.core.designsystem.component.RxEmptyState
 import com.dietpizza.rxplayer.core.designsystem.theme.RxTheme
 import com.dietpizza.rxplayer.core.model.AppearanceSettings
 import com.dietpizza.rxplayer.core.model.ThemeMode
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.selection.selectableGroup
 
 /** The Videos tab's segmented header (plan §4 #6). */
 internal enum class VideosSection(val label: Int) {
@@ -128,7 +130,7 @@ private fun VideosScaffold(
                     IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.videos_search))
                     }
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
                         Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.videos_settings))
                     }
                 },
@@ -175,7 +177,9 @@ private fun SectionHeader(
 ) {
     val sections = VideosSection.entries
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
     ) {
         sections.forEachIndexed { index, s ->
@@ -226,7 +230,9 @@ private fun FolderList(
         state = rememberLazyListState(),
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("videos_folders"),
     ) {
         itemsIndexed(folders, key = { _, f -> f.path }, contentType = { _, _ -> "folder" }) { index, folder ->
             FolderListItem(
@@ -244,6 +250,7 @@ private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: (
     SegmentedListItem(
         onClick = onClick,
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
+        modifier = Modifier.testTag("videos_folder"),
         leadingContent = {
             VideoThumbnail(
                 contentUri = folder.coverUri,

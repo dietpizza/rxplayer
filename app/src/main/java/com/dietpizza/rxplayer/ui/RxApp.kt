@@ -23,6 +23,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -101,6 +102,7 @@ private fun RxShell(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
                     },
                     label = { Text(stringResource(tab.label)) },
                     navigationSuiteType = suiteType,
+                    modifier = Modifier.testTag(tab.testTag),
                 )
             }
         },

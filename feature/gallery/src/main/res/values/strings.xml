@@ -32,6 +32,7 @@
     <string name="album_photo">Photo</string>
     <string name="album_gif">GIF</string>
     <string name="album_selected">Selected</string>
+    <string name="album_select">Select</string>
 
     <string name="selection_clear">Clear selection</string>
     <plurals name="selection_count">

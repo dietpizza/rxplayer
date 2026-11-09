@@ -1,0 +1,62 @@
+# Hand-written floor for the baseline profile. Merged with the library profiles shipped in the
+# AndroidX / Compose AARs and with the generated app/src/release/generated/baselineProfiles/*
+# once :baselineprofile has been run (./gradlew :app:generateReleaseBaselineProfile).
+#
+# H = hot, S = startup, P = post-startup. Wildcards are expanded by AGP against the dex.
+
+# --- Rx Player: everything on the cold-start -> Gallery / Videos / Settings paths -------------
+HSPLcom/dietpizza/rxplayer/*;->**(**)**
+HSPLcom/dietpizza/rxplayer/ui/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/navigation/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/ui/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/designsystem/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/model/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/datastore/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/data/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/database/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/core/media/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/feature/onboarding/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/feature/gallery/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/feature/videos/**;->**(**)**
+HPLcom/dietpizza/rxplayer/feature/settings/**;->**(**)**
+HPLcom/dietpizza/rxplayer/feature/search/**;->**(**)**
+HPLcom/dietpizza/rxplayer/feature/network/**;->**(**)**
+Lcom/dietpizza/rxplayer/*;
+Lcom/dietpizza/rxplayer/ui/**;
+Lcom/dietpizza/rxplayer/core/ui/**;
+Lcom/dietpizza/rxplayer/core/designsystem/**;
+Lcom/dietpizza/rxplayer/core/model/**;
+Lcom/dietpizza/rxplayer/core/datastore/**;
+Lcom/dietpizza/rxplayer/core/data/**;
+Lcom/dietpizza/rxplayer/core/database/**;
+Lcom/dietpizza/rxplayer/feature/gallery/**;
+Lcom/dietpizza/rxplayer/feature/videos/**;
+
+# --- Hilt / Dagger generated graph (component init on startup) ---------------------------------
+HSPLdagger/**;->**(**)**
+HSPLhilt_aggregated_deps/**;->**(**)**
+HSPLcom/dietpizza/rxplayer/**Hilt_**;->**(**)**
+HSPLcom/dietpizza/rxplayer/**_Factory;->**(**)**
+HSPLcom/dietpizza/rxplayer/**_HiltModules**;->**(**)**
+
+# --- Libraries without (complete) shipped profiles ---------------------------------------------
+HSPLcoil3/**;->**(**)**
+Lcoil3/**;
+HSPLokio/**;->**(**)**
+HSPLkotlinx/coroutines/**;->**(**)**
+HSPLkotlin/**;->**(**)**
+HSPLandroidx/room/**;->**(**)**
+HSPLandroidx/sqlite/**;->**(**)**
+HSPLandroidx/datastore/**;->**(**)**
+HSPLandroidx/graphics/shapes/**;->**(**)**
+
+# --- Compose / AndroidX (ship their own profiles; listed so hot paths survive a partial merge) --
+HSPLandroidx/compose/runtime/**;->**(**)**
+HSPLandroidx/compose/ui/**;->**(**)**
+HSPLandroidx/compose/foundation/**;->**(**)**
+HSPLandroidx/compose/animation/**;->**(**)**
+HSPLandroidx/compose/material3/**;->**(**)**
+HSPLandroidx/activity/**;->**(**)**
+HSPLandroidx/lifecycle/**;->**(**)**
+HSPLandroidx/core/**;->**(**)**
+HSPLandroidx/profileinstaller/**;->**(**)**

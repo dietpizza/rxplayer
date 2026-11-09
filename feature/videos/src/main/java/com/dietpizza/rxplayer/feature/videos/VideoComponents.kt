@@ -32,6 +32,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 import kotlinx.coroutines.delay
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
+import kotlin.math.roundToInt
 
 private val ChipShape = RoundedCornerShape(4.dp)
 private val ChipScrim = Color.Black.copy(alpha = 0.62f)
@@ -54,8 +59,15 @@ internal fun VideoThumbnail(
     dimmed: Boolean = false,
 ) {
     val barColor = MaterialTheme.colorScheme.primary
+    // The resume bar and the watched dimming are drawn, so say them; merged into the row.
+    val progress = when {
+        resumeFraction > 0f -> stringResource(R.string.video_progress, (resumeFraction * 100).roundToInt())
+        dimmed -> stringResource(R.string.video_watched)
+        else -> null
+    }
     Box(
         modifier
+            .then(if (progress != null) Modifier.semantics { stateDescription = progress } else Modifier)
             .clip(shape)
             .drawWithContent {
                 drawContent()
@@ -108,8 +120,10 @@ internal fun ResolutionTag(text: String, modifier: Modifier = Modifier) {
 /** Unplayed marker. */
 @Composable
 internal fun NewDot(modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.video_new)
     Box(
         modifier
+            .semantics { contentDescription = description }
             .size(8.dp)
             .background(MaterialTheme.colorScheme.primary, CircleShape),
     )

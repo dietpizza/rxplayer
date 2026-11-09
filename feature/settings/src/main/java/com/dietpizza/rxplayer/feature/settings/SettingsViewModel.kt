@@ -147,7 +147,7 @@ class SettingsViewModel @Inject constructor(
             imageLoader.memoryCache?.clear()
             imageLoader.diskCache?.clear()
             spritesDir.listFiles()?.forEach { it.deleteRecursively() }
-            _messages.send("Cache cleared")
+            _messages.send(context.getString(R.string.settings_cache_cleared))
             measureCache()
         }
     }
@@ -155,7 +155,7 @@ class SettingsViewModel @Inject constructor(
     fun clearHistory() {
         viewModelScope.launch {
             withContext(NonCancellable) { history.clear() }
-            _messages.send("History cleared")
+            _messages.send(context.getString(R.string.settings_history_cleared))
         }
     }
 
@@ -170,7 +170,7 @@ class SettingsViewModel @Inject constructor(
 private fun Context.readAppInfo(): AppInfo {
     val versionName = runCatching {
         packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0)).versionName
-    }.getOrNull() ?: "Unknown"
+    }.getOrNull() ?: getString(R.string.settings_version_unknown)
     return AppInfo(
         appName = applicationInfo.loadLabel(packageManager).toString(),
         versionName = versionName,

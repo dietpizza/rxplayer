@@ -1,12 +1,26 @@
-# Add project specific R8 rules here.
-# AGP will combine all keep rule files in src/main/keepRules to pass to R8
+# R8 rules for :app (AGP merges every file in src/main/keepRules). R8 full mode is on (AGP default;
+# gradle.properties must not set android.enableR8.fullMode=false).
 #
-# For more details, see
-#   https://d.android.com/r/tools/r8/keep-rules
+# Library coverage, checked against the release mapping (M7):
+# - Hilt / Dagger: generated keep rules ship with the KSP output; nothing needed here.
+# - Room: room-runtime keeps RoomDatabase subclasses' no-arg constructors, so RxDatabase_Impl
+#   (found by name) keeps its name.
+# - smbj / sshj / BouncyCastle / commons-net: :core:netfs/consumer-rules.pro.
+# - Jellyfin media3-ffmpeg-decoder: its consumer rules keep the JNI surface (native method names
+#   via -keepclasseswithmembernames, and FfmpegAudioDecoder.growOutputBuffer, which the native
+#   code calls back). Media3's exoplayer rules keep FfmpegAudioRenderer's reflective constructor,
+#   and R8 currently rewrites DefaultRenderersFactory's Class.forName("…FfmpegAudioRenderer")
+#   to the obfuscated name.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# FFmpeg renderer: DefaultRenderersFactory (EXTENSION_RENDERER_MODE_PREFER) loads it by name and
+# swallows ClassNotFoundException, so if the forName rewrite ever stops applying, AC3/E-AC3/DTS/
+# TrueHD audio would silently stop playing. Keep the class name and that constructor outright.
+-keep class androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer {
+    <init>(android.os.Handler, androidx.media3.exoplayer.audio.AudioRendererEventListener, androidx.media3.exoplayer.audio.AudioSink);
+}
+# JNI symbols are resolved by name (Java_androidx_media3_decoder_ffmpeg_<Class>_<method>); the
+# consumer rule already covers this, restated with includedescriptorclasses so parameter types
+# of native methods keep their names too.
+-keepclasseswithmembernames,includedescriptorclasses class androidx.media3.decoder.ffmpeg.** {
+    native <methods>;
+}

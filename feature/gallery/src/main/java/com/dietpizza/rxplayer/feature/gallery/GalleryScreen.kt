@@ -62,6 +62,8 @@ import com.dietpizza.rxplayer.core.model.ThemeMode
 import com.dietpizza.rxplayer.core.model.VirtualAlbum
 import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 
 /**
  * Gallery tab root: the albums grid (plan §4 #2), with the pinned row on top.
@@ -150,7 +152,7 @@ internal fun GalleryContent(
                         onFieldSelected = { onSortChange(AlbumSort.defaultFor(it)) },
                         onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
                     )
-                    IconButton(onClick = onOpenSettings) {
+                    IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
                         Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.gallery_settings))
                     }
                 },
@@ -199,7 +201,9 @@ private fun AlbumsGrid(
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("gallery_albums"),
     ) {
         if (pinned.isNotEmpty()) {
             item(key = PINNED_ROW_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = PINNED_ROW_KEY) {
@@ -234,7 +238,7 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
                 Modifier
                     .width(PinnedTileWidth)
                     .clip(MaterialTheme.shapes.large)
-                    .clickable { onOpenAlbum(album) },
+                    .clickable(role = Role.Button) { onOpenAlbum(album) },
             ) {
                 Box {
                     MediaThumbnail(
@@ -267,7 +271,7 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
                 Modifier
                     .width(PinnedTileWidth)
                     .clip(MaterialTheme.shapes.large)
-                    .clickable(onClick = onNewAlbum),
+                    .clickable(role = Role.Button, onClick = onNewAlbum),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -315,7 +319,8 @@ private fun AlbumCard(album: AlbumTile, onClick: () -> Unit) {
     Column(
         Modifier
             .clip(MaterialTheme.shapes.largeIncreased)
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag("gallery_album"),
     ) {
         MediaThumbnail(
             contentUri = album.coverUri,

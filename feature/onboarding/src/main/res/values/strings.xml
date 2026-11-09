@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="onboarding_app_name">Rx Player</string>
+    <string name="onboarding_tagline">Your photos and videos, one beautiful player</string>
+    <string name="onboarding_files_title">All files access</string>
+    <string name="onboarding_files_body">To browse, play, rename, move and delete your media.</string>
+    <string name="onboarding_notifications_title">Notifications</string>
+    <string name="onboarding_notifications_body">Playback controls in Picture-in-Picture.</string>
+    <string name="onboarding_required">Required</string>
+    <string name="onboarding_optional">Optional</string>
+    <string name="onboarding_allow">Allow</string>
+    <string name="onboarding_open_settings">Settings</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_all_set">You\'re all set.</string>
+    <string name="onboarding_allow_to_continue">Allow all files access to continue.</string>
+    <!-- %1$s: permission title, e.g. "Notifications" -->
+    <string name="onboarding_granted">%1$s granted</string>
+    <!-- Spoken label for the grant button. %1$s: "Allow"/"Settings", %2$s: permission title -->
+    <string name="onboarding_action_for">%1$s %2$s</string>
+</resources>

@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Loading state that only appears if loading takes noticeably long, so a fast MediaStore query
@@ -95,6 +97,7 @@ internal fun <F> SortMenuButton(
                         if (option.field != current) onFieldSelected(option.field)
                     },
                     trailingIcon = checkIf(option.field == current),
+                    modifier = Modifier.selectedState(option.field == current),
                 )
             }
             HorizontalDivider()
@@ -105,6 +108,7 @@ internal fun <F> SortMenuButton(
                     if (descending) onDirectionSelected(false)
                 },
                 trailingIcon = checkIf(!descending),
+                modifier = Modifier.selectedState(!descending),
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.gallery_sort_descending)) },
@@ -113,10 +117,14 @@ internal fun <F> SortMenuButton(
                     if (!descending) onDirectionSelected(true)
                 },
                 trailingIcon = checkIf(descending),
+                modifier = Modifier.selectedState(descending),
             )
         }
     }
 }
+
+/** The check mark is decorative; TalkBack reads the selection from this instead. */
+private fun Modifier.selectedState(isSelected: Boolean): Modifier = semantics { selected = isSelected }
 
 private fun checkIf(checked: Boolean): (@Composable () -> Unit)? =
     if (checked) ({ Icon(Icons.Rounded.Check, contentDescription = null) }) else null
