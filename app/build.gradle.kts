@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.rx.android.application)
     alias(libs.plugins.rx.hilt)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -22,6 +21,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:ui"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:gallery"))
     implementation(project(":feature:videos"))
@@ -32,10 +32,6 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
-    implementation(libs.androidx.navigation3.runtime)
-    implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
-    implementation(libs.kotlinx.serialization.core)
 }

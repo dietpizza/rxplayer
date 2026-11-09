@@ -44,7 +44,7 @@ Two non-negotiables:
 | Concern | Choice |
 |---|---|
 | UI | Jetpack Compose, **Material 3 Expressive** (`MaterialExpressiveTheme`, `MotionScheme.expressive()`, shape morphing, `LoadingIndicator`, `FloatingToolbar`, button groups) |
-| Navigation | Navigation 3 *(proposed)*. The back stack is plain state, which makes the inline→full player morph and shared elements easier to control |
+| Navigation | **One Activity per full-screen destination ✅** (no Compose navigation library). The OS activity transitions and predictive back come for free. See §3.2a |
 | Playback | **Media3 ExoPlayer ✅** + FFmpeg audio decoder extension (AC3/EAC3/DTS/TrueHD/etc). Use the prebuilt `org.jellyfin.media3:media3-ffmpeg-decoder`, so we don't have to build FFmpeg ourselves. Also `media3-ui-compose` (`PlayerSurface`) and `media3-session` |
 | DI | **Hilt ✅** |
 | DB | Room + Flow |
@@ -61,21 +61,23 @@ Two non-negotiables:
 
 ### 3.1 Modules ✅ multi-module
 ```
-:app                      – Activity, nav host, Hilt root, MediaSessionService
+:app                      – MainActivity (permission gate + tabs), Hilt root, MediaSessionService
 :build-logic              – convention plugins (android-library, compose, hilt, feature)
 
 :core:model               – pure Kotlin data classes (MediaItem, Folder, Album, ServerConfig…)
 :core:common              – dispatchers, Result types, utils
 :core:designsystem        – theme, expressive components, icons, motion tokens
-:core:ui                  – shared composables: MediaGrid, Thumbnail, FastScroller, SelectionBar
+:core:ui                  – RxActivity base (theme, edge-to-edge, no-flash first frame) + shared composables:
+                            MediaGrid, Thumbnail, FastScroller, SelectionBar
 :core:database            – Room DB, DAOs, migrations
-:core:datastore           – Proto DataStore for settings
+:core:datastore           – Preferences DataStore for settings
 :core:media               – MediaStore source, ContentObserver, file ops, EXIF
 :core:netfs               – SMB/WebDAV/FTP/SFTP clients + Media3 DataSources
 :core:player              – PlaybackController (single ExoPlayer), seek-preview engine,
                             gesture state machine, PiP helper, auto-pause
 :core:data                – repositories joining media + database + netfs
 
+:feature:onboarding       – permission onboarding
 :feature:gallery          – Albums grid, album detail grid
 :feature:viewer           – horizontal pager: photos + inline video
 :feature:player           – full-screen player UI
@@ -93,6 +95,25 @@ Two non-negotiables:
   - **Room** holds *what we know about it*: resume position, watched state, favourites, custom albums, playlists, history, servers.
   - Repositories join the two in memory using a stable `mediaKey` (§7.1). *(proposed)* v1 does **not** mirror MediaStore into Room, so there is no second index to keep in sync. We revisit this only if the folder-list queries turn out slow.
 - **One player, many surfaces.** `PlaybackController` (`@Singleton`) owns the single `ExoPlayer`. The inline viewer, the full player and PiP all attach to the same instance. `MediaSessionService` wraps it for the notification and PiP controls.
+
+### 3.2a Navigation: Activities, not Compose navigation ✅
+- **Every full-screen destination is its own `Activity`**, opened with `startActivity` and closed with `finish()`. We use the system's own activity open/close animations and its cross-activity predictive back. We don't override transitions, so the app feels native on every Android version and OEM skin.
+- **Tabs are not navigation.** Gallery · Videos · Network live inside `MainActivity` as plain state (`rememberSaveable` + `SaveableStateHolder` to keep each tab's scroll position). Switching tabs is an instant swap with no animation (§9). Back from Videos or Network goes to Gallery; back from Gallery leaves the app.
+- **`RxActivity`** (`:core:ui`) is the base class for every activity. It handles edge-to-edge, `RxTheme` driven live by `AppearanceRepository` (so a settings change restyles every open activity), system-bar icon contrast, and holding the first frame until the theme is known.
+- **Feature modules own their activities** and declare them in their own `AndroidManifest.xml`. Each exposes `XActivity.intent(context, args)`. Features never depend on each other: a screen gets an `onOpenX` callback, and the caller (usually `:app`) builds the intent. Arguments are passed as intent extras (ids, mediaKeys, paths), never whole objects.
+- **Activity map:**
+
+  | Activity | Module | Contains |
+  |---|---|---|
+  | `MainActivity` | :app | onboarding gate, the three tabs |
+  | `SettingsActivity` ✅ (M0) | :feature:settings | settings |
+  | `AlbumActivity` | :feature:gallery | album detail grid |
+  | `FolderActivity` | :feature:videos | folder video list (also used for playlists) |
+  | `PlayerActivity` | :feature:player | **viewer pager + full player in one activity** (see below), PiP, `ACTION_VIEW` target |
+  | `ServerActivity` / `RemoteBrowserActivity` | :feature:network | add/edit server, remote file browser |
+  | `SearchActivity` | :feature:search | search |
+- **Why the viewer and the player share one activity:** the inline→full morph (§4.1) must hand the same `SurfaceView` and `ExoPlayer` across without rebuffering, which a cross-activity transition can't do cleanly. So that morph is a state change inside `PlayerActivity`, not navigation. A dedicated player activity is also what PiP wants (`supportsPictureInPicture`, `resizeableActivity`). Otherwise PiP would shrink the whole app.
+- Opening a viewer from a grid uses the standard activity transition, not a custom shared-element zoom from the thumbnail, so it stays native (decided here; revisit only if it feels flat).
 
 ### 3.3 Audio policy ✅ (important, so it gets its own section)
 - `ExoPlayer.setAudioAttributes(attrs, handleAudioFocus = false)` **always**. We never request audio focus, in inline playback or in the full player, so other apps keep playing and the audio mixes.
@@ -135,7 +156,8 @@ Two non-negotiables:
 ### 4.1 The blend: viewer ↔ full player ✅
 - When the pager settles on a video page, the controller attaches the shared ExoPlayer to that page's surface and prepares and plays it **muted** without taking focus. The neighbouring pages show poster frames only.
 - An expand tap, rotating to landscape, or an upward fling **morphs** the inline surface into the full player with a shared-element bounds transform. The player is never re-prepared.
-- In the full player, **swipe down** shrinks it back into the viewer page (or into the list row if we came from the Videos tab) ✅.
+- In the full player, **swipe down** shrinks it back into the viewer page ✅. If `PlayerActivity` was opened straight into the full player (from the Videos tab, Network, or `ACTION_VIEW`), swipe down dismisses it: the video shrinks and fades, then `finish()` hands over to the system close transition.
+- All of this happens inside `PlayerActivity` (§3.2a): the viewer and the full player are two states of one screen, not two destinations.
 - **Risk:** animating a `SurfaceView` during the shared-element transition. Plan: use `PlayerSurface(SURFACE_TYPE_SURFACE_VIEW)`, keep a single surface hoisted with `movableContentOf`, and animate its bounds. If it artifacts, fall back to `TextureView` during the transition only. This needs an early spike (M1).
 
 ---
@@ -306,7 +328,7 @@ network_server
 - Material 3 Expressive throughout: expressive motion scheme (springy), shape morphing on the play/pause button and the FAB, a wavy `LinearWavyProgressIndicator` for the inline resume bar, and button groups in the player's ⋮ sheet
 - Dynamic colour by default, with an AMOLED toggle. **The player is always pure black** whatever the theme.
 - Edge-to-edge everywhere. Predictive back with an expressive animation.
-- **Switching bottom-nav tabs has no animation ✅.** Tapping an unselected tab swaps the content instantly: no fade, scale, slide or stack effect. Animated transitions are only for moving *within* a tab (shared-axis) and for full-screen destinations like Settings (slide over).
+- **Switching bottom-nav tabs has no animation ✅.** Tapping an unselected tab swaps the content instantly: no fade, scale, slide or stack effect. Every other screen change is an Activity, so it gets the **system's** activity transition and predictive back (§3.2a). There are no custom page transitions.
 - Seed colour: **coral red ✅** (e.g. `#FF5A4E`, tuned in M0). The icon is a coral play glyph.
 - Typography: **system default font ✅**, using the M3 type scale with emphasized styles for headers
 - **Adaptive basics ✅:** NavigationRail on wide screens, grid columns follow width, the player handles fold and resize. No two-pane layouts in v1.
@@ -394,6 +416,7 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 32 | Respect .nomedia by default | 2026-11-09 |
 | 33 | git init, commit per step; manual signed APK releases | 2026-11-09 |
 | 34 | Tab switches are instant (no transition); settings toggle rows don't highlight, only the switch shows state | 2026-11-09 |
+| 35 | **Activities for navigation** (one per full-screen destination, system transitions); Navigation 3 removed; tabs are state in MainActivity; viewer + full player share `PlayerActivity` | 2026-11-09 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:
