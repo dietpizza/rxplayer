@@ -147,6 +147,24 @@ class GalleryLibraryTest {
     }
 
     @Test
+    fun albumSizeSort() {
+        val lib = buildGalleryLibrary(
+            listOf(
+                item("/s/few big/1.mp4", size = 5_000),
+                item("/s/many small/1.jpg", size = 10),
+                item("/s/many small/2.jpg", size = 10),
+                item("/s/many small/3.jpg", size = 10),
+                item("/s/mid/1.jpg", size = 400),
+            ),
+        )
+        assertEquals(5_000L, lib.albums.first { it.name == "few big" }.totalSizeBytes)
+        val bigFirst = sortAlbums(lib.albums, AlbumSort.defaultFor(AlbumSortField.SIZE)).map { it.name }
+        assertEquals(listOf("few big", "mid", "many small"), bigFirst)
+        val smallFirst = sortAlbums(lib.albums, AlbumSort(AlbumSortField.SIZE, descending = false)).map { it.name }
+        assertEquals(listOf("many small", "mid", "few big"), smallFirst)
+    }
+
+    @Test
     fun fiftyThousandItemsGroupQuickly() {
         val items = List(50_000) { i -> item("/s/folder${i % 400}/IMG_$i.jpg", taken = (i * 7919L) % 100_000, video = i % 10 == 0) }
         buildGalleryLibrary(items) // warm up

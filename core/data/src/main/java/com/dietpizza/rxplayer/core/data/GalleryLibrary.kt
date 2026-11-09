@@ -53,6 +53,9 @@ private val AlbumByName: Comparator<GalleryAlbum> =
 private val AlbumByModified: Comparator<GalleryAlbum> =
     Comparator<GalleryAlbum> { a, b -> a.lastModifiedMs.compareTo(b.lastModifiedMs) }.then(AlbumByName.reversed())
 
+private val AlbumBySize: Comparator<GalleryAlbum> =
+    Comparator<GalleryAlbum> { a, b -> a.totalSizeBytes.compareTo(b.totalSizeBytes) }.then(AlbumByName.reversed())
+
 private val AlbumByCount: Comparator<GalleryAlbum> =
     Comparator<GalleryAlbum> { a, b -> a.itemCount.compareTo(b.itemCount) }.then(AlbumByName.reversed())
 
@@ -112,10 +115,12 @@ fun aggregateAlbum(
     var videoCount = 0
     var lastModified = 0L
     var latestTaken = 0L
+    var totalSize = 0L
     for (item in items) {
         if (item.isVideo) videoCount++
         if (item.dateModifiedMs > lastModified) lastModified = item.dateModifiedMs
         if (item.dateTakenMs > latestTaken) latestTaken = item.dateTakenMs
+        totalSize += item.sizeBytes
     }
     val cover = items.firstOrNull()
     return GalleryAlbum(
@@ -127,6 +132,7 @@ fun aggregateAlbum(
         coverIsVideo = cover?.isVideo == true,
         lastModifiedMs = lastModified,
         latestTakenMs = latestTaken,
+        totalSizeBytes = totalSize,
         virtual = virtual,
     )
 }
@@ -150,6 +156,7 @@ fun sortAlbums(albums: List<GalleryAlbum>, sort: AlbumSort): List<GalleryAlbum> 
         AlbumSortField.NAME -> AlbumByName
         AlbumSortField.DATE_MODIFIED -> AlbumByModified
         AlbumSortField.COUNT -> AlbumByCount
+        AlbumSortField.SIZE -> AlbumBySize
     }
     return albums.sortedWith(if (sort.descending) comparator.reversed() else comparator)
 }

@@ -263,12 +263,11 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
     // region intent
 
     private fun openFrom(intent: Intent, restoring: Boolean) {
-        val playlist = intent.getStringArrayListExtra(RxIntents.EXTRA_PLAYLIST)
-        if (!playlist.isNullOrEmpty()) {
-            val keys = playlist.map(::MediaKey)
-            val start = intent.getIntExtra(RxIntents.EXTRA_START_INDEX, 0)
+        val playlist = RxIntents.playlistOf(intent)
+        if (playlist != null) {
+            val (keys, start) = playlist
             if (intent.getStringExtra(RxIntents.EXTRA_MODE) == RxIntents.MODE_VIEWER) {
-                showViewer(ViewerRequest(keys, start.coerceIn(0, keys.lastIndex)))
+                showViewer(ViewerRequest(keys, start))
                 return
             }
             showPlayer()

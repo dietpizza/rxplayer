@@ -70,6 +70,8 @@ data class GalleryAlbum(
     val lastModifiedMs: Long,
     /** Most recent [GalleryItem.dateTakenMs] in the album. */
     val latestTakenMs: Long,
+    /** Sum of the items' sizes in bytes ("size" sort). */
+    val totalSizeBytes: Long = 0L,
     /** Non-null for built-in albums. */
     val virtual: VirtualAlbum? = null,
 ) {
@@ -77,7 +79,8 @@ data class GalleryAlbum(
     val id: String get() = if (virtual != null) "virtual:" + virtual.id else path
 }
 
-enum class AlbumSortField { NAME, DATE_MODIFIED, COUNT }
+/** New fields go last: the ordinal is saved. */
+enum class AlbumSortField { NAME, DATE_MODIFIED, COUNT, SIZE }
 
 data class AlbumSort(val field: AlbumSortField = AlbumSortField.DATE_MODIFIED, val descending: Boolean = true) {
     companion object {

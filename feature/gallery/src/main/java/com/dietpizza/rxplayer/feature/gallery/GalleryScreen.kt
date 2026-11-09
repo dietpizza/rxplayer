@@ -111,6 +111,7 @@ private val AlbumSortOptions = listOf(
     SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified),
     SortOption(AlbumSortField.NAME, R.string.gallery_sort_name),
     SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count),
+    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size),
 )
 
 @Composable

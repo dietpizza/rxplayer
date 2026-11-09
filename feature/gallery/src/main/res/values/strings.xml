@@ -17,6 +17,7 @@
     <string name="gallery_sort_date_modified">Date modified</string>
     <string name="gallery_sort_name">Name</string>
     <string name="gallery_sort_count">Number of items</string>
+    <string name="gallery_sort_folder_size">Size</string>
     <string name="gallery_sort_date_taken">Date taken</string>
     <string name="gallery_sort_size">Size</string>
     <string name="gallery_sort_ascending">Ascending</string>
