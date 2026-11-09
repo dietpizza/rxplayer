@@ -301,7 +301,6 @@ private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: (
                 Badge(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.semantics { contentDescription = "$badge new" },
                 ) { Text(badge) }
             }
         }
