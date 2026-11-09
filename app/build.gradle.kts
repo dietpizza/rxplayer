@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:data"))
     implementation(project(":core:player"))
+    implementation(project(":core:netfs"))
     implementation(project(":feature:onboarding"))
     implementation(project(":feature:gallery"))
     implementation(project(":feature:videos"))
