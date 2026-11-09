@@ -49,6 +49,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.core.designsystem.component.RxEmptyState
 import com.dietpizza.rxplayer.core.designsystem.theme.RxTheme
 import com.dietpizza.rxplayer.core.model.AppearanceSettings
@@ -123,8 +124,8 @@ private fun VideosScaffold(
             MediumFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.videos_title)) },
                 actions = {
-                    // Search lands with the search feature.
-                    IconButton(onClick = {}, enabled = false) {
+                    val context = LocalContext.current
+                    IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.videos_search))
                     }
                     IconButton(onClick = onOpenSettings) {

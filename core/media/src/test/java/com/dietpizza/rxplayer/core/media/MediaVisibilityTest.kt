@@ -25,4 +25,24 @@ class MediaVisibilityTest {
         // Each directory stat'ed at most once.
         assertEquals(checked.size, checked.toSet().size)
     }
+
+    @Test
+    fun showHiddenMakesEverythingVisibleWithoutStatting() {
+        var stats = 0
+        val v = MediaVisibility(showHidden = true, hasNoMedia = { stats++; true })
+        assertTrue(v.isVisible("/storage/emulated/0/.hidden/a.mp4"))
+        assertTrue(v.isVisible("/sd/WhatsApp/Media/Video/a.mp4"))
+        assertTrue(v.isVisible("/storage/emulated/0/Movies/.a.mp4"))
+        assertTrue(v.isDirVisible("/sd/.thumbs"))
+        assertFalse(v.isVisible("no-slash"))
+        assertEquals(0, stats)
+    }
+
+    @Test
+    fun defaultStillHidesNoMediaAndDotFolders() {
+        val v = MediaVisibility(hasNoMedia = { it == "/sd/Secret" })
+        assertFalse(v.isVisible("/sd/Secret/a.jpg"))
+        assertFalse(v.isVisible("/sd/.trash/a.jpg"))
+        assertTrue(v.isVisible("/sd/Public/a.jpg"))
+    }
 }

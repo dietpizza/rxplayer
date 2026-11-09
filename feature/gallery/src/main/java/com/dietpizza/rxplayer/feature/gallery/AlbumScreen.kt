@@ -1,6 +1,16 @@
 package com.dietpizza.rxplayer.feature.gallery
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.dietpizza.rxplayer.core.model.FileOpError
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -98,6 +108,30 @@ internal fun AlbumScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    val resources = LocalContext.current.resources
+    val scope = rememberCoroutineScope()
+    var dialog by rememberAlbumDialogState()
+    var nameError by remember { mutableStateOf<FileOpError?>(null) }
+    fun open(d: AlbumDialog) {
+        nameError = null
+        dialog = d
+    }
+    val currentOnBack by rememberUpdatedState(onBack)
+
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { message ->
+            if (message == GalleryMessage.Close) {
+                currentOnBack()
+            } else {
+                message.resolve(resources)?.let { snackbar.showSnackbar(it) }
+            }
+        }
+    }
+
+    val source = viewModel.source
+    val actions = if (source.isKeyed) enabledSelectionActions else enabledSelectionActions - SelectionAction.REMOVE_FROM_ALBUM
     AlbumContent(
         uiState = uiState,
         sort = sort,
@@ -105,10 +139,184 @@ internal fun AlbumScreen(
         onSortChange = viewModel::setSort,
         onBack = onBack,
         onOpenItem = onOpenItem,
-        enabledSelectionActions = enabledSelectionActions,
-        onSelectionAction = onSelectionAction,
+        enabledSelectionActions = actions,
+        onSelectionAction = { action, cells ->
+            when (action) {
+                SelectionAction.SHARE -> onSelectionAction(action, cells)
+                SelectionAction.FAVOURITE -> {
+                    viewModel.toggleFavouriteSelected()
+                    false
+                }
+                SelectionAction.REMOVE_FROM_ALBUM -> {
+                    viewModel.removeSelectedFromAlbum()
+                    false
+                }
+                SelectionAction.ADD_TO_ALBUM -> { open(AlbumDialog.ADD_TO_ALBUM); false }
+                SelectionAction.MOVE -> { open(AlbumDialog.MOVE); false }
+                SelectionAction.COPY -> { open(AlbumDialog.COPY); false }
+                SelectionAction.RENAME -> { open(AlbumDialog.RENAME); false }
+                SelectionAction.DELETE -> { open(AlbumDialog.DELETE); false }
+            }
+        },
+        snackbarHostState = snackbar,
+        removeLabel = if (source == AlbumSource.Favourites) R.string.selection_remove_from_favourites else R.string.selection_remove_from_album,
+        albumMenu = if (source is AlbumSource.Custom) {
+            AlbumMenu(onRename = { open(AlbumDialog.RENAME_ALBUM) }, onDelete = { open(AlbumDialog.DELETE_ALBUM) })
+        } else {
+            null
+        },
+        emptyBody = when (source) {
+            AlbumSource.Favourites -> R.string.album_favourites_empty_body
+            is AlbumSource.Custom -> R.string.album_custom_empty_body
+            else -> R.string.album_empty_body
+        },
     )
+
+    val close = { dialog = AlbumDialog.NONE }
+    when (dialog) {
+        AlbumDialog.NONE -> Unit
+        AlbumDialog.RENAME -> {
+            val name = remember { viewModel.renameCandidate() }
+            if (name == null) {
+                LaunchedEffect(Unit) { close() }
+            } else {
+                NameDialog(
+                    title = stringResource(R.string.action_rename),
+                    initial = name,
+                    confirmLabel = stringResource(R.string.action_rename),
+                    selectBaseName = true,
+                    error = nameError?.let { stringResource(it.nameErrorRes()) },
+                    onConfirm = { newName ->
+                        scope.launch {
+                            val error = viewModel.renameSelected(newName)
+                            if (error == null) close() else nameError = error
+                        }
+                    },
+                    onDismiss = close,
+                )
+            }
+        }
+        AlbumDialog.DELETE -> {
+            val count = viewModel.selection.selected.size
+            if (count == 0) {
+                LaunchedEffect(Unit) { close() }
+            } else {
+                ConfirmDialog(
+                    title = pluralStringResource(R.plurals.delete_title, count, count),
+                    text = pluralStringResource(R.plurals.delete_body, count),
+                    confirmLabel = stringResource(R.string.action_delete),
+                    destructive = true,
+                    onConfirm = {
+                        viewModel.deleteSelected()
+                        close()
+                    },
+                    onDismiss = close,
+                )
+            }
+        }
+        AlbumDialog.MOVE, AlbumDialog.COPY -> {
+            val copy = dialog == AlbumDialog.COPY
+            val folders by viewModel.pickerFolders.collectAsStateWithLifecycle()
+            FolderPickerDialog(
+                title = stringResource(if (copy) R.string.action_copy_to else R.string.action_move_to),
+                folders = folders,
+                onPick = {
+                    viewModel.transferSelected(it.path, copy)
+                    close()
+                },
+                onNewFolder = { open(if (copy) AlbumDialog.NEW_FOLDER_COPY else AlbumDialog.NEW_FOLDER_MOVE) },
+                onDismiss = close,
+            )
+        }
+        AlbumDialog.NEW_FOLDER_MOVE, AlbumDialog.NEW_FOLDER_COPY -> {
+            val copy = dialog == AlbumDialog.NEW_FOLDER_COPY
+            NameDialog(
+                title = stringResource(R.string.folder_new),
+                initial = "",
+                confirmLabel = stringResource(if (copy) R.string.action_copy else R.string.action_move),
+                error = nameError?.let { stringResource(it.nameErrorRes()) },
+                onConfirm = { name ->
+                    scope.launch {
+                        val error = viewModel.transferSelectedToNewFolder(name, copy)
+                        if (error == null) close() else nameError = error
+                    }
+                },
+                onDismiss = close,
+            )
+        }
+        AlbumDialog.ADD_TO_ALBUM -> {
+            val albums by viewModel.pickerAlbums.collectAsStateWithLifecycle()
+            AlbumPickerDialog(
+                albums = albums,
+                onPick = {
+                    viewModel.addSelectedToAlbum(it.id, it.name)
+                    close()
+                },
+                onNewAlbum = { open(AlbumDialog.NEW_ALBUM) },
+                onDismiss = close,
+            )
+        }
+        AlbumDialog.NEW_ALBUM -> NameDialog(
+            title = stringResource(R.string.gallery_new_album),
+            initial = "",
+            confirmLabel = stringResource(R.string.action_create),
+            onConfirm = {
+                viewModel.addSelectedToNewAlbum(it)
+                close()
+            },
+            onDismiss = close,
+        )
+        AlbumDialog.RENAME_ALBUM -> NameDialog(
+            title = stringResource(R.string.album_rename),
+            initial = uiState.title,
+            confirmLabel = stringResource(R.string.action_rename),
+            onConfirm = {
+                viewModel.renameAlbum(it)
+                close()
+            },
+            onDismiss = close,
+        )
+        AlbumDialog.DELETE_ALBUM -> ConfirmDialog(
+            title = stringResource(R.string.album_delete_title),
+            text = stringResource(R.string.album_delete_body),
+            confirmLabel = stringResource(R.string.action_delete),
+            destructive = true,
+            onConfirm = {
+                viewModel.deleteAlbum()
+                close()
+            },
+            onDismiss = close,
+        )
+    }
+
+    progress?.let { p ->
+        // Fast operations (a same-volume move, a small delete) finish before this ever shows.
+        var visible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(PROGRESS_GRACE_MS)
+            visible = true
+        }
+        if (visible) {
+            ProgressDialog(
+                title = stringResource(
+                    when (p.op) {
+                        FileOp.MOVE -> R.string.progress_moving
+                        FileOp.COPY -> R.string.progress_copying
+                        FileOp.DELETE -> R.string.progress_deleting
+                    },
+                ),
+                fraction = p.fraction,
+                onCancel = if (p.cancellable) viewModel::cancelFileOp else null,
+            )
+        }
+    }
 }
+
+private const val PROGRESS_GRACE_MS = 400L
+
+/** Overflow of a custom album's app bar. */
+@Immutable
+internal class AlbumMenu(val onRename: () -> Unit, val onDelete: () -> Unit)
 
 private val MediaSortOptions = listOf(
     SortOption(MediaSortField.DATE_TAKEN, R.string.gallery_sort_date_taken),
@@ -127,6 +335,10 @@ internal fun AlbumContent(
     enabledSelectionActions: Set<SelectionAction>,
     onSelectionAction: (SelectionAction, List<MediaCell>) -> Boolean,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    @StringRes removeLabel: Int = R.string.selection_remove_from_album,
+    albumMenu: AlbumMenu? = null,
+    @StringRes emptyBody: Int = R.string.album_empty_body,
 ) {
     val background = MaterialTheme.colorScheme.surfaceContainer
     val content = uiState as? AlbumUiState.Content
@@ -135,12 +347,14 @@ internal fun AlbumContent(
     Scaffold(
         modifier = modifier,
         containerColor = background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             // Both bars are fixed-height small bars, so swapping them never re-lays out the grid.
             if (selection.isActive && content != null) {
                 SelectionTopBar(
                     count = selection.selected.size,
                     enabled = enabledSelectionActions,
+                    removeLabel = removeLabel,
                     onClear = selection::clear,
                     onAction = { action ->
                         val chosen = selectedCells(content.grid, selection.selected)
@@ -165,6 +379,7 @@ internal fun AlbumContent(
                             onFieldSelected = { onSortChange(MediaSort.defaultFor(it)) },
                             onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
                         )
+                        if (albumMenu != null) AlbumOverflow(albumMenu)
                     },
                     expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -180,7 +395,7 @@ internal fun AlbumContent(
             content.grid.mediaCount == 0 -> RxEmptyState(
                 icon = Icons.Rounded.PhotoLibrary,
                 title = stringResource(R.string.album_empty_title),
-                body = stringResource(R.string.album_empty_body),
+                body = stringResource(emptyBody),
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
             )
             else -> MediaGrid(
@@ -188,6 +403,7 @@ internal fun AlbumContent(
                 selection = selection,
                 background = background,
                 innerPadding = innerPadding,
+                defaultColumns = content.defaultColumns,
                 onOpen = { index -> onOpenItem(content.grid.keys, index) },
             )
         }
@@ -212,11 +428,20 @@ private fun MediaGrid(
     selection: AlbumSelection,
     background: Color,
     innerPadding: PaddingValues,
+    defaultColumns: Int,
     onOpen: (index: Int) -> Unit,
 ) {
     val gridState = rememberLazyGridState()
     val screenWidth = LocalConfiguration.current.screenWidthDp
-    var columns by rememberSaveable { mutableIntStateOf((screenWidth / 110f).roundToInt().coerceIn(3, MAX_COLUMNS)) }
+    var columns by rememberSaveable {
+        mutableIntStateOf(
+            if (defaultColumns in MIN_COLUMNS..MAX_COLUMNS) {
+                defaultColumns
+            } else {
+                (screenWidth / 110f).roundToInt().coerceIn(3, MAX_COLUMNS)
+            },
+        )
+    }
     // Two request sizes only (2–3 and 4–6 columns), so pinching doesn't refetch every thumbnail.
     val requestWidth = (screenWidth / if (columns <= 3) 2 else 4).dp
     val scroller = rememberFastScrollerState(gridState)
@@ -443,6 +668,7 @@ private fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
 private fun SelectionTopBar(
     count: Int,
     enabled: Set<SelectionAction>,
+    @StringRes removeLabel: Int,
     onClear: () -> Unit,
     onAction: (SelectionAction) -> Unit,
 ) {
@@ -463,6 +689,11 @@ private fun SelectionTopBar(
                     Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.selection_more))
                 }
                 DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                    if (SelectionAction.REMOVE_FROM_ALBUM in enabled) {
+                        OverflowItem(
+                            SelectionAction.REMOVE_FROM_ALBUM, Icons.Rounded.RemoveCircleOutline, removeLabel, enabled, onAction,
+                        ) { overflow = false }
+                    }
                     OverflowItem(SelectionAction.MOVE, Icons.Rounded.DriveFileMove, R.string.selection_move, enabled, onAction) { overflow = false }
                     OverflowItem(SelectionAction.COPY, Icons.Rounded.ContentCopy, R.string.selection_copy, enabled, onAction) { overflow = false }
                     OverflowItem(
@@ -478,6 +709,34 @@ private fun SelectionTopBar(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         ),
     )
+}
+
+@Composable
+private fun AlbumOverflow(menu: AlbumMenu) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.selection_more))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.album_rename)) },
+                leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    menu.onRename()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.album_delete)) },
+                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    menu.onDelete()
+                },
+            )
+        }
+    }
 }
 
 @Composable
@@ -543,7 +802,7 @@ private fun AlbumPreview() {
             onSortChange = {},
             onBack = {},
             onOpenItem = { _, _ -> },
-            enabledSelectionActions = setOf(SelectionAction.SHARE),
+            enabledSelectionActions = SelectionAction.entries.toSet(),
             onSelectionAction = { _, _ -> false },
         )
     }
@@ -564,7 +823,7 @@ private fun AlbumSelectingPreview() {
             onSortChange = {},
             onBack = {},
             onOpenItem = { _, _ -> },
-            enabledSelectionActions = setOf(SelectionAction.SHARE),
+            enabledSelectionActions = SelectionAction.entries.toSet(),
             onSelectionAction = { _, _ -> false },
         )
     }

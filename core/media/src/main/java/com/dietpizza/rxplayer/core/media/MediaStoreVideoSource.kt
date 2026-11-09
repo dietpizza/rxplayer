@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
@@ -35,6 +37,7 @@ import kotlinx.coroutines.withContext
 @Singleton
 class MediaStoreVideoSource @Inject constructor(
     @ApplicationContext context: Context,
+    @Named(SHOW_HIDDEN_MEDIA) showHidden: @JvmSuppressWildcards Flow<Boolean>,
 ) : LocalVideoSource {
 
     private val resolver: ContentResolver = context.contentResolver
@@ -45,7 +48,9 @@ class MediaStoreVideoSource @Inject constructor(
     override val videos: Flow<List<LocalVideo>> = changeSignals()
         // Initial signal passes straight through; observer bursts (a scan touches many rows) settle first.
         .debounce { if (it == Signal.Initial) 0L else DEBOUNCE_MS }
-        .mapLatest { queryAll() }
+        // Toggling "show hidden folders" re-queries; other settings changes don't (distinct).
+        .combine(showHidden.distinctUntilChanged()) { _, show -> show }
+        .mapLatest { queryAll(it) }
         .distinctUntilChanged()
         .flowOn(Dispatchers.IO)
         // Keep the observer alive briefly across config changes / screen hops; replay the last list.
@@ -69,8 +74,11 @@ class MediaStoreVideoSource @Inject constructor(
         awaitClose { resolver.unregisterContentObserver(observer) }
     }
 
-    private fun queryAll(): List<LocalVideo> =
-        query(selection = "${MediaStore.Video.Media.DATA} IS NOT NULL", selectionArgs = null, visibility = MediaVisibility())
+    private fun queryAll(showHidden: Boolean): List<LocalVideo> = query(
+        selection = "${MediaStore.Video.Media.DATA} IS NOT NULL",
+        selectionArgs = null,
+        visibility = MediaVisibility(showHidden),
+    )
 
     @Suppress("DEPRECATION") // DATA is the only way to get real paths; we hold MANAGE_EXTERNAL_STORAGE.
     private fun query(selection: String, selectionArgs: Array<String>?, visibility: MediaVisibility?): List<LocalVideo> {

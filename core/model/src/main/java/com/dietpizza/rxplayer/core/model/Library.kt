@@ -58,4 +58,22 @@ data class LibrarySettings(
     val videoSort: VideoSort = VideoSort.DEFAULT,
     /** Show `.nomedia` and hidden folders (decision 32: off by default). */
     val showHidden: Boolean = false,
-)
+    /**
+     * Initial column count of a gallery album grid (pinch still changes it per screen).
+     * [GRID_COLUMNS_AUTO] = follow the screen width.
+     */
+    val galleryGridColumns: Int = GRID_COLUMNS_AUTO,
+) {
+    companion object {
+        const val GRID_COLUMNS_AUTO = 0
+        const val MIN_GRID_COLUMNS = 2
+        const val MAX_GRID_COLUMNS = 6
+    }
+}
+
+/**
+ * Hilt name of the `Flow<Boolean>` "show hidden / .nomedia media" binding. Provided by
+ * `:core:datastore`, consumed by the MediaStore sources in `:core:media`, which don't depend
+ * on each other; both reference this one constant.
+ */
+const val SHOW_HIDDEN_MEDIA_BINDING = "rx.media.showHidden"

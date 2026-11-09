@@ -40,6 +40,15 @@ interface GalleryRepository {
     /** Items of a virtual album, in [sort] order. */
     fun items(album: VirtualAlbum, sort: MediaSort = MediaSort.DEFAULT): Flow<List<GalleryItem>>
 
+    /**
+     * Every visible item (photos + videos, all folders), newest first. Shared upstream; used by
+     * search and by the custom-album / favourites joins.
+     */
+    fun allItems(): Flow<List<GalleryItem>>
+
+    /** Every visible item by `MediaKey.value` (joins for favourites / custom albums). */
+    fun itemsByKey(): Flow<Map<String, GalleryItem>>
+
     /** One item by key (photo or video), or null if it isn't a local MediaStore item. Unfiltered. */
     suspend fun item(key: MediaKey): GalleryItem?
 }
@@ -79,6 +88,32 @@ class LocalGalleryRepository internal constructor(
             .distinctUntilChanged()
             .map { sortItems(it, sort) }
             .flowOn(Dispatchers.Default)
+
+    private val all: Flow<List<GalleryItem>> = library
+        .map { lib ->
+            val out = ArrayList<GalleryItem>(lib.itemsByFolder.values.sumOf { it.size })
+            for (items in lib.itemsByFolder.values) out.addAll(items)
+            out.sortWith(NewestFirst)
+            out as List<GalleryItem>
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .shareIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), replay = 1)
+
+    // Straight from the grouping (no sort), so the Gallery tab's pinned row doesn't pay for [all].
+    private val byKey: Flow<Map<String, GalleryItem>> = library
+        .map { lib ->
+            val map = HashMap<String, GalleryItem>(lib.itemsByFolder.values.sumOf { it.size } * 2)
+            for (items in lib.itemsByFolder.values) for (item in items) map[item.key.value] = item
+            map as Map<String, GalleryItem>
+        }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .shareIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), replay = 1)
+
+    override fun allItems(): Flow<List<GalleryItem>> = all
+
+    override fun itemsByKey(): Flow<Map<String, GalleryItem>> = byKey
 
     override suspend fun item(key: MediaKey): GalleryItem? {
         val path = key.filePath ?: return null

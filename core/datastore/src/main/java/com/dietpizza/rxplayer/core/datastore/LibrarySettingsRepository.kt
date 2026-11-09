@@ -14,4 +14,7 @@ interface LibrarySettingsRepository {
     suspend fun setVideoSort(sort: VideoSort)
 
     suspend fun setShowHidden(show: Boolean)
+
+    /** [LibrarySettings.GRID_COLUMNS_AUTO] or 2..6. */
+    suspend fun setGalleryGridColumns(columns: Int)
 }

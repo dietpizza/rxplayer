@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.dietpizza.rxplayer.core.model.LibrarySettings
 import com.dietpizza.rxplayer.core.model.VideoSort
@@ -44,6 +45,15 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.SHOW_HIDDEN] = show }
     }
 
+    override suspend fun setGalleryGridColumns(columns: Int) {
+        val value = if (columns in LibrarySettings.MIN_GRID_COLUMNS..LibrarySettings.MAX_GRID_COLUMNS) {
+            columns
+        } else {
+            LibrarySettings.GRID_COLUMNS_AUTO
+        }
+        dataStore.edit { it[Keys.GALLERY_GRID_COLUMNS] = value }
+    }
+
     private fun read(prefs: Preferences): LibrarySettings {
         val d = LibrarySettings()
         val field = prefs[Keys.VIDEO_SORT_FIELD]?.let { n -> VideoSortField.entries.firstOrNull { it.name == n } }
@@ -57,6 +67,7 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
                 VideoSort(field, prefs[Keys.VIDEO_SORT_DESC] ?: VideoSort.defaultFor(field).descending)
             },
             showHidden = prefs[Keys.SHOW_HIDDEN] ?: d.showHidden,
+            galleryGridColumns = prefs[Keys.GALLERY_GRID_COLUMNS] ?: d.galleryGridColumns,
         )
     }
 
@@ -65,5 +76,6 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         val VIDEO_SORT_FIELD = stringPreferencesKey("library.video_sort_field")
         val VIDEO_SORT_DESC = booleanPreferencesKey("library.video_sort_descending")
         val SHOW_HIDDEN = booleanPreferencesKey("library.show_hidden")
+        val GALLERY_GRID_COLUMNS = intPreferencesKey("library.gallery_grid_columns")
     }
 }

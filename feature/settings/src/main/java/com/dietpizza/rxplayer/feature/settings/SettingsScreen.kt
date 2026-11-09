@@ -26,6 +26,8 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -33,7 +35,9 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
@@ -62,12 +66,28 @@ internal fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(it) } }
+    val actions = remember(viewModel) {
+        SettingsActions(
+            onVideoViewMode = viewModel::setVideoViewMode,
+            onVideoSort = viewModel::setVideoSort,
+            onGridColumns = viewModel::setGalleryGridColumns,
+            onShowHidden = viewModel::setShowHidden,
+            onPlayer = viewModel::editPlayer,
+            onSubtitles = viewModel::editSubtitles,
+            onClearCache = viewModel::clearCache,
+            onClearHistory = viewModel::clearHistory,
+        )
+    }
     SettingsContent(
         uiState = uiState,
         onBack = onBack,
         onThemeModeChange = viewModel::setThemeMode,
         onDynamicColorChange = viewModel::setDynamicColor,
         onPureBlackChange = viewModel::setPureBlack,
+        actions = actions,
+        snackbarHostState = snackbar,
         modifier = modifier,
     )
 }
@@ -80,11 +100,14 @@ internal fun SettingsContent(
     onDynamicColorChange: (Boolean) -> Unit,
     onPureBlackChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    actions: SettingsActions = SettingsActions.None,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             LargeFlexibleTopAppBar(
                 title = { Text("Settings") },
@@ -119,13 +142,17 @@ internal fun SettingsContent(
                     onPureBlackChange = onPureBlackChange,
                 )
             }
+            item(key = "library") { LibrarySection(state.library, actions) }
+            item(key = "player") { PlayerSection(state.player, actions) }
+            item(key = "subtitles") { SubtitlesSection(state.subtitles, actions) }
+            item(key = "storage") { StorageSection(state.cacheBytes, actions) }
             item(key = "about") { AboutSection(state.appInfo) }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleSmallEmphasized,
@@ -138,7 +165,7 @@ private fun SectionHeader(text: String) {
 
 /** A rounded "segmented list" group: items separated by a small gap, outer corners rounded. */
 @Composable
-private fun SettingsGroup(content: @Composable () -> Unit) {
+internal fun SettingsGroup(content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) { content() }
 }
 
@@ -230,7 +257,7 @@ private fun ThemeModeButtonGroup(
 }
 
 /** The row is a plain clickable; announce it to TalkBack as a switch with its on/off state. */
-private fun Modifier.switchSemantics(checked: Boolean) = semantics {
+internal fun Modifier.switchSemantics(checked: Boolean) = semantics {
     role = Role.Switch
     toggleableState = ToggleableState(checked)
 }

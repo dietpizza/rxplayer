@@ -12,6 +12,7 @@ import com.dietpizza.rxplayer.core.model.GalleryItem
 import com.dietpizza.rxplayer.core.model.MediaKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
@@ -53,6 +55,7 @@ interface GalleryMediaSource {
 @Singleton
 class MediaStoreGallerySource @Inject constructor(
     @ApplicationContext context: Context,
+    @Named(SHOW_HIDDEN_MEDIA) showHidden: @JvmSuppressWildcards Flow<Boolean>,
 ) : GalleryMediaSource {
 
     private val resolver: ContentResolver = context.contentResolver
@@ -64,7 +67,9 @@ class MediaStoreGallerySource @Inject constructor(
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     override val media: Flow<List<GalleryItem>> = changeSignals()
         .debounce { if (it == Signal.Initial) 0L else DEBOUNCE_MS }
-        .mapLatest { queryAll() }
+        // Toggling "show hidden folders" re-queries; other settings changes don't (distinct).
+        .combine(showHidden.distinctUntilChanged()) { _, show -> show }
+        .mapLatest { queryAll(it) }
         .distinctUntilChanged()
         .flowOn(Dispatchers.IO)
         .shareIn(scope, SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000), replay = 1)
@@ -95,10 +100,10 @@ class MediaStoreGallerySource @Inject constructor(
     }
 
     @Suppress("DEPRECATION")
-    private fun queryAll(): List<GalleryItem> = query(
+    private fun queryAll(showHidden: Boolean): List<GalleryItem> = query(
         selection = "$MEDIA_TYPE_SELECTION AND ${MediaStore.Files.FileColumns.DATA} IS NOT NULL",
         selectionArgs = null,
-        visibility = MediaVisibility(),
+        visibility = MediaVisibility(showHidden),
     )
 
     private fun query(selection: String, selectionArgs: Array<String>?, visibility: MediaVisibility?): List<GalleryItem> {

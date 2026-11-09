@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="search_hint">Search photos and videos</string>
+    <string name="search_back">Back</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_idle_title">Search your library</string>
+    <string name="search_idle_body">Find photos and videos by file or folder name, or use the filters.</string>
+    <string name="search_no_results_title">No results</string>
+    <string name="search_no_results_body">Try another name or loosen the filters.</string>
+    <plurals name="search_result_count">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+    <string name="search_photo">Photo</string>
+    <string name="search_video">Video</string>
+
+    <string name="filter_type">Type</string>
+    <string name="filter_type_all">Photos and videos</string>
+    <string name="filter_type_photos">Photos</string>
+    <string name="filter_type_videos">Videos</string>
+
+    <string name="filter_date">Date</string>
+    <string name="filter_date_any">Any time</string>
+    <string name="filter_date_7">Last 7 days</string>
+    <string name="filter_date_30">Last 30 days</string>
+    <string name="filter_date_year">This year</string>
+    <string name="filter_date_custom">Custom range…</string>
+    <string name="filter_date_pick">Select dates</string>
+
+    <string name="filter_size">Size</string>
+    <string name="filter_size_any">Any size</string>
+    <string name="filter_size_under_10">Under 10 MB</string>
+    <string name="filter_size_10_100">10–100 MB</string>
+    <string name="filter_size_100_1000">100 MB–1 GB</string>
+    <string name="filter_size_over_1g">Over 1 GB</string>
+
+    <string name="filter_duration">Duration</string>
+    <string name="filter_duration_any">Any length</string>
+    <string name="filter_duration_under_1">Under 1 min</string>
+    <string name="filter_duration_1_10">1–10 min</string>
+    <string name="filter_duration_10_60">10–60 min</string>
+    <string name="filter_duration_over_60">Over 1 hour</string>
+
+    <string name="filter_reset">Clear filters</string>
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+</resources>

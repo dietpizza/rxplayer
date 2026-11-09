@@ -13,7 +13,8 @@ import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * One album's media grid (plan §4 #3). Its own Activity, so open/close use the system transition.
- * Opened for a folder ([EXTRA_ALBUM_PATH]) or a built-in album ([EXTRA_VIRTUAL_ALBUM]).
+ * Opened for a folder ([EXTRA_ALBUM_PATH]), a built-in album ([EXTRA_VIRTUAL_ALBUM]), Favourites
+ * ([EXTRA_FAVOURITES]) or a custom album ([EXTRA_CUSTOM_ALBUM_ID]).
  */
 @AndroidEntryPoint
 class AlbumActivity : RxActivity() {
@@ -31,21 +32,12 @@ class AlbumActivity : RxActivity() {
     }
 
     /**
-     * Selection-bar actions. Only [SelectionAction.SHARE] is implemented here; the rest are
-     * hooks for the file-ops / favourites / custom-albums work (M5): add the action to
-     * [EnabledSelectionActions] and handle it below. Return true to clear the selection.
+     * Selection-bar actions the Activity handles itself (share needs the chooser). Everything else
+     * (favourite, albums, file ops) is handled by [AlbumScreen] with its dialogs. Return true to
+     * clear the selection.
      */
     private fun onSelectionAction(action: SelectionAction, items: List<MediaCell>): Boolean {
-        when (action) {
-            SelectionAction.SHARE -> share(items)
-            SelectionAction.FAVOURITE,
-            SelectionAction.ADD_TO_ALBUM,
-            SelectionAction.MOVE,
-            SelectionAction.COPY,
-            SelectionAction.RENAME,
-            SelectionAction.DELETE,
-            -> Unit // M5.
-        }
+        if (action == SelectionAction.SHARE) share(items)
         return false
     }
 
@@ -78,19 +70,35 @@ class AlbumActivity : RxActivity() {
         /** [VirtualAlbum.id] for built-in albums (optional). */
         const val EXTRA_VIRTUAL_ALBUM = "rx.extra.VIRTUAL_ALBUM"
 
+        /** Opens Favourites (a DB-only album over every favourite photo/video). */
+        const val EXTRA_FAVOURITES = "rx.extra.FAVOURITES"
+
+        /** Custom album id (a DB-only album, decision 12). */
+        const val EXTRA_CUSTOM_ALBUM_ID = "rx.extra.CUSTOM_ALBUM_ID"
+
         /** Actions with a real implementation; the others show disabled. */
-        val EnabledSelectionActions: Set<SelectionAction> = setOf(SelectionAction.SHARE)
+        val EnabledSelectionActions: Set<SelectionAction> = SelectionAction.entries.toSet()
 
         fun intent(context: Context, albumPath: String, albumName: String?, virtual: VirtualAlbum? = null): Intent =
             Intent(context, AlbumActivity::class.java)
                 .putExtra(EXTRA_ALBUM_PATH, albumPath)
                 .putExtra(EXTRA_ALBUM_NAME, albumName)
                 .putExtra(EXTRA_VIRTUAL_ALBUM, virtual?.id)
+
+        fun favouritesIntent(context: Context, title: String?): Intent =
+            Intent(context, AlbumActivity::class.java)
+                .putExtra(EXTRA_FAVOURITES, true)
+                .putExtra(EXTRA_ALBUM_NAME, title)
+
+        fun customAlbumIntent(context: Context, albumId: Long, albumName: String?): Intent =
+            Intent(context, AlbumActivity::class.java)
+                .putExtra(EXTRA_CUSTOM_ALBUM_ID, albumId)
+                .putExtra(EXTRA_ALBUM_NAME, albumName)
     }
 }
 
 /** Multi-select actions (plan §5). */
-enum class SelectionAction { SHARE, FAVOURITE, ADD_TO_ALBUM, MOVE, COPY, RENAME, DELETE }
+enum class SelectionAction { SHARE, FAVOURITE, ADD_TO_ALBUM, MOVE, COPY, RENAME, DELETE, REMOVE_FROM_ALBUM }
 
 /** Viewer launch: media keys in display order + the tapped index. */
 internal typealias OpenItem = (keys: List<MediaKey>, index: Int) -> Unit

@@ -20,6 +20,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.PhotoAlbum
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Search
@@ -34,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,6 +60,7 @@ import com.dietpizza.rxplayer.core.model.AlbumSortField
 import com.dietpizza.rxplayer.core.model.AppearanceSettings
 import com.dietpizza.rxplayer.core.model.ThemeMode
 import com.dietpizza.rxplayer.core.model.VirtualAlbum
+import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 
 /**
@@ -73,17 +80,37 @@ fun GalleryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    var newAlbum by rememberSaveable { mutableStateOf(false) }
     GalleryContent(
         uiState = uiState,
         sort = sort,
         onSortChange = viewModel::setSort,
         onOpenSettings = onOpenSettings,
+        onOpenSearch = { context.startActivity(RxIntents.search(context)) },
         onOpenAlbum = { album ->
-            context.startActivity(AlbumActivity.intent(context, album.path, album.name, album.virtual))
+            val intent = when (album.kind) {
+                AlbumKind.FAVOURITES -> AlbumActivity.favouritesIntent(context, album.name)
+                AlbumKind.CUSTOM -> AlbumActivity.customAlbumIntent(context, album.customAlbumId, album.name)
+                AlbumKind.FOLDER, AlbumKind.VIRTUAL -> AlbumActivity.intent(context, album.path, album.name, album.virtual)
+            }
+            context.startActivity(intent)
         },
+        onNewAlbum = { newAlbum = true },
         modifier = modifier,
         contentPadding = contentPadding,
     )
+    if (newAlbum) {
+        NameDialog(
+            title = stringResource(R.string.gallery_new_album),
+            initial = "",
+            confirmLabel = stringResource(R.string.action_create),
+            onConfirm = {
+                viewModel.createAlbum(it)
+                newAlbum = false
+            },
+            onDismiss = { newAlbum = false },
+        )
+    }
 }
 
 private val AlbumSortOptions = listOf(
@@ -101,6 +128,8 @@ internal fun GalleryContent(
     onOpenAlbum: (AlbumTile) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    onOpenSearch: () -> Unit = {},
+    onNewAlbum: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val background = MaterialTheme.colorScheme.surfaceContainer
@@ -111,8 +140,7 @@ internal fun GalleryContent(
             MediumFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.gallery_title)) },
                 actions = {
-                    // Search lands in M5.
-                    IconButton(onClick = {}, enabled = false) {
+                    IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.gallery_search))
                     }
                     SortMenuButton(
@@ -151,6 +179,7 @@ internal fun GalleryContent(
                 pinned = uiState.pinned,
                 albums = uiState.albums,
                 onOpenAlbum = onOpenAlbum,
+                onNewAlbum = onNewAlbum,
                 contentPadding = gridPadding(innerPadding, contentPadding),
             )
         }
@@ -162,6 +191,7 @@ private fun AlbumsGrid(
     pinned: List<AlbumTile>,
     albums: List<AlbumTile>,
     onOpenAlbum: (AlbumTile) -> Unit,
+    onNewAlbum: () -> Unit,
     contentPadding: PaddingValues,
 ) {
     LazyVerticalGrid(
@@ -173,7 +203,7 @@ private fun AlbumsGrid(
     ) {
         if (pinned.isNotEmpty()) {
             item(key = PINNED_ROW_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = PINNED_ROW_KEY) {
-                PinnedRow(pinned, onOpenAlbum)
+                PinnedRow(pinned, onOpenAlbum, onNewAlbum)
             }
         }
         items(albums, key = { it.id }, contentType = { "album" }) { album ->
@@ -190,12 +220,11 @@ private val AlbumThumbRequestWidth = 240.dp
 private val PinnedTileWidth = 112.dp
 
 /**
- * The pinned row: virtual albums now; favourites and custom albums (M5) slot in at the front,
- * since [AlbumTile.virtual] is just a badge here and the row takes any number of tiles
- * (it scrolls horizontally once they overflow).
+ * The pinned row: Favourites, custom albums, All videos, Camera, then a "New album" tile. Scrolls
+ * horizontally once the tiles overflow.
  */
 @Composable
-private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit) {
+private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit, onNewAlbum: () -> Unit) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -216,7 +245,7 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit)
                             .aspectRatio(1f)
                             .clip(MaterialTheme.shapes.extraLarge),
                     )
-                    pinnedIcon(album.virtual)?.let { icon ->
+                    pinnedIcon(album)?.let { icon ->
                         Icon(
                             imageVector = icon,
                             contentDescription = null,
@@ -233,13 +262,50 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit)
                 AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 4.dp))
             }
         }
+        item(key = NEW_ALBUM_KEY, contentType = NEW_ALBUM_KEY) {
+            Column(
+                Modifier
+                    .width(PinnedTileWidth)
+                    .clip(MaterialTheme.shapes.large)
+                    .clickable(onClick = onNewAlbum),
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(MaterialTheme.shapes.extraLarge)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                ) {
+                    Icon(
+                        Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.gallery_new_album),
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 4.dp),
+                )
+            }
+        }
     }
 }
 
-private fun pinnedIcon(virtual: VirtualAlbum?): ImageVector? = when (virtual) {
-    VirtualAlbum.ALL_VIDEOS -> Icons.Rounded.Videocam
-    VirtualAlbum.CAMERA -> Icons.Rounded.PhotoCamera
-    null -> null
+private const val NEW_ALBUM_KEY = "new_album"
+
+private fun pinnedIcon(album: AlbumTile): ImageVector? = when (album.kind) {
+    AlbumKind.FAVOURITES -> Icons.Rounded.Favorite
+    AlbumKind.CUSTOM -> Icons.Rounded.PhotoAlbum
+    AlbumKind.VIRTUAL, AlbumKind.FOLDER -> when (album.virtual) {
+        VirtualAlbum.ALL_VIDEOS -> Icons.Rounded.Videocam
+        VirtualAlbum.CAMERA -> Icons.Rounded.PhotoCamera
+        null -> null
+    }
 }
 
 private val BadgeScrim = Color.Black.copy(alpha = 0.5f)
@@ -285,6 +351,7 @@ private fun AlbumLabels(album: AlbumTile, modifier: Modifier = Modifier) {
 
 private val previewState = GalleryUiState.Content(
     pinned = listOf(
+        AlbumTile("favourites", "", "Favourites", "12 items", null, null, AlbumKind.FAVOURITES),
         AlbumTile("virtual:all_videos", "", "All videos", "214 items", null, VirtualAlbum.ALL_VIDEOS),
         AlbumTile("virtual:camera", "/s/DCIM/Camera", "Camera", "3,412 items", null, VirtualAlbum.CAMERA),
     ),

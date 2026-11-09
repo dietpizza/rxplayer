@@ -46,4 +46,79 @@
     <string name="selection_rename">Rename</string>
     <string name="selection_delete">Delete</string>
     <string name="selection_more">More options</string>
+    <string name="gallery_favourites">Favourites</string>
+    <string name="gallery_new_album">New album</string>
+    <string name="selection_unfavourite">Remove from favourites</string>
+    <string name="selection_remove_from_album">Remove from album</string>
+    <string name="selection_remove_from_favourites">Remove from favourites</string>
+
+    <string name="album_rename">Rename album</string>
+    <string name="album_delete">Delete album</string>
+    <string name="album_delete_title">Delete this album?</string>
+    <string name="album_delete_body">Only the album is deleted. The photos and videos in it stay on this device.</string>
+    <string name="album_add_to">Add to album</string>
+    <string name="album_favourites_empty_body">Photos and videos you favourite show up here.</string>
+    <string name="album_custom_empty_body">Select photos or videos in any album, then use Add to album.</string>
+
+    <string name="folder_new">New folder</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_create">Create</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_move">Move</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_move_to">Move to…</string>
+    <string name="action_copy_to">Copy to…</string>
+
+    <plurals name="delete_title">
+        <item quantity="one">Delete this item?</item>
+        <item quantity="other">Delete %d items?</item>
+    </plurals>
+    <plurals name="delete_body">
+        <item quantity="one">It will be permanently deleted from this device. This can\'t be undone.</item>
+        <item quantity="other">They will be permanently deleted from this device. This can\'t be undone.</item>
+    </plurals>
+
+    <string name="progress_moving">Moving…</string>
+    <string name="progress_copying">Copying…</string>
+    <string name="progress_deleting">Deleting…</string>
+
+    <plurals name="msg_moved">
+        <item quantity="one">Moved %d item</item>
+        <item quantity="other">Moved %d items</item>
+    </plurals>
+    <plurals name="msg_copied">
+        <item quantity="one">Copied %d item</item>
+        <item quantity="other">Copied %d items</item>
+    </plurals>
+    <plurals name="msg_deleted">
+        <item quantity="one">Deleted %d item</item>
+        <item quantity="other">Deleted %d items</item>
+    </plurals>
+    <plurals name="msg_failed">
+        <item quantity="one">%1$d of %2$d item failed</item>
+        <item quantity="other">%1$d of %2$d items failed</item>
+    </plurals>
+    <plurals name="msg_favourited">
+        <item quantity="one">Added to favourites</item>
+        <item quantity="other">Added %d items to favourites</item>
+    </plurals>
+    <plurals name="msg_unfavourited">
+        <item quantity="one">Removed from favourites</item>
+        <item quantity="other">Removed %d items from favourites</item>
+    </plurals>
+    <plurals name="msg_added_to_album">
+        <item quantity="one">Added %1$d item to %2$s</item>
+        <item quantity="other">Added %1$d items to %2$s</item>
+    </plurals>
+    <plurals name="msg_removed_from_album">
+        <item quantity="one">Removed %d item from the album</item>
+        <item quantity="other">Removed %d items from the album</item>
+    </plurals>
+    <string name="msg_renamed">Renamed</string>
+
+    <string name="error_name_exists">A file with that name already exists</string>
+    <string name="error_name_invalid">That name isn\'t allowed</string>
+    <string name="error_not_found">The file no longer exists</string>
+    <string name="error_generic">Something went wrong</string>
 </resources>
