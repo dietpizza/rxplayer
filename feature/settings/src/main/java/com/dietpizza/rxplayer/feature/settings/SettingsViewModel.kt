@@ -11,9 +11,13 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class AppInfo(val appName: String, val versionName: String)
@@ -31,13 +35,45 @@ class SettingsViewModel @Inject constructor(
 
     private val appInfo: AppInfo = context.readAppInfo()
 
-    val uiState: StateFlow<SettingsUiState> = appearanceRepository.appearance
-        .map<AppearanceSettings, SettingsUiState> { SettingsUiState.Ready(it, appInfo) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState.Loading)
+    /**
+     * What the user just picked. The controls render from this immediately (so the switch / toggle
+     * animates right away), while the real theme change is written [APPLY_DELAY_MS] later, after
+     * the control's own animation has finished. Without that, the whole screen restyles mid-animation.
+     */
+    private val pending = MutableStateFlow<AppearanceSettings?>(null)
 
-    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { appearanceRepository.setThemeMode(mode) }
-    fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { appearanceRepository.setDynamicColor(enabled) }
-    fun setPureBlack(enabled: Boolean) = viewModelScope.launch { appearanceRepository.setPureBlack(enabled) }
+    val uiState: StateFlow<SettingsUiState> =
+        combine(appearanceRepository.appearance, pending) { saved, picked ->
+            SettingsUiState.Ready(picked ?: saved, appInfo)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsUiState.Loading)
+
+    fun setThemeMode(mode: ThemeMode) = update { it.copy(themeMode = mode) }
+    fun setDynamicColor(enabled: Boolean) = update { it.copy(dynamicColor = enabled) }
+    fun setPureBlack(enabled: Boolean) = update { it.copy(pureBlack = enabled) }
+
+    private fun update(change: (AppearanceSettings) -> AppearanceSettings) {
+        val current = (uiState.value as? SettingsUiState.Ready)?.appearance ?: return
+        val next = change(current)
+        pending.value = next
+        viewModelScope.launch {
+            try {
+                delay(APPLY_DELAY_MS)
+            } finally {
+                // Also runs if the screen closes before the delay is up, so the choice is never lost.
+                withContext(NonCancellable) { save(pending.value ?: next) }
+            }
+        }
+    }
+
+    private suspend fun save(settings: AppearanceSettings) {
+        appearanceRepository.setThemeMode(settings.themeMode)
+        appearanceRepository.setDynamicColor(settings.dynamicColor)
+        appearanceRepository.setPureBlack(settings.pureBlack)
+    }
+
+    private companion object {
+        const val APPLY_DELAY_MS = 500L
+    }
 }
 
 private fun Context.readAppInfo(): AppInfo {
