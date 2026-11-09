@@ -303,12 +303,20 @@ class PlaybackController @Inject constructor(
         saveProgress()
         playlist = keys.toList()
         played.clear()
+        history.clear()
+        loaded = false
         autoPause.start()
         load(startIndex.coerceIn(0, playlist.lastIndex))
     }
 
     /** Playlist positions already played in this playlist (for [shuffleNext]). */
     private val played = HashSet<Int>()
+
+    /** Positions played before the current one, oldest first: [previous] walks back through it. */
+    private val history = ArrayList<Int>()
+
+    /** Whether a non-inline item of the current playlist is loaded (so it can enter [history]). */
+    private var loaded = false
 
     /** Flips shuffle mode (persisted, like mute). */
     fun toggleShuffle() {
@@ -340,6 +348,8 @@ class PlaybackController @Inject constructor(
     fun playInline(key: MediaKey) {
         saveProgress()
         playlist = listOf(key)
+        history.clear()
+        played.clear()
         autoPause.start()
         load(0, inline = true)
     }
@@ -368,6 +378,8 @@ class PlaybackController @Inject constructor(
         index = newIndex
         played.clear()
         played += newIndex
+        history.clear()
+        loaded = true
         _nowPlaying.value = _nowPlaying.value?.copy(index = newIndex, count = playlist.size)
     }
 
@@ -384,13 +396,27 @@ class PlaybackController @Inject constructor(
         }
     }
 
-    /** Restarts the current item if more than [RESTART_THRESHOLD_MS] in, else goes back one. */
+    /**
+     * Goes to the video actually played before this one (shuffle included), else the one
+     * before it in the list. Only at the very start (nothing before) does it restart the item.
+     */
     fun previous() {
-        if (index <= 0 || player.currentPosition > RESTART_THRESHOLD_MS) seekTo(0) else load(index - 1)
+        while (history.isNotEmpty()) {
+            val back = history.removeAt(history.lastIndex)
+            if (back in playlist.indices && back != index) {
+                load(back, recordHistory = false)
+                return
+            }
+        }
+        if (index > 0) load(index - 1, recordHistory = false) else seekTo(0)
     }
 
-    private fun load(newIndex: Int, inline: Boolean = false) {
+    private fun load(newIndex: Int, inline: Boolean = false, recordHistory: Boolean = true) {
         saveProgress()
+        if (recordHistory && !inline && loaded && !inlinePreview && index != newIndex && index in playlist.indices) {
+            history += index
+        }
+        loaded = !inline
         inlinePreview = inline
         if (!inline) played += newIndex
         player.repeatMode = if (inline) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
@@ -1086,7 +1112,7 @@ class PlaybackController @Inject constructor(
         override fun seekBack() = this@PlaybackController.seekBack()
         override fun hasNextMediaItem(): Boolean =
             index < playlist.lastIndex || (_settings.value.shuffle && playlist.size > 1)
-        override fun hasPreviousMediaItem(): Boolean = index > 0
+        override fun hasPreviousMediaItem(): Boolean = index > 0 || history.isNotEmpty()
 
         override fun isCommandAvailable(command: Int): Boolean =
             command in EXTRA_COMMANDS || super.isCommandAvailable(command)
@@ -1098,7 +1124,6 @@ class PlaybackController @Inject constructor(
     companion object {
         const val POSITION_TICK_MS = 250L
         const val SAVE_INTERVAL_MS = 5_000L
-        const val RESTART_THRESHOLD_MS = 3_000L
 
         private val EXTRA_COMMANDS = intArrayOf(
             Player.COMMAND_SEEK_TO_NEXT,
