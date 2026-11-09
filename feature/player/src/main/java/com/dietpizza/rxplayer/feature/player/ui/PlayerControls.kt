@@ -186,11 +186,16 @@ private fun CenterTransport(controller: PlaybackController, ui: FullPlayerState,
         horizontalArrangement = Arrangement.spacedBy(48.dp),
     ) {
         BigPlainIcon(RxIcons.SkipPrevious, "Previous", size = 36.dp) { controller.previous(); ui.bump() }
-        BigPlainIcon(
-            icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
-            description = if (ended) "Replay" else if (playing) "Pause" else "Play",
-            size = 56.dp,
-        ) { controller.togglePlayPause(); ui.bump() }
+        // The buffering loader takes this spot: hide play/pause (keep its space) while it shows.
+        val loading = ui.bufferingShown
+        Box(Modifier.graphicsLayer { alpha = if (loading) 0f else 1f }) {
+            BigPlainIcon(
+                icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                description = if (ended) "Replay" else if (playing) "Pause" else "Play",
+                size = 56.dp,
+                enabled = !loading,
+            ) { controller.togglePlayPause(); ui.bump() }
+        }
         BigPlainIcon(
             RxIcons.SkipNext,
             "Next",

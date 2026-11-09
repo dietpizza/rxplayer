@@ -366,6 +366,7 @@ private fun BufferingIndicator(controller: PlaybackController, ui: FullPlayerSta
             show = true
         }
     }
+    SideEffect { ui.bufferingShown = show }
     val motion = MaterialTheme.motionScheme
     AnimatedVisibility(
         visible = show,

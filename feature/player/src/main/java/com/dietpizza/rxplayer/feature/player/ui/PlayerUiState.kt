@@ -50,6 +50,9 @@ class FullPlayerState internal constructor() {
     internal var swipeStartMs by mutableLongStateOf(0L)
     internal var swipeTargetMs by mutableLongStateOf(0L)
 
+    /** True while the centre buffering loader is on screen (the centre play/pause gives way). */
+    internal var bufferingShown by mutableStateOf(false)
+
     /** Pop after a double tap: what it shows, and a counter that restarts the animation. */
     internal var popKind by mutableStateOf(PopKind.Play)
         private set
