@@ -45,7 +45,7 @@ Two non-negotiables:
 |---|---|
 | UI | Jetpack Compose, **Material 3 Expressive** (`MaterialExpressiveTheme`, `MotionScheme.expressive()`, shape morphing, `LoadingIndicator`, `FloatingToolbar`, button groups) |
 | Navigation | **One Activity per full-screen destination ✅** (no Compose navigation library). The OS activity transitions and predictive back come for free. See §3.2a |
-| Playback | **Media3 ExoPlayer ✅** + FFmpeg audio decoder extension (AC3/EAC3/DTS/TrueHD/etc). Use the prebuilt `org.jellyfin.media3:media3-ffmpeg-decoder`, so we don't have to build FFmpeg ourselves. Also `media3-ui-compose` (`PlayerSurface`) and `media3-session` |
+| Playback | **Media3 ExoPlayer ✅** + FFmpeg audio decoder extension (AC3/EAC3/DTS/TrueHD/etc). Use the prebuilt `org.jellyfin.media3:media3-ffmpeg-decoder`, so we don't have to build FFmpeg ourselves. **Media3 is pinned to 1.9.x ✅** because the latest Jellyfin build (1.9.0+1) is compiled against Media3 1.9. Upgrade both together. Also `media3-ui-compose` (`PlayerSurface`) and `media3-session` |
 | DI | **Hilt ✅** |
 | DB | Room + Flow |
 | Prefs | DataStore (Proto) |
@@ -94,7 +94,7 @@ Two non-negotiables:
   - **MediaStore** says *what exists locally* (it is fast, the system keeps it indexed, and it already has thumbnails).
   - **Room** holds *what we know about it*: resume position, watched state, favourites, custom albums, playlists, history, servers.
   - Repositories join the two in memory using a stable `mediaKey` (§7.1). *(proposed)* v1 does **not** mirror MediaStore into Room, so there is no second index to keep in sync. We revisit this only if the folder-list queries turn out slow.
-- **One player, many surfaces.** `PlaybackController` (`@Singleton`) owns the single `ExoPlayer`. The inline viewer, the full player and PiP all attach to the same instance. `MediaSessionService` wraps it for the notification and PiP controls.
+- **One player, many surfaces.** `PlaybackController` (`@Singleton`) owns the single `ExoPlayer`. The inline viewer, the full player and PiP all attach to the same instance. In M1 a `MediaSession` owned by `PlayerActivity` handles hardware and Bluetooth keys. There is no foreground service, because there's no background play (decision 28). `MediaSessionService` is only added if PiP (M3) needs it.
 
 ### 3.2a Navigation: Activities, not Compose navigation ✅
 - **Every full-screen destination is its own `Activity`**, opened with `startActivity` and closed with `finish()`. We use the system's own activity open/close animations and its cross-activity predictive back. We don't override transitions, so the app feels native on every Android version and OEM skin.
@@ -417,6 +417,7 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 33 | git init, commit per step; manual signed APK releases | 2026-11-09 |
 | 34 | Tab switches are instant (no transition); settings toggle rows don't highlight, only the switch shows state | 2026-11-09 |
 | 35 | **Activities for navigation** (one per full-screen destination, system transitions); Navigation 3 removed; tabs are state in MainActivity; viewer + full player share `PlayerActivity` | 2026-11-09 |
+| 36 | Media3 pinned to 1.9.x to match the Jellyfin FFmpeg decoder; M1 uses an activity-owned MediaSession, no service | 2026-11-09 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:

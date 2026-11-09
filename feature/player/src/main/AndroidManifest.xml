@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!--
+            Full player (plan §3.2a, §6).
+            - Handles its own config changes: rotation never recreates it (no surface/player re-attach).
+            - Own task (singleTask + taskAffinity): PiP (M3) shrinks only this task, never the
+              main tabs task behind it; re-opening a video while one plays reuses this instance
+              (onNewIntent). autoRemoveFromRecents drops the card once the player is closed.
+            - supportsPictureInPicture is declared now; entering PiP is M3.
+        -->
+        <activity
+            android:name=".PlayerActivity"
+            android:autoRemoveFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:taskAffinity="${applicationId}.player"
+            android:theme="@style/Theme.Rx.Player">
+            <!-- Decision 22: open videos from other apps. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

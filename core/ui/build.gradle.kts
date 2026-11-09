@@ -8,4 +8,8 @@ dependencies {
     api(project(":core:datastore"))
     api(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // Thumbnails (MediaThumbnail + the shared ImageLoader). `api` so features can pass Coil
+    // requests / use AsyncImage with the shared loader if they need more than MediaThumbnail.
+    api(libs.coil.compose)
+    implementation(libs.coil.video)
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only. M1 spike for the inline -> full-screen video morph (plan §4.1, §12 risk 1).
+  adb shell am start -n com.dietpizza.rxplayer/com.dietpizza.rxplayer.feature.player.MorphSpikeActivity
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.dietpizza.rxplayer.feature.player.MorphSpikeActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
+            android:exported="true"
+            android:label="Morph spike"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+    </application>
+</manifest>
