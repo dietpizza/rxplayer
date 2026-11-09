@@ -306,6 +306,7 @@ network_server
 - Material 3 Expressive throughout: expressive motion scheme (springy), shape morphing on the play/pause button and the FAB, a wavy `LinearWavyProgressIndicator` for the inline resume bar, and button groups in the player's ⋮ sheet
 - Dynamic colour by default, with an AMOLED toggle. **The player is always pure black** whatever the theme.
 - Edge-to-edge everywhere. Predictive back with an expressive animation.
+- **Switching bottom-nav tabs has no animation ✅.** Tapping an unselected tab swaps the content instantly: no fade, scale, slide or stack effect. Animated transitions are only for moving *within* a tab (shared-axis) and for full-screen destinations like Settings (slide over).
 - Seed colour: **coral red ✅** (e.g. `#FF5A4E`, tuned in M0). The icon is a coral play glyph.
 - Typography: **system default font ✅**, using the M3 type scale with emphasized styles for headers
 - **Adaptive basics ✅:** NavigationRail on wide screens, grid columns follow width, the player handles fold and resize. No two-pane layouts in v1.
@@ -392,6 +393,7 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 31 | Swipe-seek is live; thumbnail bubble only on seek-bar drag | 2026-11-09 |
 | 32 | Respect .nomedia by default | 2026-11-09 |
 | 33 | git init, commit per step; manual signed APK releases | 2026-11-09 |
+| 34 | Tab switches are instant (no transition); settings toggle rows don't highlight, only the switch shows state | 2026-11-09 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:

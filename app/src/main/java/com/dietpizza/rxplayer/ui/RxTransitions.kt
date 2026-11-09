@@ -2,12 +2,13 @@ package com.dietpizza.rxplayer.ui
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -24,23 +25,19 @@ private val Scene<NavKey>.tab: Any?
     get() = entries.lastOrNull()?.metadata?.get(TabMetadataKey)
 
 /**
- * Transitions for the tab NavDisplay: fade-through when the tab changes, shared-axis X when
- * moving within a tab's own stack.
+ * Transitions for the tab NavDisplay: an instant swap when the tab changes (no animation at all,
+ * per plan §9), shared-axis X when moving within a tab's own stack.
  */
 internal class TabTransitions(private val motion: MotionScheme) {
 
     fun forward(scope: AnimatedContentTransitionScope<Scene<NavKey>>): ContentTransform =
-        if (scope.initialState.tab != scope.targetState.tab) fadeThrough() else sharedAxisX(forward = true)
+        if (scope.initialState.tab != scope.targetState.tab) instantSwap() else sharedAxisX(forward = true)
 
     fun backward(scope: AnimatedContentTransitionScope<Scene<NavKey>>): ContentTransform =
-        if (scope.initialState.tab != scope.targetState.tab) fadeThrough() else sharedAxisX(forward = false)
+        if (scope.initialState.tab != scope.targetState.tab) instantSwap() else sharedAxisX(forward = false)
 
-    /** M3 fade-through: the outgoing screen fades out quickly, then the new one fades and scales in. */
-    private fun fadeThrough(): ContentTransform =
-        (
-            fadeIn(tween(durationMillis = 210, delayMillis = 90, easing = LinearOutSlowInEasing)) +
-                scaleIn(motion.defaultSpatialSpec(), initialScale = 0.92f)
-            ) togetherWith fadeOut(tween(durationMillis = 90, easing = FastOutLinearInEasing))
+    /** Switching tabs just swaps the content: no fade, scale or slide. */
+    private fun instantSwap(): ContentTransform = EnterTransition.None togetherWith ExitTransition.None
 
     private fun sharedAxisX(forward: Boolean): ContentTransform {
         val sign = if (forward) 1 else -1
