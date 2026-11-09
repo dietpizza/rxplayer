@@ -181,13 +181,13 @@ internal fun sortLabels() = com.dietpizza.rxplayer.core.designsystem.component.R
 )
 
 /**
- * Quick-return header: scrolling the content down slides the header away; any scroll back up
+ * Quick-return bar: scrolling the content down slides the bar away; any scroll back up
  * brings it straight back (even mid-list). A half-hidden header snaps open/closed after a
  * fling. The offset is applied in the draw phase, so scrolling never re-lays out the list.
  */
 @Stable
 internal class QuickReturnState {
-    /** How far the header can hide, px (its height below the status bar). */
+    /** How far the bar can hide, px (its height). */
     var rangePx by mutableFloatStateOf(0f)
 
     /** 0 = fully shown, -[rangePx] = fully hidden. */
@@ -195,11 +195,10 @@ internal class QuickReturnState {
 
     val connection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (rangePx <= 0f) return Offset.Zero
-            val next = (offsetPx + available.y).coerceIn(-rangePx, 0f)
-            val used = next - offsetPx
-            offsetPx = next
-            return Offset(0f, used)
+            // Observe only: the list (and the title bar) scroll exactly as before; the bar just
+            // tracks the scroll distance alongside.
+            if (rangePx > 0f) offsetPx = (offsetPx + available.y).coerceIn(-rangePx, 0f)
+            return Offset.Zero
         }
 
         override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
