@@ -171,3 +171,63 @@ private fun DirectionButton(
         Text(label, maxLines = 1)
     }
 }
+
+/** One value in an [RxChoiceSheet]. */
+@Immutable
+class RxChoice<T>(val value: T, val label: String)
+
+/**
+ * Full-height M3 Expressive single-choice sheet (same look as the sort sheet). Picking a
+ * value calls [onSelect] and closes the sheet.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> RxChoiceSheet(
+    title: String,
+    choices: List<RxChoice<T>>,
+    current: T,
+    onSelect: (T) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 20.dp),
+            )
+            Column(
+                Modifier.selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                choices.forEachIndexed { index, choice ->
+                    val selected = choice.value == current
+                    SegmentedListItem(
+                        selected = selected,
+                        onClick = {
+                            onDismissRequest()
+                            onSelect(choice.value)
+                        },
+                        shapes = ListItemDefaults.segmentedShapes(index = index, count = choices.size),
+                        verticalAlignment = Alignment.CenterVertically,
+                        trailingContent = { RadioButton(selected = selected, onClick = null) },
+                        modifier = Modifier.semantics { role = Role.RadioButton },
+                    ) {
+                        Text(choice.label)
+                    }
+                }
+            }
+        }
+    }
+}

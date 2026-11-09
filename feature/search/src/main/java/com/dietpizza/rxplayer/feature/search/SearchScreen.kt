@@ -1,7 +1,7 @@
 package com.dietpizza.rxplayer.feature.search
 
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.component.RxChoice
+import com.dietpizza.rxplayer.core.designsystem.component.RxChoiceSheet
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -299,19 +299,15 @@ private fun <T> FilterMenuChip(
             },
             trailingIcon = { Icon(RxIcons.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
-        RxMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            groups = listOf(
-                choices.map { choice ->
-                    RxMenuItem(
-                        label = stringResource(choice.label),
-                        onClick = { onSelect(choice.value) },
-                        selected = choice.value == current,
-                    )
-                },
-            ),
-        )
+        if (expanded) {
+            RxChoiceSheet(
+                title = stringResource(name),
+                choices = choices.map { RxChoice(it.value, stringResource(it.label)) },
+                current = current,
+                onSelect = onSelect,
+                onDismissRequest = { expanded = false },
+            )
+        }
     }
 }
 
