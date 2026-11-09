@@ -302,8 +302,25 @@ class PlaybackController @Inject constructor(
         if (keys.isEmpty()) return
         saveProgress()
         playlist = keys.toList()
+        played.clear()
         autoPause.start()
         load(startIndex.coerceIn(0, playlist.lastIndex))
+    }
+
+    /** Playlist positions already played in this playlist (for [shuffleNext]). */
+    private val played = HashSet<Int>()
+
+    /**
+     * Jumps to a random item that is neither the current one nor already played in this
+     * playlist. Once everything has played, starts a fresh round (still never the current one).
+     */
+    fun shuffleNext(random: kotlin.random.Random = kotlin.random.Random.Default) {
+        val pick = pickShuffle(playlist.size, index, played, random) ?: return
+        if (pick.resetRound) {
+            played.clear()
+            played += index
+        }
+        load(pick.index)
     }
 
     /**
@@ -346,6 +363,7 @@ class PlaybackController @Inject constructor(
     private fun load(newIndex: Int, inline: Boolean = false) {
         saveProgress()
         inlinePreview = inline
+        if (!inline) played += newIndex
         player.repeatMode = if (inline) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         _isHdrVideo.value = false
         index = newIndex
@@ -1060,4 +1078,16 @@ class PlaybackController @Inject constructor(
             Player.COMMAND_SEEK_FORWARD,
         )
     }
+}
+
+/** Result of [pickShuffle]: the index to play, and whether the played set must restart. */
+internal data class ShufflePick(val index: Int, val resetRound: Boolean)
+
+/** Random index in 0 until [size], never [current], preferring ones not in [played]. */
+internal fun pickShuffle(size: Int, current: Int, played: Set<Int>, random: kotlin.random.Random): ShufflePick? {
+    if (size < 2) return null
+    val fresh = (0 until size).filter { it != current && it !in played }
+    if (fresh.isNotEmpty()) return ShufflePick(fresh[random.nextInt(fresh.size)], resetRound = false)
+    val all = (0 until size).filter { it != current }
+    return ShufflePick(all[random.nextInt(all.size)], resetRound = true)
 }

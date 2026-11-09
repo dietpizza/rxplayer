@@ -50,9 +50,14 @@ class FullPlayerState internal constructor() {
     internal var swipeStartMs by mutableLongStateOf(0L)
     internal var swipeTargetMs by mutableLongStateOf(0L)
 
-    /** Centre pop after a double tap: which icon, and a counter that restarts the animation. */
-    internal var popShowsPlay by mutableStateOf(false)
+    /** Pop after a double tap: what it shows, and a counter that restarts the animation. */
+    internal var popKind by mutableStateOf(PopKind.Play)
         private set
+
+    /** Seconds shown by a seek pop; repeated double taps on the same side add up. */
+    internal var popSeconds by mutableIntStateOf(0)
+        private set
+    private var lastPopAtMs = 0L
     internal var popKey by mutableIntStateOf(0)
         private set
 
@@ -109,8 +114,12 @@ class FullPlayerState internal constructor() {
         bump()
     }
 
-    internal fun pop(showsPlay: Boolean) {
-        popShowsPlay = showsPlay
+    internal fun pop(kind: PopKind, seconds: Int = 0) {
+        val now = android.os.SystemClock.uptimeMillis()
+        val chained = kind == popKind && kind.isSeek && now - lastPopAtMs < POP_CHAIN_MS
+        popSeconds = if (chained) popSeconds + seconds else seconds
+        popKind = kind
+        lastPopAtMs = now
         popKey++
     }
 
@@ -141,3 +150,7 @@ class FullPlayerState internal constructor() {
 /** Remembers a [FullPlayerState] for [FullPlayer]. */
 @Composable
 fun rememberFullPlayerState(): FullPlayerState = remember { FullPlayerState() }
+
+internal enum class PopKind(val isSeek: Boolean) { Play(false), Pause(false), Back(true), Forward(true) }
+
+private const val POP_CHAIN_MS = 1_200L

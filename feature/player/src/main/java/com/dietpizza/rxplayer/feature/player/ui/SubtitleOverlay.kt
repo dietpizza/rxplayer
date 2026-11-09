@@ -15,7 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import android.content.res.Configuration
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -49,8 +51,10 @@ internal fun SubtitleOverlay(controller: PlaybackController, liftForControls: Bo
     val subtitleSettings by controller.subtitleSettings.collectAsStateWithLifecycle()
     val video by controller.videoSize.collectAsStateWithLifecycle()
     if (cues.isEmpty() || !subtitleSettings.enabled) return
+    // Portrait stacks transport + seek bar + action row at the bottom, so lift further there.
+    val portrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val lift by animateDpAsState(
-        if (liftForControls) 120.dp else 24.dp,
+        if (liftForControls) (if (portrait) 260.dp else 120.dp) else 24.dp,
         MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "subtitleLift",
     )

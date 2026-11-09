@@ -44,6 +44,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -133,7 +135,8 @@ fun FullPlayer(
                 currentOnMinimize()
             }
         }
-        machine.doubleTapEnabled = settings.doubleTapPlayPause && !ui.locked
+        // Double tap always seeks on the sides; the play/pause middle zone follows the setting.
+        machine.doubleTapEnabled = !ui.locked
         machine.longPressEnabled = settings.longPressSpeedEnabled && !ui.locked
         machine.verticalDownEnabled = settings.swipeDownToClose && !ui.locked
         machine.pinchEnabled = settings.pinchToZoom && !ui.locked
@@ -220,7 +223,7 @@ fun FullPlayer(
         if (!inPip) {
             BufferingIndicator(controller, ui, Modifier.align(Alignment.Center))
             SwipeSeekOverlay(controller, ui, Modifier.align(Alignment.Center))
-            DoubleTapPop(ui, Modifier.align(Alignment.Center))
+            DoubleTapPop(ui)
             SpeedBoostPill(controller, Modifier.align(Alignment.TopCenter).padding(top = 72.dp))
             ZoomIndicator(ui, Modifier.align(Alignment.TopCenter).padding(top = 72.dp))
             CenterToast(ui, Modifier.align(Alignment.Center))
@@ -237,11 +240,6 @@ fun FullPlayer(
                     onCycleAspect = { handler.cycleAspect(); ui.bump() },
                     onBack = onBack,
                 )
-            }
-            // Mute is first-class and always reachable (plan §3.3, §6.3): it stays on screen,
-            // dimmed, while the rest of the controls are hidden (not while locked).
-            if (!ui.locked && !ui.isDismissDragging) {
-                AlwaysOnMute(controller, ui, Modifier.align(Alignment.TopEnd))
             }
             LockOverlay(ui, Modifier.align(Alignment.BottomStart))
 
@@ -413,9 +411,9 @@ private fun SwipeSeekOverlay(controller: PlaybackController, ui: FullPlayerState
     }
 }
 
-/** Play/pause icon that pops in the centre after a double tap. */
+/** Pops after a double tap: play/pause in the centre, ⏪/⏩ with the seconds on that side. */
 @Composable
-private fun DoubleTapPop(ui: FullPlayerState, modifier: Modifier) {
+private fun BoxScope.DoubleTapPop(ui: FullPlayerState) {
     val key = ui.popKey
     if (key == 0) return
     val scale = remember { Animatable(0.6f) }
@@ -427,11 +425,18 @@ private fun DoubleTapPop(ui: FullPlayerState, modifier: Modifier) {
             scale.animateTo(1f, motion.fastSpatialSpec())
         }
         alpha.snapTo(1f)
-        delay(450)
+        delay(550)
         alpha.animateTo(0f, motion.defaultEffectsSpec())
     }
+    val kind = ui.popKind
+    val alignment = when (kind) {
+        PopKind.Back -> BiasAlignment(-0.6f, 0f)
+        PopKind.Forward -> BiasAlignment(0.6f, 0f)
+        else -> Alignment.Center
+    }
     Surface(
-        modifier = modifier
+        modifier = Modifier
+            .align(alignment)
             .size(96.dp)
             .graphicsLayer {
                 scaleX = scale.value
@@ -442,12 +447,23 @@ private fun DoubleTapPop(ui: FullPlayerState, modifier: Modifier) {
         color = Color.Black.copy(alpha = 0.55f),
         contentColor = Color.White,
     ) {
-        Box(contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(
-                imageVector = if (ui.popShowsPlay) RxIcons.PlayArrow else RxIcons.Pause,
+                imageVector = when (kind) {
+                    PopKind.Play -> RxIcons.PlayArrow
+                    PopKind.Pause -> RxIcons.Pause
+                    PopKind.Back -> RxIcons.FastRewind
+                    PopKind.Forward -> RxIcons.FastForward
+                },
                 contentDescription = null,
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(if (kind.isSeek) 40.dp else 56.dp),
             )
+            if (kind.isSeek) {
+                Text(
+                    (if (kind == PopKind.Back) "-" else "+") + ui.popSeconds + "s",
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
     }
 }

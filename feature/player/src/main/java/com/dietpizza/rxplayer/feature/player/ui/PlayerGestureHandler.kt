@@ -47,9 +47,23 @@ internal class PlayerGestureHandler(
             return
         }
         ui.undoTapToggle()
-        val willPlay = !(controller.player.playWhenReady && !controller.isEnded.value)
-        controller.togglePlayPause()
-        ui.pop(showsPlay = willPlay)
+        val step = settings.seekStepSeconds
+        when (DoubleTapZone.of(x, widthPx)) {
+            DoubleTapZone.Left -> {
+                controller.seekBack()
+                ui.pop(PopKind.Back, step)
+            }
+            DoubleTapZone.Right -> {
+                controller.seekForward()
+                ui.pop(PopKind.Forward, step)
+            }
+            DoubleTapZone.Middle -> {
+                if (!settings.doubleTapPlayPause) return
+                val willPlay = !(controller.player.playWhenReady && !controller.isEnded.value)
+                controller.togglePlayPause()
+                ui.pop(if (willPlay) PopKind.Play else PopKind.Pause)
+            }
+        }
     }
 
     override fun onLongPressStart(x: Float, y: Float) {
@@ -225,5 +239,19 @@ internal class PlayerGestureHandler(
     companion object {
         /** Fraction of the screen height a swipe-down must travel to close/minimise. */
         const val DISMISS_THRESHOLD = 0.18f
+    }
+}
+
+/** Double tap: left third seeks back, right third forward, middle plays/pauses (MX-style). */
+internal enum class DoubleTapZone {
+    Left, Middle, Right;
+
+    companion object {
+        fun of(x: Float, width: Float): DoubleTapZone = when {
+            width <= 0f -> Middle
+            x < width / 3f -> Left
+            x > width * 2f / 3f -> Right
+            else -> Middle
+        }
     }
 }

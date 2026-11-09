@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -43,6 +44,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -70,7 +72,8 @@ internal fun PlayerControls(
     onCycleAspect: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val portrait = maxHeight > maxWidth
         // Scrims only at the edges; the middle stays clear and doesn't catch touches.
         Box(
             Modifier
@@ -83,15 +86,19 @@ internal fun PlayerControls(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(if (portrait) 320.dp else 200.dp)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
         )
 
         TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
-        CenterControls(controller, ui, Modifier.align(Alignment.Center))
+        if (!portrait) {
+            // Landscape: transport sits below centre so faces/subjects stay clear.
+            TransportControls(controller, ui, Modifier.align(LandscapeTransportAlignment))
+        }
         BottomBar(
             controller = controller,
             ui = ui,
+            portrait = portrait,
             rotationLocked = host.rotationLocked,
             onToggleRotationLock = { host.toggleRotationLock(); ui.bump() },
             onCycleAspect = onCycleAspect,
@@ -100,6 +107,8 @@ internal fun PlayerControls(
     }
 }
 
+private val LandscapeTransportAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = 0.35f)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: () -> Unit, modifier: Modifier) {
@@ -107,7 +116,7 @@ private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: 
     Row(
         modifier
             .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp + MuteSlotWidth, top = 4.dp),
+            .padding(start = 4.dp, end = 4.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
@@ -143,38 +152,25 @@ private fun TopIcon(icon: ImageVector, description: String, onClick: () -> Unit)
     }
 }
 
-/** Reserved at the end of the top bar for [AlwaysOnMute]. */
-private val MuteSlotWidth = 64.dp
-
-/** Mute stays visible (dimmed) when controls hide: it's a first-class control (plan §3.3). */
+/** Mute is first-class (plan §3.3): it lives in the bottom row, next to rotation. */
 @Composable
-internal fun AlwaysOnMute(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
+private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
     val muted by controller.isMuted.collectAsStateWithLifecycle()
-    val alpha by animateFloatAsState(
-        targetValue = if (ui.controlsVisible) 1f else 0.45f,
-        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
-        label = "muteAlpha",
-    )
-    Box(modifier.controlsInsets().padding(end = 4.dp, top = 4.dp)) {
-        IconButton(
-            onClick = { controller.toggleMute(); ui.bump() },
-            modifier = Modifier
-                .size(IconButtonDefaults.mediumContainerSize())
-                .graphicsLayer { this.alpha = alpha },
-        ) {
-            Icon(
-                imageVector = if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
-                contentDescription = if (muted) "Unmute" else "Mute",
-                tint = Color.White,
-            )
-        }
+    IconButton(
+        onClick = { controller.toggleMute(); ui.bump() },
+        modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+    ) {
+        Icon(
+            imageVector = if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
+            contentDescription = if (muted) "Unmute" else "Mute",
+            tint = Color.White,
+        )
     }
 }
 
 @Composable
-private fun CenterControls(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
+private fun TransportControls(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
-    val settings by controller.settings.collectAsStateWithLifecycle()
     val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
     val ended by controller.isEnded.collectAsStateWithLifecycle()
     val playing = playWhenReady && !ended
@@ -182,12 +178,9 @@ private fun CenterControls(controller: PlaybackController, ui: FullPlayerState, 
     Row(
         modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         ControlButton(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
-        ControlButton(seekBackIcon(settings.seekStepSeconds), "Back ${settings.seekStepSeconds} seconds") {
-            controller.seekBack(); ui.bump()
-        }
         val iconFade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
         // Expressive shape-morphing toggle: round while paused, squircle while playing.
         FilledIconToggleButton(
@@ -209,9 +202,6 @@ fadeIn(iconFade) togetherWith fadeOut(iconFade)
                     modifier = Modifier.size(IconButtonDefaults.largeIconSize),
                 )
             }
-        }
-        ControlButton(seekForwardIcon(settings.seekStepSeconds), "Forward ${settings.seekStepSeconds} seconds") {
-            controller.seekForward(); ui.bump()
         }
         ControlButton(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) {
             controller.next(); ui.bump()
@@ -246,24 +236,11 @@ private fun ControlButton(
     }
 }
 
-private fun seekBackIcon(seconds: Int) = when (seconds) {
-    5 -> RxIcons.Replay5
-    10 -> RxIcons.Replay10
-    30 -> RxIcons.Replay30
-    else -> RxIcons.FastRewind
-}
-
-private fun seekForwardIcon(seconds: Int) = when (seconds) {
-    5 -> RxIcons.Forward5
-    10 -> RxIcons.Forward10
-    30 -> RxIcons.Forward30
-    else -> RxIcons.FastForward
-}
-
 @Composable
 private fun BottomBar(
     controller: PlaybackController,
     ui: FullPlayerState,
+    portrait: Boolean,
     rotationLocked: Boolean,
     onToggleRotationLock: () -> Unit,
     onCycleAspect: () -> Unit,
@@ -276,6 +253,10 @@ private fun BottomBar(
             DurationTime(controller, ui)
         }
         SeekBar(controller, ui)
+        if (portrait) {
+            // Portrait: transport lives down here so the video stays visible.
+            TransportControls(controller, ui, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp))
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = { ui.lock() },
@@ -291,6 +272,19 @@ private fun BottomBar(
             }
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
+            val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
+            IconButton(
+                onClick = { controller.shuffleNext(); ui.bump() },
+                enabled = (nowPlaying?.count ?: 0) > 1,
+                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+            ) {
+                Icon(
+                    RxIcons.Shuffle,
+                    contentDescription = "Play a random video",
+                    tint = if ((nowPlaying?.count ?: 0) > 1) Color.White else Color.White.copy(alpha = 0.38f),
+                )
+            }
+            MuteButton(controller, ui)
             IconButton(
                 onClick = onToggleRotationLock,
                 modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),

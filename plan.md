@@ -420,6 +420,7 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 36 | Media3 pinned to 1.9.x to match the Jellyfin FFmpeg decoder; M1 uses an activity-owned MediaSession, no service | 2026-11-09 |
 | 37 | Network server configs live in a separate small Room DB inside `:core:netfs` (`netfs.db`), not `RxDatabase`, to keep modules decoupled; custom schemes plug into playback via `SchemeDataSourceFactory` multibinding | 2026-11-09 |
 | 38 | Viewer decodes full-size images with ImageDecoder (not Coil); inline→full morph animates the single SurfaceView's bounds with a corner mask inside `PlayerActivity`; `PlaybackController.playInline/promoteInline` keep inline plays out of resume/history | 2026-11-10 |
+| 39 | Player controls: portrait puts prev/play/next under the seek bar; landscape centres them lower; no ±seek buttons (double-tap left/right third seeks, middle plays/pauses); mute moves to the bottom row next to rotation (no longer always visible); shuffle button jumps to a random unplayed item | 2026-11-10 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:

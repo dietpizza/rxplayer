@@ -171,7 +171,9 @@ private fun VideosScaffold(
                 modifier = Modifier.padding(
                     start = start + 16.dp,
                     end = end + 16.dp,
-                    top = innerPadding.calculateTopPadding() + contentPadding.calculateTopPadding(),
+                    // 8 dp above, 12 dp below (4 here + the list's 8 dp top), collapsed or not.
+                    top = innerPadding.calculateTopPadding() + contentPadding.calculateTopPadding() + 8.dp,
+                    bottom = 4.dp,
                 ),
             )
             Box(Modifier.weight(1f)) {
