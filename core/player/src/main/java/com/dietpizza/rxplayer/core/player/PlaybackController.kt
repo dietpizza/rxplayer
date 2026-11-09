@@ -310,17 +310,26 @@ class PlaybackController @Inject constructor(
     /** Playlist positions already played in this playlist (for [shuffleNext]). */
     private val played = HashSet<Int>()
 
+    /** Flips shuffle mode (persisted, like mute). */
+    fun toggleShuffle() {
+        scope.launch { settingsRepository.edit { it.copy(shuffle = !it.shuffle) } }
+    }
+
     /**
-     * Jumps to a random item that is neither the current one nor already played in this
-     * playlist. Once everything has played, starts a fresh round (still never the current one).
+     * Shuffle step: a random item that is neither the current one nor already played in this
+     * playlist. When everything has played, [newRound] starts a fresh round (manual Next);
+     * otherwise (auto-next at the end) nothing happens and playback stops. Returns false if
+     * there was nothing to play.
      */
-    fun shuffleNext(random: kotlin.random.Random = kotlin.random.Random.Default) {
-        val pick = pickShuffle(playlist.size, index, played, random) ?: return
+    private fun shuffleNext(newRound: Boolean, random: kotlin.random.Random = kotlin.random.Random.Default): Boolean {
+        val pick = pickShuffle(playlist.size, index, played, random) ?: return false
         if (pick.resetRound) {
+            if (!newRound) return false
             played.clear()
             played += index
         }
         load(pick.index)
+        return true
     }
 
     /**
@@ -352,7 +361,11 @@ class PlaybackController @Inject constructor(
             playlist.getOrNull(startIndex) != null
 
     fun next() {
-        if (index < playlist.lastIndex) load(index + 1)
+        if (_settings.value.shuffle && playlist.size > 1) {
+            shuffleNext(newRound = true)
+        } else if (index < playlist.lastIndex) {
+            load(index + 1)
+        }
     }
 
     /** Restarts the current item if more than [RESTART_THRESHOLD_MS] in, else goes back one. */
@@ -684,7 +697,8 @@ class PlaybackController @Inject constructor(
     private fun onEnded() {
         _isEnded.value = true
         saveProgress()
-        if (_settings.value.autoPlayNext && index < playlist.lastIndex) load(index + 1)
+        if (!_settings.value.autoPlayNext) return
+        if (_settings.value.shuffle) shuffleNext(newRound = false) else if (index < playlist.lastIndex) load(index + 1)
     }
 
     private inner class PlayerListener : Player.Listener {
@@ -1054,7 +1068,8 @@ class PlaybackController @Inject constructor(
         override fun seekToPreviousMediaItem() = previous()
         override fun seekForward() = this@PlaybackController.seekForward()
         override fun seekBack() = this@PlaybackController.seekBack()
-        override fun hasNextMediaItem(): Boolean = index < playlist.lastIndex
+        override fun hasNextMediaItem(): Boolean =
+            index < playlist.lastIndex || (_settings.value.shuffle && playlist.size > 1)
         override fun hasPreviousMediaItem(): Boolean = index > 0
 
         override fun isCommandAvailable(command: Int): Boolean =

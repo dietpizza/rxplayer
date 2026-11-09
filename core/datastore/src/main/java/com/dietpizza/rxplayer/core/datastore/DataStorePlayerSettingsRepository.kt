@@ -58,6 +58,7 @@ class DataStorePlayerSettingsRepository @Inject constructor(
                 ?.let { name -> ResumeMode.entries.firstOrNull { it.name == name } }
                 ?: d.resumeMode,
             autoPlayNext = prefs[Keys.AUTO_PLAY_NEXT] ?: d.autoPlayNext,
+            shuffle = prefs[Keys.SHUFFLE] ?: d.shuffle,
             autoPip = prefs[Keys.AUTO_PIP] ?: d.autoPip,
             pauseOnHeadphonesUnplugged = prefs[Keys.PAUSE_ON_UNPLUG] ?: d.pauseOnHeadphonesUnplugged,
             pauseDuringCalls = prefs[Keys.PAUSE_DURING_CALLS] ?: d.pauseDuringCalls,
@@ -77,6 +78,7 @@ class DataStorePlayerSettingsRepository @Inject constructor(
         prefs[Keys.SEEK_BAR_THUMBNAILS] = s.seekBarThumbnails
         prefs[Keys.RESUME_MODE] = s.resumeMode.name
         prefs[Keys.AUTO_PLAY_NEXT] = s.autoPlayNext
+        prefs[Keys.SHUFFLE] = s.shuffle
         prefs[Keys.AUTO_PIP] = s.autoPip
         prefs[Keys.PAUSE_ON_UNPLUG] = s.pauseOnHeadphonesUnplugged
         prefs[Keys.PAUSE_DURING_CALLS] = s.pauseDuringCalls
@@ -95,6 +97,7 @@ class DataStorePlayerSettingsRepository @Inject constructor(
         val SEEK_BAR_THUMBNAILS = booleanPreferencesKey("player.seek_bar_thumbnails")
         val RESUME_MODE = stringPreferencesKey("player.resume_mode")
         val AUTO_PLAY_NEXT = booleanPreferencesKey("player.auto_play_next")
+        val SHUFFLE = booleanPreferencesKey("player.shuffle")
         val AUTO_PIP = booleanPreferencesKey("player.auto_pip")
         val PAUSE_ON_UNPLUG = booleanPreferencesKey("player.pause_on_headphones_unplugged")
         val PAUSE_DURING_CALLS = booleanPreferencesKey("player.pause_during_calls")

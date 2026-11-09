@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -44,6 +45,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -193,8 +196,23 @@ private fun BottomBar(
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
             PlainIcon(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
-            PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) { controller.next(); ui.bump() }
-            PlainIcon(RxIcons.Shuffle, "Play a random video", enabled = multiple) { controller.shuffleNext(); ui.bump() }
+            val settings by controller.settings.collectAsStateWithLifecycle()
+            val shuffle = settings.shuffle
+            PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true || (shuffle && multiple)) {
+                controller.next(); ui.bump()
+            }
+            // Toggle: on = Next and auto-next pick a random unplayed video.
+            IconToggleButton(
+                checked = shuffle,
+                onCheckedChange = { controller.toggleShuffle(); ui.bump() },
+                modifier = Modifier.semantics { contentDescription = if (shuffle) "Shuffle on" else "Shuffle off" },
+            ) {
+                Icon(
+                    if (shuffle) RxIcons.ShuffleOn else RxIcons.Shuffle,
+                    contentDescription = null,
+                    tint = if (shuffle) MaterialTheme.colorScheme.primary else Color.White,
+                )
+            }
             Spacer(Modifier.weight(1f))
             MuteButton(controller, ui)
             PlainIcon(

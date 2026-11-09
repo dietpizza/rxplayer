@@ -84,6 +84,8 @@ data class PlayerSettings(
     val seekBarThumbnails: Boolean = true,
     val resumeMode: ResumeMode = ResumeMode.ASK,
     val autoPlayNext: Boolean = true,
+    /** Shuffle mode: next / auto-next pick a random item not yet played (sticky). */
+    val shuffle: Boolean = false,
     val autoPip: Boolean = true,
     val pauseOnHeadphonesUnplugged: Boolean = true,
     val pauseDuringCalls: Boolean = true,
