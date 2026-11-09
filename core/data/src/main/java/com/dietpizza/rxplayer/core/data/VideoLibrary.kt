@@ -13,6 +13,13 @@ class VideoLibrary(
     /** folderPath → videos directly in it, sorted by title (natural order). */
     val videosByFolder: Map<String, List<VideoItem>>,
 ) {
+    /** `MediaKey.value` → video, for joins (History, playlists). Built on first use. */
+    val videosByKey: Map<String, VideoItem> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val map = HashMap<String, VideoItem>(videosByFolder.values.sumOf { it.size } * 2)
+        for (items in videosByFolder.values) for (v in items) map[v.key.value] = v
+        map
+    }
+
     companion object {
         val EMPTY = VideoLibrary(emptyList(), emptyMap())
     }

@@ -10,6 +10,7 @@ import com.dietpizza.rxplayer.core.model.MediaKey
  */
 object RxIntents {
     const val PLAYER_ACTIVITY = "com.dietpizza.rxplayer.feature.player.PlayerActivity"
+    const val SEARCH_ACTIVITY = "com.dietpizza.rxplayer.feature.search.SearchActivity"
 
     /** Ordered playlist of media keys (strings); next/prev and auto-next follow this order. */
     const val EXTRA_PLAYLIST = "rx.extra.PLAYLIST"
@@ -34,4 +35,7 @@ object RxIntents {
      */
     fun viewer(context: Context, items: List<MediaKey>, startIndex: Int): Intent =
         player(context, items, startIndex).putExtra(EXTRA_MODE, MODE_VIEWER)
+
+    /** Opens search (filename + folder, plan §4 screen 11). */
+    fun search(context: Context): Intent = Intent().setClassName(context, SEARCH_ACTIVITY)
 }

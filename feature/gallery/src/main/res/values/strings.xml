@@ -3,6 +3,47 @@
     <string name="gallery_title">Gallery</string>
     <string name="gallery_search">Search</string>
     <string name="gallery_settings">Settings</string>
-    <string name="gallery_empty_title">Albums arrive in M4</string>
-    <string name="gallery_empty_body">Your photo and video folders will show up here as albums, with favourites and custom albums pinned on top.</string>
+    <string name="gallery_sort">Sort</string>
+    <string name="gallery_empty_title">No photos or videos yet</string>
+    <string name="gallery_empty_body">Folders with photos and videos on this device will show up here as albums.</string>
+
+    <string name="gallery_all_videos">All videos</string>
+    <string name="gallery_camera">Camera</string>
+    <plurals name="gallery_item_count">
+        <item quantity="one">%1$s item</item>
+        <item quantity="other">%1$s items</item>
+    </plurals>
+
+    <string name="gallery_sort_date_modified">Date modified</string>
+    <string name="gallery_sort_name">Name</string>
+    <string name="gallery_sort_count">Number of items</string>
+    <string name="gallery_sort_date_taken">Date taken</string>
+    <string name="gallery_sort_size">Size</string>
+    <string name="gallery_sort_ascending">Ascending</string>
+    <string name="gallery_sort_descending">Descending</string>
+
+    <string name="gallery_today">Today</string>
+    <string name="gallery_yesterday">Yesterday</string>
+
+    <string name="album_back">Back</string>
+    <string name="album_empty_title">Nothing here</string>
+    <string name="album_empty_body">This album doesn\'t contain any photos or videos.</string>
+    <string name="album_video">Video</string>
+    <string name="album_photo">Photo</string>
+    <string name="album_gif">GIF</string>
+    <string name="album_selected">Selected</string>
+
+    <string name="selection_clear">Clear selection</string>
+    <plurals name="selection_count">
+        <item quantity="one">%1$s selected</item>
+        <item quantity="other">%1$s selected</item>
+    </plurals>
+    <string name="selection_share">Share</string>
+    <string name="selection_favourite">Favourite</string>
+    <string name="selection_add_to_album">Add to album</string>
+    <string name="selection_move">Move to…</string>
+    <string name="selection_copy">Copy to…</string>
+    <string name="selection_rename">Rename</string>
+    <string name="selection_delete">Delete</string>
+    <string name="selection_more">More options</string>
 </resources>

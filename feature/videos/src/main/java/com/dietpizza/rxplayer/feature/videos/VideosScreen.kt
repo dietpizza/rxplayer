@@ -1,17 +1,25 @@
 package com.dietpizza.rxplayer.feature.videos
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Badge
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
@@ -20,13 +28,22 @@ import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -37,8 +54,15 @@ import com.dietpizza.rxplayer.core.designsystem.theme.RxTheme
 import com.dietpizza.rxplayer.core.model.AppearanceSettings
 import com.dietpizza.rxplayer.core.model.ThemeMode
 
+/** The Videos tab's segmented header (plan §4 #6). */
+internal enum class VideosSection(val label: Int) {
+    FOLDERS(R.string.videos_section_folders),
+    PLAYLISTS(R.string.videos_section_playlists),
+    HISTORY(R.string.videos_section_history),
+}
+
 /**
- * Videos tab root: MX-style folder list (plan §4 #6).
+ * Videos tab root: segmented **Folders · Playlists · History** (plan §4 #6, #8).
  *
  * Insets: the navigation suite consumes the side it occupies (bottom bar / start rail), so the
  * Scaffold's default content insets only add what is still unconsumed (status bar, cutout).
@@ -50,27 +74,45 @@ fun VideosScreen(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
-    val viewModel: VideosViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    VideosContent(
-        uiState = uiState,
+    var section by rememberSaveable { mutableStateOf(VideosSection.FOLDERS) }
+    // Each section keeps its own scroll position across switches (like the tabs do).
+    val sectionStates = rememberSaveableStateHolder()
+    VideosScaffold(
+        section = section,
+        onSectionChange = { section = it },
         onOpenSettings = onOpenSettings,
-        onOpenFolder = { folder ->
-            context.startActivity(FolderActivity.intent(context, folder.path, folder.name))
-        },
         modifier = modifier,
         contentPadding = contentPadding,
-    )
+    ) { listPadding ->
+        sectionStates.SaveableStateProvider(section) {
+            when (section) {
+                VideosSection.FOLDERS -> {
+                    val viewModel: VideosViewModel = hiltViewModel()
+                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    FoldersSection(
+                        uiState = uiState,
+                        onOpenFolder = { folder ->
+                            context.startActivity(FolderActivity.intent(context, folder.path, folder.name))
+                        },
+                        contentPadding = listPadding,
+                    )
+                }
+                VideosSection.PLAYLISTS -> PlaylistsSection(contentPadding = listPadding)
+                VideosSection.HISTORY -> HistorySection(contentPadding = listPadding)
+            }
+        }
+    }
 }
 
 @Composable
-internal fun VideosContent(
-    uiState: VideosUiState,
+private fun VideosScaffold(
+    section: VideosSection,
+    onSectionChange: (VideosSection) -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenFolder: (FolderRow) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    content: @Composable (listPadding: PaddingValues) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val background = MaterialTheme.colorScheme.surfaceContainer
@@ -81,7 +123,7 @@ internal fun VideosContent(
             MediumFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.videos_title)) },
                 actions = {
-                    // Search lands in M5.
+                    // Search lands with the search feature.
                     IconButton(onClick = {}, enabled = false) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.videos_search))
                     }
@@ -97,25 +139,78 @@ internal fun VideosContent(
             )
         },
     ) { innerPadding ->
-        when (uiState) {
-            VideosUiState.Loading -> DelayedLoadingIndicator(
-                Modifier.padding(innerPadding).padding(contentPadding),
+        val dir = LocalLayoutDirection.current
+        val start = innerPadding.calculateStartPadding(dir) + contentPadding.calculateStartPadding(dir)
+        val end = innerPadding.calculateEndPadding(dir) + contentPadding.calculateEndPadding(dir)
+        Column(Modifier.fillMaxSize()) {
+            SectionHeader(
+                selected = section,
+                onSelect = onSectionChange,
+                modifier = Modifier.padding(
+                    start = start + 16.dp,
+                    end = end + 16.dp,
+                    top = innerPadding.calculateTopPadding() + contentPadding.calculateTopPadding(),
+                ),
             )
-            VideosUiState.Empty -> RxEmptyState(
-                icon = Icons.Rounded.VideoLibrary,
-                title = stringResource(R.string.videos_empty_title),
-                body = stringResource(R.string.videos_empty_body),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(contentPadding),
-            )
-            is VideosUiState.Content -> FolderList(
-                folders = uiState.folders,
-                onOpenFolder = onOpenFolder,
-                contentPadding = listPadding(innerPadding, contentPadding),
-            )
+            Box(Modifier.weight(1f)) {
+                content(
+                    // Below the header: sides + bottom insets, no top inset.
+                    listPadding(
+                        PaddingValues(start = start, end = end, bottom = innerPadding.calculateBottomPadding()),
+                        PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    ),
+                )
+            }
         }
+    }
+}
+
+/** Connected button group (M3 Expressive). Switching is instant: no content transition. */
+@Composable
+private fun SectionHeader(
+    selected: VideosSection,
+    onSelect: (VideosSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val sections = VideosSection.entries
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        sections.forEachIndexed { index, s ->
+            ToggleButton(
+                checked = s == selected,
+                onCheckedChange = { onSelect(s) },
+                shapes = when (index) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    sections.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { role = Role.RadioButton },
+            ) {
+                Text(stringResource(s.label), maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun FoldersSection(
+    uiState: VideosUiState,
+    onOpenFolder: (FolderRow) -> Unit,
+    contentPadding: PaddingValues,
+) {
+    when (uiState) {
+        VideosUiState.Loading -> DelayedLoadingIndicator(Modifier.padding(contentPadding))
+        VideosUiState.Empty -> RxEmptyState(
+            icon = Icons.Rounded.VideoLibrary,
+            title = stringResource(R.string.videos_empty_title),
+            body = stringResource(R.string.videos_empty_body),
+            modifier = Modifier.padding(contentPadding),
+        )
+        is VideosUiState.Content -> FolderList(uiState.folders, onOpenFolder, contentPadding)
     }
 }
 
@@ -127,6 +222,7 @@ private fun FolderList(
 ) {
     val count = folders.size
     LazyColumn(
+        state = rememberLazyListState(),
         contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         modifier = Modifier.fillMaxSize(),
@@ -172,7 +268,7 @@ private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: (
     }
 }
 
-private val FolderThumbWidth = 112.dp
+internal val FolderThumbWidth = 112.dp
 
 private val previewFolders = listOf(
     FolderRow("/storage/emulated/0/DCIM/Camera", "Camera", null, "214 videos · 38 GB", "3 NEW"),
@@ -181,26 +277,23 @@ private val previewFolders = listOf(
     FolderRow("/storage/emulated/0/WhatsApp/Video", "WhatsApp Video", null, "1 video · 4.1 MB", null),
 )
 
-@Preview(name = "Videos – light")
 @Composable
-private fun VideosContentPreview() {
-    RxTheme(AppearanceSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)) {
-        VideosContent(VideosUiState.Content(previewFolders), onOpenSettings = {}, onOpenFolder = {})
+private fun FoldersPreview(state: VideosUiState, dark: Boolean) {
+    RxTheme(AppearanceSettings(themeMode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT, dynamicColor = false)) {
+        VideosScaffold(VideosSection.FOLDERS, onSectionChange = {}, onOpenSettings = {}) { padding ->
+            FoldersSection(state, onOpenFolder = {}, contentPadding = padding)
+        }
     }
 }
+
+@Preview(name = "Videos – light")
+@Composable
+private fun VideosContentPreview() = FoldersPreview(VideosUiState.Content(previewFolders), dark = false)
 
 @Preview(name = "Videos – dark")
 @Composable
-private fun VideosContentDarkPreview() {
-    RxTheme(AppearanceSettings(themeMode = ThemeMode.DARK, dynamicColor = false)) {
-        VideosContent(VideosUiState.Content(previewFolders), onOpenSettings = {}, onOpenFolder = {})
-    }
-}
+private fun VideosContentDarkPreview() = FoldersPreview(VideosUiState.Content(previewFolders), dark = true)
 
 @Preview(name = "Videos – empty")
 @Composable
-private fun VideosEmptyPreview() {
-    RxTheme(AppearanceSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)) {
-        VideosContent(VideosUiState.Empty, onOpenSettings = {}, onOpenFolder = {})
-    }
-}
+private fun VideosEmptyPreview() = FoldersPreview(VideosUiState.Empty, dark = false)

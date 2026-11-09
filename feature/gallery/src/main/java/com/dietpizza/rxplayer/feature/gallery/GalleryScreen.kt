@@ -1,28 +1,63 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dietpizza.rxplayer.core.designsystem.component.RxEmptyState
 import com.dietpizza.rxplayer.core.designsystem.theme.RxTheme
+import com.dietpizza.rxplayer.core.model.AlbumSort
+import com.dietpizza.rxplayer.core.model.AlbumSortField
+import com.dietpizza.rxplayer.core.model.AppearanceSettings
+import com.dietpizza.rxplayer.core.model.ThemeMode
+import com.dietpizza.rxplayer.core.model.VirtualAlbum
+import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 
 /**
- * Gallery tab root. Placeholder until its milestone lands.
+ * Gallery tab root: the albums grid (plan §4 #2), with the pinned row on top.
  *
  * Insets: the navigation suite consumes the side it occupies (bottom bar / start rail), so the
  * Scaffold's default content insets only add what is still unconsumed (status bar, cutout).
@@ -34,9 +69,44 @@ fun GalleryScreen(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
+    val viewModel: GalleryViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    GalleryContent(
+        uiState = uiState,
+        sort = sort,
+        onSortChange = viewModel::setSort,
+        onOpenSettings = onOpenSettings,
+        onOpenAlbum = { album ->
+            context.startActivity(AlbumActivity.intent(context, album.path, album.name, album.virtual))
+        },
+        modifier = modifier,
+        contentPadding = contentPadding,
+    )
+}
+
+private val AlbumSortOptions = listOf(
+    SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified),
+    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name),
+    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count),
+)
+
+@Composable
+internal fun GalleryContent(
+    uiState: GalleryUiState,
+    sort: AlbumSort,
+    onSortChange: (AlbumSort) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenAlbum: (AlbumTile) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val background = MaterialTheme.colorScheme.surfaceContainer
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = background,
         topBar = {
             MediumFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.gallery_title)) },
@@ -45,28 +115,207 @@ fun GalleryScreen(
                     IconButton(onClick = {}, enabled = false) {
                         Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.gallery_search))
                     }
+                    SortMenuButton(
+                        options = AlbumSortOptions,
+                        current = sort.field,
+                        descending = sort.descending,
+                        onFieldSelected = { onSortChange(AlbumSort.defaultFor(it)) },
+                        onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
+                    )
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.gallery_settings))
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = background,
+                    scrolledContainerColor = background,
+                ),
                 scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
-        RxEmptyState(
-            icon = Icons.Rounded.PhotoLibrary,
-            title = stringResource(R.string.gallery_empty_title),
-            body = stringResource(R.string.gallery_empty_body),
+        when (uiState) {
+            GalleryUiState.Loading -> DelayedLoadingIndicator(
+                Modifier.padding(innerPadding).padding(contentPadding),
+            )
+            GalleryUiState.Empty -> RxEmptyState(
+                icon = Icons.Rounded.PhotoLibrary,
+                title = stringResource(R.string.gallery_empty_title),
+                body = stringResource(R.string.gallery_empty_body),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(contentPadding),
+            )
+            is GalleryUiState.Content -> AlbumsGrid(
+                pinned = uiState.pinned,
+                albums = uiState.albums,
+                onOpenAlbum = onOpenAlbum,
+                contentPadding = gridPadding(innerPadding, contentPadding),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumsGrid(
+    pinned: List<AlbumTile>,
+    albums: List<AlbumTile>,
+    onOpenAlbum: (AlbumTile) -> Unit,
+    contentPadding: PaddingValues,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(AlbumMinCellWidth),
+        contentPadding = contentPadding,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        if (pinned.isNotEmpty()) {
+            item(key = PINNED_ROW_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = PINNED_ROW_KEY) {
+                PinnedRow(pinned, onOpenAlbum)
+            }
+        }
+        items(albums, key = { it.id }, contentType = { "album" }) { album ->
+            AlbumCard(album, onClick = { onOpenAlbum(album) })
+        }
+    }
+}
+
+private const val PINNED_ROW_KEY = "pinned"
+private val AlbumMinCellWidth = 152.dp
+
+/** Adaptive cells are 152–304 dp wide; 240 dp buckets to a size that stays sharp across them. */
+private val AlbumThumbRequestWidth = 240.dp
+private val PinnedTileWidth = 112.dp
+
+/**
+ * The pinned row: virtual albums now; favourites and custom albums (M5) slot in at the front,
+ * since [AlbumTile.virtual] is just a badge here and the row takes any number of tiles
+ * (it scrolls horizontally once they overflow).
+ */
+@Composable
+private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        items(pinned, key = { it.id }, contentType = { "pinned" }) { album ->
+            Column(
+                Modifier
+                    .width(PinnedTileWidth)
+                    .clip(MaterialTheme.shapes.large)
+                    .clickable { onOpenAlbum(album) },
+            ) {
+                Box {
+                    MediaThumbnail(
+                        contentUri = album.coverUri,
+                        requestWidth = PinnedTileWidth,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(MaterialTheme.shapes.extraLarge),
+                    )
+                    pinnedIcon(album.virtual)?.let { icon ->
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(8.dp)
+                                .background(BadgeScrim, CircleShape)
+                                .padding(4.dp)
+                                .size(16.dp),
+                        )
+                    }
+                }
+                AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 4.dp))
+            }
+        }
+    }
+}
+
+private fun pinnedIcon(virtual: VirtualAlbum?): ImageVector? = when (virtual) {
+    VirtualAlbum.ALL_VIDEOS -> Icons.Rounded.Videocam
+    VirtualAlbum.CAMERA -> Icons.Rounded.PhotoCamera
+    null -> null
+}
+
+private val BadgeScrim = Color.Black.copy(alpha = 0.5f)
+
+@Composable
+private fun AlbumCard(album: AlbumTile, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(MaterialTheme.shapes.largeIncreased)
+            .clickable(onClick = onClick),
+    ) {
+        MediaThumbnail(
+            contentUri = album.coverUri,
+            requestWidth = AlbumThumbRequestWidth,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(contentPadding),
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(MaterialTheme.shapes.largeIncreased),
+        )
+        AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp))
+    }
+}
+
+@Composable
+private fun AlbumLabels(album: AlbumTile, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(
+            text = album.name,
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = album.count,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }
 
-@Preview(showBackground = true)
+// ---- Previews ----------------------------------------------------------------------------------
+
+private val previewState = GalleryUiState.Content(
+    pinned = listOf(
+        AlbumTile("virtual:all_videos", "", "All videos", "214 items", null, VirtualAlbum.ALL_VIDEOS),
+        AlbumTile("virtual:camera", "/s/DCIM/Camera", "Camera", "3,412 items", null, VirtualAlbum.CAMERA),
+    ),
+    albums = listOf(
+        AlbumTile("/s/Pictures/Screenshots", "/s/Pictures/Screenshots", "Screenshots", "812 items", null, null),
+        AlbumTile("/s/WhatsApp/Images", "/s/WhatsApp/Images", "WhatsApp Images", "2,031 items", null, null),
+        AlbumTile("/s/Download", "/s/Download", "Download", "41 items", null, null),
+        AlbumTile("/s/Pictures/Rx Player", "/s/Pictures/Rx Player", "Rx Player with a long album name", "1 item", null, null),
+    ),
+)
+
+@Preview(name = "Gallery – light")
 @Composable
-private fun GalleryScreenPreview() {
-    RxTheme { GalleryScreen(onOpenSettings = {}) }
+private fun GalleryPreview() {
+    RxTheme(AppearanceSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)) {
+        GalleryContent(previewState, AlbumSort.DEFAULT, {}, {}, {})
+    }
+}
+
+@Preview(name = "Gallery – dark")
+@Composable
+private fun GalleryDarkPreview() {
+    RxTheme(AppearanceSettings(themeMode = ThemeMode.DARK, dynamicColor = false)) {
+        GalleryContent(previewState, AlbumSort.DEFAULT, {}, {}, {})
+    }
+}
+
+@Preview(name = "Gallery – empty")
+@Composable
+private fun GalleryEmptyPreview() {
+    RxTheme(AppearanceSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)) {
+        GalleryContent(GalleryUiState.Empty, AlbumSort.DEFAULT, {}, {}, {})
+    }
 }

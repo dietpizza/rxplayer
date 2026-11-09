@@ -25,7 +25,7 @@ class LocalVideoRepository internal constructor(
     private val source: LocalVideoSource,
     private val dao: PlaybackStateDao,
     scope: CoroutineScope,
-) : VideoRepository {
+) : VideoRepository, LocalVideoIndex {
 
     @Inject
     constructor(source: LocalVideoSource, dao: PlaybackStateDao) :
@@ -53,6 +53,10 @@ class LocalVideoRepository internal constructor(
         val path = folderPath.trimEnd('/')
         return library.map { it.videosByFolder[path].orEmpty() }.distinctUntilChanged().flowOn(Dispatchers.Default)
     }
+
+    /** Same shared join as [folders]; the library only emits when MediaStore or Room changed. */
+    override fun videosByKey(): Flow<Map<String, VideoItem>> =
+        library.map { it.videosByKey }.flowOn(Dispatchers.Default)
 
     override suspend fun video(key: MediaKey): VideoItem? {
         val path = key.filePath ?: return null

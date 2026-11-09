@@ -12,6 +12,9 @@ import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.text.Cue
+import androidx.media3.common.text.CueGroup
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
@@ -22,6 +25,19 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultDataSource
+import com.dietpizza.rxplayer.core.datastore.SubtitleSettings
+import com.dietpizza.rxplayer.core.datastore.SubtitleSettingsRepository
+import com.dietpizza.rxplayer.core.player.preview.SeekPreviewEngine
+import com.dietpizza.rxplayer.core.player.preview.SeekSprites
+import com.dietpizza.rxplayer.core.player.source.SchemeRouter
+import com.dietpizza.rxplayer.core.player.source.SchemeRoutingDataSourceFactory
+import com.dietpizza.rxplayer.core.player.subtitle.SidecarSubtitles
+import com.dietpizza.rxplayer.core.player.tracks.TrackMenu
+import com.dietpizza.rxplayer.core.player.tracks.TrackNames
+import com.dietpizza.rxplayer.core.player.tracks.TrackOption
 import com.dietpizza.rxplayer.core.data.PlaybackStateRepository
 import com.dietpizza.rxplayer.core.data.VideoRepository
 import com.dietpizza.rxplayer.core.datastore.PlayerSettingsRepository
@@ -41,6 +57,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -84,9 +101,18 @@ class PlaybackController @Inject constructor(
     private val videoRepository: VideoRepository,
     private val playbackStateRepository: PlaybackStateRepository,
     private val settingsRepository: PlayerSettingsRepository,
+    private val subtitleSettingsRepository: SubtitleSettingsRepository,
+    private val seekPreview: SeekPreviewEngine,
+    schemeDataSourceFactories: Set<@JvmSuppressWildcards SchemeDataSourceFactory>,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * Custom URI schemes (`smb://`, `sftp://` … from `:core:netfs`) go to their contributed
+     * DataSource; everything else to DefaultDataSource (file/content/http/asset).
+     */
+    private val schemeRouter = SchemeRouter(schemeDataSourceFactories)
 
     /** The ExoPlayer, for surfaces (`PlayerSurface` / `ContentFrame`). Don't drive it directly. */
     val player: ExoPlayer = ExoPlayer.Builder(
@@ -95,6 +121,11 @@ class PlaybackController @Inject constructor(
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
             .setEnableDecoderFallback(true),
     )
+        .setMediaSourceFactory(
+            DefaultMediaSourceFactory(
+                SchemeRoutingDataSourceFactory(schemeRouter, DefaultDataSource.Factory(context)),
+            ),
+        )
         .setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -165,6 +196,22 @@ class PlaybackController @Inject constructor(
 
     private val _isSpeedBoosted = MutableStateFlow(false)
     val isSpeedBoosted: StateFlow<Boolean> = _isSpeedBoosted.asStateFlow()
+
+    private val _subtitleSettings = MutableStateFlow(SubtitleSettings())
+    val subtitleSettings: StateFlow<SubtitleSettings> = _subtitleSettings.asStateFlow()
+
+    private val _trackMenu = MutableStateFlow(TrackMenu.Empty)
+
+    /** Audio + subtitle tracks of the current item, for the pickers. */
+    val trackMenu: StateFlow<TrackMenu> = _trackMenu.asStateFlow()
+
+    private val _cues = MutableStateFlow<List<Cue>>(emptyList())
+
+    /** Subtitle cues to draw now (changes only when a cue starts/ends). */
+    val cues: StateFlow<List<Cue>> = _cues.asStateFlow()
+
+    /** Seek-bar thumbnails of the current item (local files, setting on), else null. */
+    val seekSprites: StateFlow<SeekSprites?> = seekPreview.sprites
     // endregion
 
     private var playlist: List<MediaKey> = emptyList()
@@ -182,6 +229,16 @@ class PlaybackController @Inject constructor(
     private var scrubbing = false
     private var scrubWasPlaying = false
     private var speedBeforeBoost = 1f
+
+    /** Subtitle files the user loaded by hand this session, per item. */
+    private val manualSubtitles = HashMap<MediaKey, MutableList<MediaItem.SubtitleConfiguration>>()
+    private var sidecarSubtitles: List<MediaItem.SubtitleConfiguration> = emptyList()
+
+    /** Label of a just-added subtitle to select once its track appears. */
+    private var pendingTextLabel: String? = null
+
+    private var videoDecoderName: String? = null
+    private var audioDecoderName: String? = null
 
     private val coalescer = SeekCoalescer({ positionMs, exact ->
         player.setSeekParameters(if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC)
@@ -203,12 +260,29 @@ class PlaybackController @Inject constructor(
 
     init {
         player.addListener(PlayerListener())
+        player.addAnalyticsListener(DecoderNameListener())
         player.volume = if (_isMuted.value) 0f else 1f
+        // Embedded subtitles: prefer the device's languages, and accept undetermined ones.
+        val languages = android.os.LocaleList.getDefault().let { list ->
+            Array(list.size()) { list[it].toLanguageTag() }
+        }
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setPreferredTextLanguages(*languages)
+            .setSelectUndeterminedTextLanguage(true)
+            .build()
         scope.launch {
             settingsRepository.settings.collect { s ->
+                val old = _settings.value
                 _settings.value = s
                 setVolume(s.muted)
                 settingsLoaded.complete(Unit)
+                if (old.seekBarThumbnails != s.seekBarThumbnails) updateSeekPreview()
+            }
+        }
+        scope.launch {
+            subtitleSettingsRepository.settings.collect { s ->
+                _subtitleSettings.value = s
+                applyTextEnabled(s.enabled)
             }
         }
     }
@@ -252,11 +326,21 @@ class PlaybackController @Inject constructor(
         _videoSize.value = VideoDimensions.Unknown
         _positionMs.value = 0
         _durationMs.value = 0
+        _trackMenu.value = TrackMenu.Empty
+        _cues.value = emptyList()
+        pendingTextLabel = null
+        videoDecoderName = null
+        audioDecoderName = null
+        seekPreview.close()
         player.pause()
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverrides()
+            .build()
         _nowPlaying.value = NowPlaying(key, fallbackTitle(key), newIndex, playlist.size)
 
         loadJob = scope.launch {
             val title = async { resolveTitle(key) }
+            val sidecars = async { findSidecars(key) }
             val saved = async {
                 if (key.tracksProgress) runCatching { playbackStateRepository.get(key) }.getOrNull() else null
             }
@@ -271,10 +355,12 @@ class PlaybackController @Inject constructor(
                 is ResumeDecision.Resume -> decision.positionMs
                 is ResumeDecision.Ask -> decision.positionMs
             }
+            sidecarSubtitles = sidecars.await()
             player.setSeekParameters(SeekParameters.EXACT)
             player.setMediaItem(mediaItem(key, resolvedTitle), startMs)
             player.prepare()
             _positionMs.value = startMs
+            updateSeekPreview()
             if (decision is ResumeDecision.Ask) {
                 player.playWhenReady = false
                 _resumePrompt.value = ResumePrompt(key, decision.positionMs)
@@ -314,6 +400,12 @@ class PlaybackController @Inject constructor(
         playlist = emptyList()
         index = -1
         session = null
+        manualSubtitles.clear()
+        sidecarSubtitles = emptyList()
+        pendingTextLabel = null
+        seekPreview.close()
+        _trackMenu.value = TrackMenu.Empty
+        _cues.value = emptyList()
         resumeOnReturn = false
         pausedByCall = false
         autoPause.stop()
@@ -598,12 +690,18 @@ class PlaybackController @Inject constructor(
             _speed.value = playbackParameters.speed
         }
 
+        override fun onCues(cueGroup: CueGroup) {
+            _cues.value = cueGroup.cues
+        }
+
         override fun onPlayerError(error: PlaybackException) {
             _error.value = PlaybackErrors.describe(error)
             saveProgress()
         }
 
         override fun onTracksChanged(tracks: Tracks) {
+            _trackMenu.value = TrackNames.menu(tracks)
+            selectPendingText(tracks)
             if (_error.value?.fatal == true) return
             _error.value = unsupportedTrackWarning(tracks, C.TRACK_TYPE_VIDEO)
                 ?: unsupportedTrackWarning(tracks, C.TRACK_TYPE_AUDIO)
@@ -620,14 +718,206 @@ class PlaybackController @Inject constructor(
         return firstUnsupported?.let { PlaybackErrors.unsupportedTrack(type, it) }
     }
 
+    // region tracks & subtitles
+
+    /** Picks an audio track from [TrackMenu.audio]. */
+    fun selectAudioTrack(option: TrackOption) = applyOverride(C.TRACK_TYPE_AUDIO, option)
+
+    /** Picks a subtitle track (turns subtitles on), or turns them off for good with null. */
+    fun selectTextTrack(option: TrackOption?) {
+        if (option == null) {
+            setSubtitlesEnabled(false)
+            return
+        }
+        setSubtitlesEnabled(true)
+        applyOverride(C.TRACK_TYPE_TEXT, option)
+    }
+
+    fun setSubtitlesEnabled(enabled: Boolean) {
+        applyTextEnabled(enabled)
+        if (_subtitleSettings.value.enabled != enabled) editSubtitleSettings { it.copy(enabled = enabled) }
+    }
+
+    fun setSubtitleScale(scale: Float) = editSubtitleSettings {
+        it.copy(textScale = scale.coerceIn(SubtitleSettings.MIN_SCALE, SubtitleSettings.MAX_SCALE))
+    }
+
+    fun setSubtitleBackground(background: Boolean) = editSubtitleSettings { it.copy(background = background) }
+
+    private fun editSubtitleSettings(transform: (SubtitleSettings) -> SubtitleSettings) {
+        _subtitleSettings.value = transform(_subtitleSettings.value) // instant UI; DataStore follows
+        scope.launch { runCatching { subtitleSettingsRepository.edit(transform) } }
+    }
+
+    /**
+     * Adds a subtitle file picked by the user (content URI from OpenDocument) to the current item
+     * and selects it. The item is re-prepared at the same position.
+     */
+    fun addSubtitle(uri: Uri, displayName: String?) {
+        val s = session ?: return
+        val name = displayName?.takeIf { it.isNotBlank() } ?: uri.lastPathSegment ?: "Subtitle"
+        val mime = SidecarSubtitles.mimeTypeFor(name)
+            ?: context.contentResolver.getType(uri)?.let(::subtitleMimeFromContentType)
+            ?: SidecarSubtitles.MIME_SUBRIP
+        val label = name.substringBeforeLast('.', name)
+        val config = MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(mime)
+            .setLabel(label)
+            .setId("manual:$uri")
+            .build()
+        val list = manualSubtitles.getOrPut(s.key) { mutableListOf() }
+        if (list.none { it.uri == uri }) list += config
+        pendingTextLabel = label
+        setSubtitlesEnabled(true)
+
+        val position = player.currentPosition
+        val playWhenReady = player.playWhenReady
+        player.setSeekParameters(SeekParameters.EXACT)
+        player.setMediaItem(mediaItem(s.key, s.title), position)
+        player.prepare()
+        player.playWhenReady = playWhenReady
+    }
+
+    private fun subtitleMimeFromContentType(type: String): String? = when (type) {
+        "application/x-subrip", "text/srt", "application/srt" -> SidecarSubtitles.MIME_SUBRIP
+        "text/vtt" -> SidecarSubtitles.MIME_VTT
+        "text/x-ssa", "text/x-ass" -> SidecarSubtitles.MIME_SSA
+        else -> null
+    }
+
+    private fun applyOverride(type: Int, option: TrackOption) {
+        val groups = player.currentTracks.groups
+        val group = groups.getOrNull(option.groupIndex) ?: return
+        if (group.type != type || option.trackIndex !in 0 until group.length) return
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(type, false)
+            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
+            .build()
+    }
+
+    private fun applyTextEnabled(enabled: Boolean) {
+        val params = player.trackSelectionParameters
+        if (C.TRACK_TYPE_TEXT in params.disabledTrackTypes == !enabled) return
+        player.trackSelectionParameters = params.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !enabled)
+            .build()
+        if (!enabled) _cues.value = emptyList()
+    }
+
+    private fun selectPendingText(tracks: Tracks) {
+        val label = pendingTextLabel ?: return
+        for (group in tracks.groups) {
+            if (group.type != C.TRACK_TYPE_TEXT) continue
+            for (t in 0 until group.length) {
+                if (group.getTrackFormat(t).label == label) {
+                    pendingTextLabel = null
+                    player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+                        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                        .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, t))
+                        .build()
+                    return
+                }
+            }
+        }
+    }
+
+    /** Same-name `.srt/.ass/.ssa/.vtt` next to a local file (decision 9). IO. */
+    private suspend fun findSidecars(key: MediaKey): List<MediaItem.SubtitleConfiguration> {
+        val path = key.filePath ?: return emptyList()
+        subtitleSettingsLoaded()
+        if (!_subtitleSettings.value.autoLoadSidecar) return emptyList()
+        return withContext(Dispatchers.IO) {
+            val video = File(path)
+            val names = video.parentFile?.list()?.asList() ?: return@withContext emptyList()
+            SidecarSubtitles.match(video.name, names).mapIndexed { i, m ->
+                val file = File(video.parentFile, m.fileName)
+                MediaItem.SubtitleConfiguration.Builder(Uri.fromFile(file))
+                    .setMimeType(m.mimeType)
+                    .setLanguage(m.language)
+                    .setLabel(m.fileName.substringBeforeLast('.'))
+                    .setId("sidecar:${m.fileName}")
+                    // The best match shows by default (when subtitles are on).
+                    .setSelectionFlags(if (i == 0) C.SELECTION_FLAG_DEFAULT else 0)
+                    .build()
+            }
+        }
+    }
+
+    private suspend fun subtitleSettingsLoaded() {
+        // The DataStore emits quickly; don't block loading on it for long.
+        kotlinx.coroutines.withTimeoutOrNull(300) { subtitleSettingsRepository.settings.first() }
+            ?.let { _subtitleSettings.value = it }
+    }
+
+    // endregion
+
+    // region seek preview, info
+
+    private fun updateSeekPreview() {
+        val key = session?.key
+        if (key == null || !_settings.value.seekBarThumbnails || !key.isLocalFile) {
+            seekPreview.close()
+        } else {
+            seekPreview.open(key)
+        }
+    }
+
+    /** Technical details for the ⋮ sheet's info section. Reads the file size off the main thread. */
+    suspend fun mediaInfo(): MediaInfo? {
+        val now = _nowPlaying.value ?: return null
+        val video = player.videoFormat
+        val audio = player.audioFormat
+        val durationMs = _durationMs.value
+        val path = now.key.filePath
+        val fileSize = if (path == null) {
+            -1L
+        } else {
+            withContext(Dispatchers.IO) { runCatching { File(path).length() }.getOrDefault(-1L) }
+        }
+        return MediaInfo.from(
+            title = now.title,
+            location = now.key.filePath ?: MediaKeys.decode(now.key.value),
+            video = video,
+            audio = audio,
+            displaySize = _videoSize.value,
+            durationMs = durationMs,
+            fileSizeBytes = fileSize,
+            videoDecoder = videoDecoderName,
+            audioDecoder = audioDecoderName,
+        )
+    }
+
+    private inner class DecoderNameListener : AnalyticsListener {
+        override fun onVideoDecoderInitialized(
+            eventTime: AnalyticsListener.EventTime,
+            decoderName: String,
+            initializedTimestampMs: Long,
+            initializationDurationMs: Long,
+        ) {
+            videoDecoderName = decoderName
+        }
+
+        override fun onAudioDecoderInitialized(
+            eventTime: AnalyticsListener.EventTime,
+            decoderName: String,
+            initializedTimestampMs: Long,
+            initializationDurationMs: Long,
+        ) {
+            audioDecoderName = decoderName
+        }
+    }
+
+    // endregion
+
     // region titles / media items
 
     private fun mediaItem(key: MediaKey, title: String): MediaItem {
-        val uri = key.filePath?.let { Uri.fromFile(File(it)) } ?: Uri.parse(key.value)
+        val subtitles = sidecarSubtitles + manualSubtitles[key].orEmpty()
         return MediaItem.Builder()
-            .setUri(uri)
+            .setUri(uriFor(key))
             .setMediaId(key.value)
             .setMediaMetadata(MediaMetadata.Builder().setTitle(title).setDisplayTitle(title).build())
+            .setSubtitleConfigurations(subtitles)
             .build()
     }
 
@@ -652,9 +942,16 @@ class PlaybackController @Inject constructor(
 
     private fun fallbackTitle(key: MediaKey): String {
         key.filePath?.let { return File(it).nameWithoutExtension.ifEmpty { File(it).name } }
-        val segment = Uri.parse(key.value).lastPathSegment ?: return key.value
-        return Uri.decode(segment).substringAfterLast('/').substringBeforeLast('.')
+        return MediaKeys.fallbackTitle(key.value)
     }
+
+    /**
+     * The URI ExoPlayer opens. Local keys keep the `Uri.fromFile` path (escapes `#`, `?` and
+     * spaces in names); every other key (content, `smb://3/Movies/x.mkv`, …) is the key itself,
+     * so the scheme router sees the original scheme.
+     */
+    private fun uriFor(key: MediaKey): Uri =
+        key.filePath?.let { Uri.fromFile(File(it)) } ?: Uri.parse(key.value)
     // endregion
 
     /**

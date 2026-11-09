@@ -35,6 +35,7 @@ dependencies {
     implementation(project(":feature:network"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:player"))
+    implementation(project(":feature:search"))
 
     implementation(libs.coil.compose)
     implementation(libs.androidx.core.ktx)

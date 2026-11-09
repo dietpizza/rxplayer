@@ -82,5 +82,8 @@ class PlaybackProgressTest {
         override suspend fun upsert(entity: PlaybackStateEntity) {
             rows.value = rows.value + (entity.mediaKey to entity)
         }
+        override fun observeHistory(limit: Int): Flow<List<PlaybackStateEntity>> = rows.map { it.values.toList() }
+        override suspend fun clearHistory() = Unit
+        override suspend fun removeFromHistory(mediaKeys: List<String>) = Unit
     }
 }
