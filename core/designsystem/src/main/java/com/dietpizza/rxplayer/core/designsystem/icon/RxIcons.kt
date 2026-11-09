@@ -13,6 +13,16 @@ import androidx.compose.ui.unit.dp
  * filled (FILL 1) variant; everything else is the outlined default.
  */
 object RxIcons {
+    /** Player transport: Sharp, filled, weight 300. */
+    val TransportPlay: ImageVector by lazy { symbol("TransportPlay", false, "M340-236.16v-487.68L723.07-480 340-236.16Z", translateY = 960f) }
+    /** Player transport: Sharp, filled, weight 300. */
+    val TransportPause: ImageVector by lazy { symbol("TransportPause", false, "M560-220v-520h150v520H560Zm-310 0v-520h150v520H250Z", translateY = 960f) }
+    /** Player transport: Sharp, filled, weight 300. */
+    val TransportPrevious: ImageVector by lazy { symbol("TransportPrevious", false, "M244.62-267.69v-424.62h60v424.62h-60Zm470.76 0L396.92-480l318.46-212.31v424.62Z", translateY = 960f) }
+    /** Player transport: Sharp, filled, weight 300. */
+    val TransportNext: ImageVector by lazy { symbol("TransportNext", false, "M655.38-267.69v-424.62h60v424.62h-60Zm-410.76 0v-424.62L563.08-480 244.62-267.69Z", translateY = 960f) }
+    /** Player transport: Sharp, filled, weight 300. */
+    val TransportReplay: ImageVector by lazy { symbol("TransportReplay", false, "M480-100q-70.77 0-132.61-26.77-61.85-26.77-107.85-72.77-46-46-72.77-107.85Q140-369.23 140-440h60q0 117 81.5 198.5T480-160q117 0 198.5-81.5T760-440q0-117-81.5-198.5T480-720h-10.62l63.54 63.54-42.15 43.38-136.92-137.3 137.69-137.31 42.15 43.38L469.38-780H480q70.77 0 132.61 26.77 61.85 26.77 107.85 72.77 46 46 72.77 107.85Q820-510.77 820-440q0 70.77-26.77 132.61-26.77 61.85-72.77 107.85-46 46-107.85 72.77Q550.77-100 480-100Z", translateY = 960f) }
     val Add: ImageVector by lazy { symbol("Add", false, "M440,520L240,520Q223,520 211.5,508.5Q200,497 200,480Q200,463 211.5,451.5Q223,440 240,440L440,440L440,240Q440,223 451.5,211.5Q463,200 480,200Q497,200 508.5,211.5Q520,223 520,240L520,440L720,440Q737,440 748.5,451.5Q760,463 760,480Q760,497 748.5,508.5Q737,520 720,520L520,520L520,720Q520,737 508.5,748.5Q497,760 480,760Q463,760 451.5,748.5Q440,737 440,720L440,520Z") }
     val ArrowBack: ImageVector by lazy { symbol("ArrowBack", true, "M313,520L509,716Q521,728 520.5,744Q520,760 508,772Q496,783 480,783.5Q464,784 452,772L188,508Q182,502 179.5,495Q177,488 177,480Q177,472 179.5,465Q182,458 188,452L452,188Q463,177 479.5,177Q496,177 508,188Q520,200 520,216.5Q520,233 508,245L313,440L760,440Q777,440 788.5,451.5Q800,463 800,480Q800,497 788.5,508.5Q777,520 760,520L313,520Z") }
     val ArrowDownward: ImageVector by lazy { symbol("ArrowDownward", false, "M440,647L440,200Q440,183 451.5,171.5Q463,160 480,160Q497,160 508.5,171.5Q520,183 520,200L520,647L716,451Q728,439 744,439.5Q760,440 772,452Q783,464 783.5,480Q784,496 772,508L508,772Q502,778 495,780.5Q488,783 480,783Q472,783 465,780.5Q458,778 452,772L188,508Q177,497 177,480.5Q177,464 188,452Q200,440 216.5,440Q233,440 245,452L440,647Z") }
@@ -125,7 +135,7 @@ object RxIcons {
     val NetworkTabFilled: ImageVector by lazy { symbol("NetworkTabFilled", false, "M300,240Q275,240 257.5,257.5Q240,275 240,300Q240,325 257.5,342.5Q275,360 300,360Q325,360 342.5,342.5Q360,325 360,300Q360,275 342.5,257.5Q325,240 300,240ZM300,640Q275,640 257.5,657.5Q240,675 240,700Q240,725 257.5,742.5Q275,760 300,760Q325,760 342.5,742.5Q360,725 360,700Q360,675 342.5,657.5Q325,640 300,640ZM160,120L800,120Q817,120 828.5,131.5Q840,143 840,160L840,440Q840,457 828.5,468.5Q817,480 800,480L160,480Q143,480 131.5,468.5Q120,457 120,440L120,160Q120,143 131.5,131.5Q143,120 160,120ZM160,520L800,520Q817,520 828.5,531.5Q840,543 840,560L840,840Q840,857 828.5,868.5Q817,880 800,880L160,880Q143,880 131.5,868.5Q120,857 120,840L120,560Q120,543 131.5,531.5Q143,520 160,520Z") }
 }
 
-private fun symbol(name: String, autoMirror: Boolean, vararg paths: String): ImageVector =
+private fun symbol(name: String, autoMirror: Boolean, vararg paths: String, translateY: Float = 0f): ImageVector =
     ImageVector.Builder(
         name = name,
         defaultWidth = 24.dp,
@@ -134,5 +144,8 @@ private fun symbol(name: String, autoMirror: Boolean, vararg paths: String): Ima
         viewportHeight = 960f,
         autoMirror = autoMirror,
     ).apply {
+        // Web-format symbols use a 0,-960 viewBox: shift them down into the 0..960 viewport.
+        addGroup(translationY = translateY)
         paths.forEach { addPath(pathData = addPathNodes(it), fill = SolidColor(Color.Black)) }
+        clearGroup()
     }.build()

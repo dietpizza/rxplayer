@@ -100,7 +100,7 @@ internal fun PlayerControls(
         TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
         // One layout for both orientations; only where the transport sits differs:
         // centred in landscape, just above the seek bar in portrait (inside BottomBar).
-        if (landscape) CenterTransport(controller, ui, Modifier.align(Alignment.Center))
+        if (landscape) CenterTransport(controller, ui, Modifier.align(Alignment.Center), hideWhileLoading = true)
         BottomBar(
             controller = controller,
             ui = ui,
@@ -173,7 +173,12 @@ private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
 
 /** Previous · play/pause · next as plain icons (centred in landscape, above the seek bar in portrait). */
 @Composable
-private fun CenterTransport(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
+private fun CenterTransport(
+    controller: PlaybackController,
+    ui: FullPlayerState,
+    modifier: Modifier,
+    hideWhileLoading: Boolean,
+) {
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
     val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
     val ended by controller.isEnded.collectAsStateWithLifecycle()
@@ -185,19 +190,20 @@ private fun CenterTransport(controller: PlaybackController, ui: FullPlayerState,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(48.dp),
     ) {
-        BigPlainIcon(RxIcons.SkipPrevious, "Previous", size = 36.dp) { controller.previous(); ui.bump() }
-        // The buffering loader takes this spot: hide play/pause (keep its space) while it shows.
-        val loading = ui.bufferingShown
+        BigPlainIcon(RxIcons.TransportPrevious, "Previous", size = 36.dp) { controller.previous(); ui.bump() }
+        // Landscape: the centred loader takes this spot, so play/pause hides (keeping its space).
+        // Portrait: the transport sits near the bottom, clear of the loader, so it stays.
+        val loading = hideWhileLoading && ui.bufferingShown
         Box(Modifier.graphicsLayer { alpha = if (loading) 0f else 1f }) {
             BigPlainIcon(
-                icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                icon = if (ended) RxIcons.TransportReplay else if (playing) RxIcons.TransportPause else RxIcons.TransportPlay,
                 description = if (ended) "Replay" else if (playing) "Pause" else "Play",
                 size = 56.dp,
                 enabled = !loading,
             ) { controller.togglePlayPause(); ui.bump() }
         }
         BigPlainIcon(
-            RxIcons.SkipNext,
+            RxIcons.TransportNext,
             "Next",
             size = 36.dp,
             enabled = nowPlaying?.hasNext == true || (settings.shuffle && multiple),
@@ -242,7 +248,12 @@ private fun BottomBar(
     val shuffle = settings.shuffle
     Column(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         if (!landscape) {
-            CenterTransport(controller, ui, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp))
+            CenterTransport(
+                controller,
+                ui,
+                Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp),
+                hideWhileLoading = false,
+            )
         }
         // Row 1: elapsed · seek · duration.
         Row(verticalAlignment = Alignment.CenterVertically) {
