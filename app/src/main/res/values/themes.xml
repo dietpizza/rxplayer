@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.RxPlayer" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        DayNight window theme: the window background (and the system splash) follow the system
+        light/dark setting and match the app's surface colour, so there's no flash before the
+        first Compose frame. MainActivity holds that frame until the saved appearance is loaded.
+    -->
+    <style name="Theme.RxPlayer" parent="android:Theme.DeviceDefault.DayNight">
+        <!-- No public DayNight.NoActionBar framework style exists, so drop the action bar here. -->
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@color/rx_window_background</item>
+        <item name="android:colorBackground">@color/rx_window_background</item>
+        <item name="android:windowSplashScreenBackground">@color/rx_window_background</item>
+    </style>
 </resources>

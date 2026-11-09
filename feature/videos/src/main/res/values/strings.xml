@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="videos_title">Videos</string>
+    <string name="videos_search">Search</string>
+    <string name="videos_settings">Settings</string>
+    <string name="videos_empty_title">Your video folders arrive in M2</string>
+    <string name="videos_empty_body">Folders, playlists and history, with resume bars and NEW badges for anything you haven\'t watched.</string>
+</resources>

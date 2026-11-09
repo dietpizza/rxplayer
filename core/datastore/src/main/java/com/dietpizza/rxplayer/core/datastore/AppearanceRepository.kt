@@ -4,7 +4,7 @@ import com.dietpizza.rxplayer.core.model.AppearanceSettings
 import com.dietpizza.rxplayer.core.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
-/** Contract used by :app and :feature:settings. Implementation + Hilt binding owned by the designsystem agent. */
+/** Appearance settings (theme, dynamic colour, pure black). Bound to a Preferences DataStore impl in [com.dietpizza.rxplayer.core.datastore.di.DataStoreModule]. */
 interface AppearanceRepository {
     val appearance: Flow<AppearanceSettings>
     suspend fun setThemeMode(mode: ThemeMode)

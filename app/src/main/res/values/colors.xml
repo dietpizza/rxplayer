@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <!-- Brand seed (plan §9). -->
+    <color name="rx_coral">#FFFF5A4E</color>
+    <!-- Matches the M3 light surface for the coral seed, so the window/splash doesn't flash. -->
+    <color name="rx_window_background">#FFFFF8F6</color>
 </resources>

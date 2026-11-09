@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon layer: only alpha is used, so the photo card is drawn as an outline. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M33,47.75H47A5.25,5.25 0,0 1,52.25 53V67A5.25,5.25 0,0 1,47 72.25H33A5.25,5.25 0,0 1,27.75 67V53A5.25,5.25 0,0 1,33 47.75Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.5" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M32,69.5L37,63L42,69.5Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M52,37L77,52L52,67Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineJoin="round" />
+</vector>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="network_title">Network</string>
+    <string name="network_search">Search</string>
+    <string name="network_settings">Settings</string>
+    <string name="network_empty_title">SMB, WebDAV, FTP and SFTP arrive in M6</string>
+    <string name="network_empty_body">Save your servers here to browse and stream from them like local folders.</string>
+    <string name="network_add_server">Add server</string>
+</resources>
