@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,13 +24,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -122,7 +116,7 @@ internal fun ViewerChrome(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(RxIcons.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
                     Text(
@@ -154,14 +148,14 @@ internal fun ViewerChrome(
                 ) {
                     if (item.canFavourite) {
                         ActionButton(
-                            if (isFavourite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            if (isFavourite) RxIcons.Favorite else RxIcons.FavoriteBorder,
                             if (isFavourite) "Remove from favourites" else "Add to favourites",
                             onFavourite,
                         )
                     }
-                    if (item.shareUri != null) ActionButton(Icons.Rounded.Share, "Share", onShare)
-                    ActionButton(Icons.Outlined.Info, "Details", onInfo)
-                    if (item.canDelete) ActionButton(Icons.Outlined.Delete, "Delete", onDelete)
+                    if (item.shareUri != null) ActionButton(RxIcons.Share, "Share", onShare)
+                    ActionButton(RxIcons.Info, "Details", onInfo)
+                    if (item.canDelete) ActionButton(RxIcons.Delete, "Delete", onDelete)
                 }
             }
         }

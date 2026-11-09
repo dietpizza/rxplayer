@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,13 +22,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.OpenInFull
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -184,7 +178,7 @@ private fun InlineError(controller: PlaybackController, geo: ViewerGeometry, mor
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
-            Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = Color.White)
+            Icon(RxIcons.ErrorOutline, contentDescription = null, tint = Color.White)
             Spacer(Modifier.width(8.dp))
             Text(e.title, color = Color.White)
         }
@@ -234,7 +228,7 @@ private fun InlineControlsRow(controller: PlaybackController, morph: MorphState,
         val playing = playWhenReady && !ended
         IconButton(onClick = controller::togglePlayPause) {
             Icon(
-                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                if (playing) RxIcons.Pause else RxIcons.PlayArrow,
                 contentDescription = if (playing) "Pause" else "Play",
                 tint = Color.White,
             )
@@ -242,13 +236,13 @@ private fun InlineControlsRow(controller: PlaybackController, morph: MorphState,
         InlineScrubBar(controller, Modifier.weight(1f))
         IconButton(onClick = controller::toggleMute) {
             Icon(
-                if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
+                if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
                 contentDescription = if (muted) "Unmute" else "Mute",
                 tint = Color.White,
             )
         }
         IconButton(onClick = onExpand) {
-            Icon(Icons.Rounded.OpenInFull, contentDescription = "Full screen", tint = Color.White)
+            Icon(RxIcons.OpenInFull, contentDescription = "Full screen", tint = Color.White)
         }
     }
 }

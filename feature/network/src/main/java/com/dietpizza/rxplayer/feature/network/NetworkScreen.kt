@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,19 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Lan
 import com.dietpizza.rxplayer.core.ui.RxIntents
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -105,14 +98,14 @@ internal fun NetworkContent(
                 title = { Text(stringResource(R.string.network_title)) },
                 actions = {
                     IconButton(onClick = onAdd) {
-                        Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.network_add_server))
+                        Icon(RxIcons.Add, contentDescription = stringResource(R.string.network_add_server))
                     }
                     val context = LocalContext.current
                     IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
-                        Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.network_search))
+                        Icon(RxIcons.Search, contentDescription = stringResource(R.string.network_search))
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.network_settings))
+                        Icon(RxIcons.Settings, contentDescription = stringResource(R.string.network_settings))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -126,7 +119,7 @@ internal fun NetworkContent(
         when {
             rows == null -> Unit // Room answers within a frame or two; no indicator flash.
             rows.isEmpty() -> RxEmptyState(
-                icon = Icons.Rounded.Lan,
+                icon = RxIcons.Lan,
                 title = stringResource(R.string.network_empty_title),
                 body = stringResource(R.string.network_empty_body),
                 modifier = Modifier
@@ -135,7 +128,7 @@ internal fun NetworkContent(
                     .padding(contentPadding),
                 action = {
                     FilledTonalButton(onClick = onAdd) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Icon(RxIcons.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                         Text(stringResource(R.string.network_add_server))
                     }
@@ -212,26 +205,16 @@ private fun ServerListItem(
         trailingContent = {
             Box {
                 IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.network_more))
+                    Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.network_more))
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.network_edit)) },
-                        leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) },
-                        onClick = {
-                            menu = false
-                            onEdit()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.network_delete)) },
-                        leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                        onClick = {
-                            menu = false
-                            onDelete()
-                        },
-                    )
-                }
+                RxMenu(
+                    expanded = menu,
+                    onDismissRequest = { menu = false },
+                    groups = listOf(
+                        listOf(RxMenuItem(stringResource(R.string.network_edit), onEdit, RxIcons.Edit)),
+                        listOf(RxMenuItem(stringResource(R.string.network_delete), onDelete, RxIcons.Delete, destructive = true)),
+                    ),
+                )
             }
         },
     ) {

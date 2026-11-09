@@ -1,16 +1,14 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -86,45 +84,32 @@ internal fun <F> SortMenuButton(
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = stringResource(R.string.gallery_sort))
+            Icon(RxIcons.Sort, contentDescription = stringResource(R.string.gallery_sort))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for (option in options) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(option.label)) },
-                    onClick = {
-                        expanded = false
-                        if (option.field != current) onFieldSelected(option.field)
-                    },
-                    trailingIcon = checkIf(option.field == current),
-                    modifier = Modifier.selectedState(option.field == current),
-                )
-            }
-            HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.gallery_sort_ascending)) },
-                onClick = {
-                    expanded = false
-                    if (descending) onDirectionSelected(false)
+        RxMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            groups = listOf(
+                options.map { option ->
+                    RxMenuItem(
+                        label = stringResource(option.label),
+                        onClick = { if (option.field != current) onFieldSelected(option.field) },
+                        selected = option.field == current,
+                    )
                 },
-                trailingIcon = checkIf(!descending),
-                modifier = Modifier.selectedState(!descending),
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.gallery_sort_descending)) },
-                onClick = {
-                    expanded = false
-                    if (!descending) onDirectionSelected(true)
-                },
-                trailingIcon = checkIf(descending),
-                modifier = Modifier.selectedState(descending),
-            )
-        }
+                listOf(
+                    RxMenuItem(
+                        label = stringResource(R.string.gallery_sort_ascending),
+                        onClick = { if (descending) onDirectionSelected(false) },
+                        selected = !descending,
+                    ),
+                    RxMenuItem(
+                        label = stringResource(R.string.gallery_sort_descending),
+                        onClick = { if (!descending) onDirectionSelected(true) },
+                        selected = descending,
+                    ),
+                ),
+            ),
+        )
     }
 }
-
-/** The check mark is decorative; TalkBack reads the selection from this instead. */
-private fun Modifier.selectedState(isSelected: Boolean): Modifier = semantics { selected = isSelected }
-
-private fun checkIf(checked: Boolean): (@Composable () -> Unit)? =
-    if (checked) ({ Icon(Icons.Rounded.Check, contentDescription = null) }) else null

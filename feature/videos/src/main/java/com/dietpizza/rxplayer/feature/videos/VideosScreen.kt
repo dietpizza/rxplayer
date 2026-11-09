@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,10 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Icon
@@ -26,7 +23,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -128,10 +125,10 @@ private fun VideosScaffold(
                 actions = {
                     val context = LocalContext.current
                     IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
-                        Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.videos_search))
+                        Icon(RxIcons.Search, contentDescription = stringResource(R.string.videos_search))
                     }
                     IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
-                        Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.videos_settings))
+                        Icon(RxIcons.Settings, contentDescription = stringResource(R.string.videos_settings))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -161,6 +158,7 @@ private fun VideosScaffold(
                     listPadding(
                         PaddingValues(start = start, end = end, bottom = innerPadding.calculateBottomPadding()),
                         PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                        gutter = 0.dp,
                     ),
                 )
             }
@@ -210,7 +208,7 @@ internal fun FoldersSection(
     when (uiState) {
         VideosUiState.Loading -> DelayedLoadingIndicator(Modifier.padding(contentPadding))
         VideosUiState.Empty -> RxEmptyState(
-            icon = Icons.Rounded.VideoLibrary,
+            icon = RxIcons.VideoLibrary,
             title = stringResource(R.string.videos_empty_title),
             body = stringResource(R.string.videos_empty_body),
             modifier = Modifier.padding(contentPadding),
@@ -229,7 +227,6 @@ private fun FolderList(
     LazyColumn(
         state = rememberLazyListState(),
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         modifier = Modifier
             .fillMaxSize()
             .testTag("videos_folders"),
@@ -247,16 +244,15 @@ private fun FolderList(
 
 @Composable
 private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: () -> Unit) {
-    SegmentedListItem(
+    ListItem(
         onClick = onClick,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         modifier = Modifier.testTag("videos_folder"),
         leadingContent = {
             VideoThumbnail(
                 contentUri = folder.coverUri,
                 duration = null,
                 resumeFraction = 0f,
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.extraSmall,
                 requestWidth = FolderThumbWidth,
                 modifier = Modifier.size(FolderThumbWidth, FolderThumbWidth * 9 / 16),
             )

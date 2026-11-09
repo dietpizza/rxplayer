@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.settings
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,16 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.BrightnessAuto
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Contrast
-import androidx.compose.material.icons.rounded.DarkMode
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -117,7 +108,7 @@ internal fun SettingsContent(
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.settings_back))
+                        Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.settings_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -187,7 +178,7 @@ private fun AppearanceSection(
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
-            leadingContent = { Icon(Icons.Rounded.Contrast, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Contrast, contentDescription = null) },
             supportingContent = {
                 ThemeModeButtonGroup(
                     selected = appearance.themeMode,
@@ -203,7 +194,7 @@ private fun AppearanceSection(
             onClick = { onDynamicColorChange(!appearance.dynamicColor) },
             modifier = Modifier.switchSemantics(appearance.dynamicColor),
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
-            leadingContent = { Icon(Icons.Rounded.Palette, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Palette, contentDescription = null) },
             supportingContent = { Text(stringResource(R.string.settings_dynamic_colour_summary)) },
             trailingContent = { Switch(checked = appearance.dynamicColor, onCheckedChange = null) },
         ) { Text(stringResource(R.string.settings_dynamic_colour)) }
@@ -214,7 +205,7 @@ private fun AppearanceSection(
             modifier = Modifier.switchSemantics(appearance.pureBlack),
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
             enabled = canBeDark,
-            leadingContent = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.DarkMode, contentDescription = null) },
             supportingContent = {
                 Text(
                     stringResource(
@@ -257,7 +248,7 @@ private fun ThemeModeButtonGroup(
                 },
             ) {
                 Icon(
-                    imageVector = if (checked) Icons.Rounded.Check else mode.icon,
+                    imageVector = if (checked) RxIcons.Check else mode.icon,
                     contentDescription = null,
                     modifier = Modifier.size(ToggleButtonDefaults.IconSize),
                 )
@@ -284,9 +275,9 @@ private val ThemeMode.label: Int
 
 private val ThemeMode.icon
     get() = when (this) {
-        ThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
-        ThemeMode.LIGHT -> Icons.Rounded.LightMode
-        ThemeMode.DARK -> Icons.Rounded.DarkMode
+        ThemeMode.SYSTEM -> RxIcons.BrightnessAuto
+        ThemeMode.LIGHT -> RxIcons.LightMode
+        ThemeMode.DARK -> RxIcons.DarkMode
     }
 
 @Composable
@@ -295,12 +286,12 @@ private fun AboutSection(appInfo: AppInfo) {
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
-            leadingContent = { Icon(Icons.Rounded.PlayCircle, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.PlayCircle, contentDescription = null) },
             supportingContent = { Text(stringResource(R.string.settings_about_summary)) },
         ) { Text(appInfo.appName) }
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
-            leadingContent = { Icon(Icons.Rounded.Info, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Info, contentDescription = null) },
             supportingContent = { Text(appInfo.versionName) },
         ) { Text(stringResource(R.string.settings_version)) }
     }

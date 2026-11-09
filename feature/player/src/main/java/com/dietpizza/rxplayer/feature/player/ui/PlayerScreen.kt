@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -19,13 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -357,7 +351,7 @@ private fun LockOverlay(ui: FullPlayerState, modifier: Modifier) {
                 shapes = IconButtonDefaults.shapes(),
                 modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
             ) {
-                Icon(Icons.Rounded.Lock, contentDescription = "Unlock controls")
+                Icon(RxIcons.Lock, contentDescription = "Unlock controls")
             }
         }
     }
@@ -450,7 +444,7 @@ private fun DoubleTapPop(ui: FullPlayerState, modifier: Modifier) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = if (ui.popShowsPlay) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+                imageVector = if (ui.popShowsPlay) RxIcons.PlayArrow else RxIcons.Pause,
                 contentDescription = null,
                 modifier = Modifier.size(56.dp),
             )
@@ -481,7 +475,7 @@ private fun SpeedBoostPill(controller: PlaybackController, modifier: Modifier) {
             ) {
                 val label = if (speed % 1f == 0f) speed.toInt().toString() else speed.toString()
                 Text("${label}×", style = MaterialTheme.typography.labelLarge)
-                Icon(Icons.Rounded.FastForward, contentDescription = null, Modifier.size(18.dp))
+                Icon(RxIcons.FastForward, contentDescription = null, Modifier.size(18.dp))
             }
         }
     }
@@ -524,7 +518,7 @@ private fun ErrorPanel(error: PlayerError, controller: PlaybackController, onBac
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
-                Icons.Rounded.ErrorOutline,
+                RxIcons.ErrorOutline,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(40.dp),
@@ -567,7 +561,7 @@ private fun WarningBanner(error: PlayerError, onDismiss: () -> Unit, modifier: M
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+            Icon(RxIcons.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
             Column {
                 Text(error.title, style = MaterialTheme.typography.titleSmall)
                 Text(error.message, style = MaterialTheme.typography.bodySmall)

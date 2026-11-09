@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,12 +15,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
@@ -90,7 +85,7 @@ internal fun ServerContent(
                 title = { Text(stringResource(if (state.isNew) R.string.server_add_title else R.string.server_edit_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.server_back))
+                        Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.server_back))
                     }
                 },
             )
@@ -257,7 +252,7 @@ private fun PasswordField(form: ServerForm, onUpdate: ((ServerForm) -> ServerFor
         trailingIcon = {
             IconButton(onClick = { visible = !visible }) {
                 Icon(
-                    if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    if (visible) RxIcons.VisibilityOff else RxIcons.Visibility,
                     contentDescription = stringResource(if (visible) R.string.server_hide_password else R.string.server_show_password),
                 )
             }
@@ -356,7 +351,7 @@ private fun ResultLine(ok: Boolean, title: String, detail: String?) {
     val color = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(
-            if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.ErrorOutline,
+            if (ok) RxIcons.CheckCircle else RxIcons.ErrorOutline,
             contentDescription = null,
             tint = color,
             modifier = Modifier.size(20.dp),

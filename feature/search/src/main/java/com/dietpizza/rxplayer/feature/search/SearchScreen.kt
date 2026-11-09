@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.search
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,17 +26,8 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ArrowDropDown
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -124,7 +118,7 @@ internal fun SearchContent(
                 TopAppBar(
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.search_back))
+                            Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.search_back))
                         }
                     },
                     title = {
@@ -154,7 +148,7 @@ internal fun SearchContent(
                                 focus.requestFocus()
                                 keyboard?.show()
                             }) {
-                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.search_clear))
+                                Icon(RxIcons.Close, contentDescription = stringResource(R.string.search_clear))
                             }
                         }
                     },
@@ -172,14 +166,14 @@ internal fun SearchContent(
         when (uiState) {
             SearchUiState.Loading -> Box(modifier)
             SearchUiState.Idle -> RxEmptyState(
-                icon = Icons.Rounded.Search,
+                icon = RxIcons.Search,
                 title = stringResource(R.string.search_idle_title),
                 body = stringResource(R.string.search_idle_body),
                 modifier = modifier,
             )
             is SearchUiState.Results -> if (uiState.tiles.isEmpty()) {
                 RxEmptyState(
-                    icon = Icons.Rounded.SearchOff,
+                    icon = RxIcons.SearchOff,
                     title = stringResource(R.string.search_no_results_title),
                     body = stringResource(R.string.search_no_results_body),
                     modifier = modifier,
@@ -303,25 +297,21 @@ private fun <T> FilterMenuChip(
                     maxLines = 1,
                 )
             },
-            trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            trailingIcon = { Icon(RxIcons.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            for (choice in choices) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(choice.label)) },
-                    trailingIcon = if (choice.value == current) {
-                        { Icon(Icons.Rounded.Check, contentDescription = null) }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.semantics { this.selected = choice.value == current },
-                    onClick = {
-                        expanded = false
-                        onSelect(choice.value)
-                    },
-                )
-            }
-        }
+        RxMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            groups = listOf(
+                choices.map { choice ->
+                    RxMenuItem(
+                        label = stringResource(choice.label),
+                        onClick = { onSelect(choice.value) },
+                        selected = choice.value == current,
+                    )
+                },
+            ),
+        )
     }
 }
 

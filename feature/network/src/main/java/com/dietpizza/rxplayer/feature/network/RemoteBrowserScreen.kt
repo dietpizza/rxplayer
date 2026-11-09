@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,18 +19,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DriveFileRenameOutline
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -160,7 +153,7 @@ internal fun BrowserContent(
                     title = { Text(state.serverName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.browser_back))
+                            Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.browser_back))
                         }
                     },
                     actions = { OverflowMenu(state.showAll, onShowAll, onRefresh) },
@@ -191,7 +184,7 @@ internal fun BrowserContent(
             when (val listing = state.listing) {
                 Listing.Loading -> DelayedLoadingIndicator()
                 is Listing.Failed -> RxEmptyState(
-                    icon = Icons.Rounded.CloudOff,
+                    icon = RxIcons.CloudOff,
                     title = stringResource(if (state.serverMissing) R.string.browser_server_missing else listing.kind.titleRes()),
                     body = listing.detail,
                     modifier = Modifier.padding(bottomOnly),
@@ -205,7 +198,7 @@ internal fun BrowserContent(
                     val rows = state.rows
                     if (rows.isEmpty()) {
                         RxEmptyState(
-                            icon = Icons.Rounded.FolderOpen,
+                            icon = RxIcons.FolderOpen,
                             title = stringResource(if (state.hidesFiles) R.string.browser_no_media_title else R.string.browser_empty_title),
                             body = stringResource(if (state.hidesFiles) R.string.browser_no_media_body else R.string.browser_empty_body),
                             modifier = Modifier.padding(bottomOnly),
@@ -265,29 +258,22 @@ private fun OverflowMenu(showAll: Boolean, onShowAll: (Boolean) -> Unit, onRefre
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.browser_more))
+            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.browser_more))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_show_all)) },
-                trailingIcon = { Checkbox(checked = showAll, onCheckedChange = null) },
-                modifier = Modifier.semantics {
-                    role = Role.Checkbox
-                    toggleableState = ToggleableState(showAll)
-                },
-                onClick = {
-                    open = false
-                    onShowAll(!showAll)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_refresh)) },
-                onClick = {
-                    open = false
-                    onRefresh()
-                },
-            )
-        }
+        RxMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            groups = listOf(
+                listOf(
+                    RxMenuItem(
+                        label = stringResource(R.string.browser_show_all),
+                        onClick = { onShowAll(!showAll) },
+                        icon = if (showAll) RxIcons.Visibility else RxIcons.VisibilityOff,
+                    ),
+                    RxMenuItem(stringResource(R.string.browser_refresh), onRefresh, RxIcons.Replay),
+                ),
+            ),
+        )
     }
 }
 
@@ -309,7 +295,7 @@ private fun Breadcrumbs(crumbs: List<RemotePath.Crumb>, onOpen: (String) -> Unit
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (index > 0) {
                     Icon(
-                        Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        RxIcons.KeyboardArrowRight,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
@@ -401,24 +387,14 @@ private fun EntryItem(
         ) {
             Text(entry.name, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_rename)) },
-                leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, contentDescription = null) },
-                onClick = {
-                    menu = false
-                    onRename()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.browser_delete)) },
-                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                onClick = {
-                    menu = false
-                    onDelete()
-                },
-            )
-        }
+        RxMenu(
+            expanded = menu,
+            onDismissRequest = { menu = false },
+            groups = listOf(
+                listOf(RxMenuItem(stringResource(R.string.browser_rename), onRename, RxIcons.DriveFileRenameOutline)),
+                listOf(RxMenuItem(stringResource(R.string.browser_delete), onDelete, RxIcons.Delete, destructive = true)),
+            ),
+        )
     }
 }
 

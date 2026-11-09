@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,11 +12,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CreateNewFolder
-import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -187,8 +183,8 @@ internal fun FolderPickerDialog(
 ) = PickerDialog(
     title = title,
     newLabel = stringResource(R.string.folder_new),
-    newIcon = Icons.Rounded.CreateNewFolder,
-    itemIcon = Icons.Rounded.Folder,
+    newIcon = RxIcons.CreateNewFolder,
+    itemIcon = RxIcons.Folder,
     items = folders,
     key = { it.path },
     label = { it.name },
@@ -207,8 +203,8 @@ internal fun PlaylistPickerDialog(
 ) = PickerDialog(
     title = stringResource(R.string.playlist_add_to),
     newLabel = stringResource(R.string.playlist_new),
-    newIcon = Icons.Rounded.Add,
-    itemIcon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+    newIcon = RxIcons.Add,
+    itemIcon = RxIcons.PlaylistPlay,
     items = playlists,
     key = { it.id },
     label = { it.name },

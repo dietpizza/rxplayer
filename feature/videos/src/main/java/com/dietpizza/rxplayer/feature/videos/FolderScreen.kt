@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -25,30 +28,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.rounded.ArrowDownward
-import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.VideoLibrary
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -313,11 +299,11 @@ internal fun FolderContent(
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = actions.onClearSelection) {
-                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.selection_clear))
+                            Icon(RxIcons.Close, contentDescription = stringResource(R.string.selection_clear))
                         }
                     } else {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.folder_back))
+                            Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.folder_back))
                         }
                     }
                 },
@@ -341,9 +327,9 @@ internal fun FolderContent(
                             },
                         ) {
                             if (grid) {
-                                Icon(Icons.AutoMirrored.Rounded.ViewList, contentDescription = stringResource(R.string.folder_list_view))
+                                Icon(RxIcons.ViewList, contentDescription = stringResource(R.string.folder_list_view))
                             } else {
-                                Icon(Icons.Rounded.GridView, contentDescription = stringResource(R.string.folder_grid_view))
+                                Icon(RxIcons.GridView, contentDescription = stringResource(R.string.folder_grid_view))
                             }
                         }
                     }
@@ -359,13 +345,13 @@ internal fun FolderContent(
         when {
             content == null -> DelayedLoadingIndicator(Modifier.padding(innerPadding))
             content.videos.isEmpty() -> RxEmptyState(
-                icon = Icons.Rounded.VideoLibrary,
+                icon = RxIcons.VideoLibrary,
                 title = stringResource(R.string.folder_empty_title),
                 body = stringResource(R.string.folder_empty_body),
                 modifier = Modifier.padding(innerPadding),
             )
             else -> {
-                val padding = listPadding(innerPadding, PaddingValues())
+                val padding = listPadding(innerPadding, PaddingValues(), gutter = if (grid) 16.dp else 0.dp)
                 val onClick: (Int, VideoRow) -> Unit = { index, video ->
                     if (selecting) actions.onToggleSelected(video.key) else onPlay(index)
                 }
@@ -384,53 +370,34 @@ internal fun FolderContent(
 private fun SelectionActions(count: Int, allFavourite: Boolean, actions: FolderActions) {
     IconButton(onClick = actions.onFavourite) {
         if (allFavourite) {
-            Icon(Icons.Rounded.Favorite, contentDescription = stringResource(R.string.action_unfavourite))
+            Icon(RxIcons.Favorite, contentDescription = stringResource(R.string.action_unfavourite))
         } else {
-            Icon(Icons.Rounded.FavoriteBorder, contentDescription = stringResource(R.string.action_favourite))
+            Icon(RxIcons.FavoriteBorder, contentDescription = stringResource(R.string.action_favourite))
         }
     }
     IconButton(onClick = actions.onAddToPlaylist) {
-        Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = stringResource(R.string.playlist_add_to))
+        Icon(RxIcons.PlaylistAdd, contentDescription = stringResource(R.string.playlist_add_to))
     }
     IconButton(onClick = actions.onDelete) {
-        Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.action_delete))
+        Icon(RxIcons.Delete, contentDescription = stringResource(R.string.action_delete))
     }
     var menu by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { menu = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.action_more))
+            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.action_more))
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_rename)) },
-                enabled = count == 1,
-                onClick = {
-                    menu = false
-                    actions.onRename()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_move_to)) },
-                onClick = {
-                    menu = false
-                    actions.onMove()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_copy_to)) },
-                onClick = {
-                    menu = false
-                    actions.onCopy()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_select_all)) },
-                onClick = {
-                    menu = false
-                    actions.onSelectAll()
-                },
-            )
-        }
+        RxMenu(
+            expanded = menu,
+            onDismissRequest = { menu = false },
+            groups = listOf(
+                listOf(
+                    RxMenuItem(stringResource(R.string.action_rename), actions.onRename, RxIcons.DriveFileRenameOutline, enabled = count == 1),
+                    RxMenuItem(stringResource(R.string.action_move_to), actions.onMove, RxIcons.DriveFileMove),
+                    RxMenuItem(stringResource(R.string.action_copy_to), actions.onCopy, RxIcons.ContentCopy),
+                ),
+                listOf(RxMenuItem(stringResource(R.string.action_select_all), actions.onSelectAll, RxIcons.CheckCircle)),
+            ),
+        )
     }
 }
 
@@ -439,32 +406,33 @@ private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = stringResource(R.string.sort))
+            Icon(RxIcons.Sort, contentDescription = stringResource(R.string.sort))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            for (field in VideoSortField.entries) {
-                val current = field == sort.field
-                DropdownMenuItem(
-                    text = { Text(stringResource(field.label())) },
-                    trailingIcon = if (current) {
-                        {
-                            Icon(
-                                if (sort.descending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
-                                contentDescription = stringResource(if (sort.descending) R.string.sort_descending else R.string.sort_ascending),
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.semantics { selected = current },
-                    onClick = {
-                        open = false
-                        // Picking the current field flips its direction.
-                        onSort(if (current) sort.copy(descending = !sort.descending) else VideoSort.defaultFor(field))
-                    },
-                )
-            }
-        }
+        RxMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            groups = listOf(
+                VideoSortField.entries.map { field ->
+                    RxMenuItem(
+                        label = stringResource(field.label()),
+                        onClick = { if (field != sort.field) onSort(VideoSort.defaultFor(field)) },
+                        selected = field == sort.field,
+                    )
+                },
+                listOf(
+                    RxMenuItem(
+                        label = stringResource(R.string.sort_ascending),
+                        onClick = { if (sort.descending) onSort(sort.copy(descending = false)) },
+                        selected = !sort.descending,
+                    ),
+                    RxMenuItem(
+                        label = stringResource(R.string.sort_descending),
+                        onClick = { if (!sort.descending) onSort(sort.copy(descending = true)) },
+                        selected = sort.descending,
+                    ),
+                ),
+            ),
+        )
     }
 }
 
@@ -490,7 +458,6 @@ private fun VideoList(
     LazyColumn(
         state = state,
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         modifier = Modifier
             .fillMaxSize()
             .testTag("folder_list"),
@@ -517,11 +484,10 @@ private fun VideoListItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    SegmentedListItem(
+    ListItem(
         selected = selected,
         onClick = onClick,
         onLongClick = onLongClick,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
             Box {
@@ -529,7 +495,7 @@ private fun VideoListItem(
                     contentUri = video.contentUri,
                     duration = video.duration,
                     resumeFraction = video.resumeFraction,
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.extraSmall,
                     requestWidth = ListThumbWidth,
                     dimmed = video.watched,
                     modifier = Modifier.size(ListThumbWidth, ListThumbWidth * 9 / 16),
@@ -553,7 +519,7 @@ internal val ListThumbWidth = 128.dp
 @Composable
 private fun SelectedMark(modifier: Modifier = Modifier) {
     Icon(
-        Icons.Rounded.CheckCircle,
+        RxIcons.CheckCircle,
         contentDescription = null,
         tint = MaterialTheme.colorScheme.primary,
         modifier = modifier
@@ -573,7 +539,7 @@ private fun VideoMeta(video: VideoRow, modifier: Modifier = Modifier) {
         if (video.isNew) NewDot()
         if (video.isFavourite) {
             Icon(
-                Icons.Rounded.Favorite,
+                RxIcons.Favorite,
                 contentDescription = stringResource(R.string.favourite),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(14.dp),

@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.settings
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,31 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.automirrored.rounded.Sort
-import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ClosedCaption
-import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.FormatSize
-import androidx.compose.material.icons.rounded.GridView
-import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.PhoneCallback
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
-import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Subtitles
-import androidx.compose.material.icons.rounded.Swipe
-import androidx.compose.material.icons.rounded.SwipeDown
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
@@ -104,13 +80,13 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
     SettingsGroup {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
-            leadingContent = { Icon(Icons.AutoMirrored.Rounded.ViewList, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.ViewList, contentDescription = null) },
             supportingContent = {
                 ConnectedChoices(
                     options = VideoViewMode.entries,
                     selected = library.videoViewMode,
                     label = { stringResource(if (it == VideoViewMode.LIST) R.string.settings_view_list else R.string.settings_view_grid) },
-                    icon = { if (it == VideoViewMode.LIST) Icons.AutoMirrored.Rounded.ViewList else Icons.Rounded.GridView },
+                    icon = { if (it == VideoViewMode.LIST) RxIcons.ViewList else RxIcons.GridView },
                     onSelect = actions.onVideoViewMode,
                     modifier = Modifier.padding(top = 12.dp),
                 )
@@ -120,23 +96,23 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
         SegmentedListItem(
             onClick = { sortDialog = true },
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
-            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Sort, contentDescription = null) },
             supportingContent = { Text(sortLabel(library.videoSort)) },
-            trailingContent = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null) },
+            trailingContent = { Icon(RxIcons.KeyboardArrowDown, contentDescription = null) },
         ) { Text(stringResource(R.string.settings_default_sort)) }
 
         SegmentedListItem(
             onClick = { columnsDialog = true },
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
-            leadingContent = { Icon(Icons.Rounded.GridView, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.GridView, contentDescription = null) },
             supportingContent = { Text(stringResource(R.string.settings_grid_columns_summary, columnsLabel(library.galleryGridColumns))) },
-            trailingContent = { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null) },
+            trailingContent = { Icon(RxIcons.KeyboardArrowDown, contentDescription = null) },
         ) { Text(stringResource(R.string.settings_grid_columns)) }
 
         SwitchRow(
             index = 3,
             count = count,
-            icon = Icons.Rounded.Visibility,
+            icon = RxIcons.Visibility,
             title = stringResource(R.string.settings_show_hidden),
             supporting = stringResource(R.string.settings_show_hidden_summary),
             checked = library.showHidden,
@@ -240,7 +216,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         val count = 7
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
-            leadingContent = { Icon(Icons.Rounded.FastForward, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.FastForward, contentDescription = null) },
             supportingContent = {
                 ConnectedChoices(
                     options = SeekSteps,
@@ -256,7 +232,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SliderRow(
             index = 1,
             count = count,
-            icon = Icons.Rounded.Swipe,
+            icon = RxIcons.Swipe,
             title = stringResource(R.string.settings_swipe_sensitivity),
             value = player.swipeSeekSensitivity,
             range = 0.5f..2f,
@@ -268,7 +244,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 2,
             count = count,
-            icon = Icons.Rounded.TouchApp,
+            icon = RxIcons.TouchApp,
             title = stringResource(R.string.settings_double_tap),
             supporting = stringResource(R.string.settings_double_tap_summary),
             checked = player.doubleTapPlayPause,
@@ -278,7 +254,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 3,
             count = count,
-            icon = Icons.Rounded.Speed,
+            icon = RxIcons.Speed,
             title = stringResource(R.string.settings_long_press),
             supporting = stringResource(R.string.settings_long_press_summary),
             checked = player.longPressSpeedEnabled,
@@ -288,7 +264,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 4, count = count),
             enabled = player.longPressSpeedEnabled,
-            leadingContent = { Icon(Icons.Rounded.Speed, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Speed, contentDescription = null) },
             supportingContent = {
                 ConnectedChoices(
                     options = LongPressSpeeds,
@@ -305,7 +281,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 5,
             count = count,
-            icon = Icons.Rounded.ZoomIn,
+            icon = RxIcons.ZoomIn,
             title = stringResource(R.string.settings_pinch_zoom),
             supporting = null,
             checked = player.pinchToZoom,
@@ -315,7 +291,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 6,
             count = count,
-            icon = Icons.Rounded.SwipeDown,
+            icon = RxIcons.SwipeDown,
             title = stringResource(R.string.settings_swipe_down_close),
             supporting = null,
             checked = player.swipeDownToClose,
@@ -330,7 +306,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         val count = 4
         SegmentedListItem(
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
-            leadingContent = { Icon(Icons.Rounded.Restore, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.Restore, contentDescription = null) },
             supportingContent = {
                 ConnectedChoices(
                     options = ResumeMode.entries,
@@ -354,7 +330,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 1,
             count = count,
-            icon = Icons.Rounded.Image,
+            icon = RxIcons.Image,
             title = stringResource(R.string.settings_seek_thumbnails),
             supporting = stringResource(R.string.settings_seek_thumbnails_summary),
             checked = player.seekBarThumbnails,
@@ -364,7 +340,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 2,
             count = count,
-            icon = Icons.Rounded.SkipNext,
+            icon = RxIcons.SkipNext,
             title = stringResource(R.string.settings_auto_next),
             supporting = stringResource(R.string.settings_auto_next_summary),
             checked = player.autoPlayNext,
@@ -374,7 +350,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 3,
             count = count,
-            icon = Icons.Rounded.PictureInPictureAlt,
+            icon = RxIcons.PictureInPictureAlt,
             title = stringResource(R.string.settings_pip),
             supporting = stringResource(R.string.settings_pip_summary),
             checked = player.autoPip,
@@ -390,7 +366,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 0,
             count = count,
-            icon = Icons.Rounded.Headphones,
+            icon = RxIcons.Headphones,
             title = stringResource(R.string.settings_pause_headphones),
             supporting = null,
             checked = player.pauseOnHeadphonesUnplugged,
@@ -399,7 +375,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 1,
             count = count,
-            icon = Icons.Rounded.Call,
+            icon = RxIcons.Call,
             title = stringResource(R.string.settings_pause_calls),
             supporting = null,
             checked = player.pauseDuringCalls,
@@ -408,7 +384,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         SwitchRow(
             index = 2,
             count = count,
-            icon = Icons.Rounded.PhoneCallback,
+            icon = RxIcons.PhoneCallback,
             title = stringResource(R.string.settings_resume_after_call),
             supporting = null,
             checked = player.resumeAfterCall,
@@ -432,7 +408,7 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
         SwitchRow(
             index = 0,
             count = count,
-            icon = Icons.Rounded.Subtitles,
+            icon = RxIcons.Subtitles,
             title = stringResource(R.string.settings_subs_autoload),
             supporting = stringResource(R.string.settings_subs_autoload_summary),
             checked = subtitles.autoLoadSidecar,
@@ -441,7 +417,7 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
         SliderRow(
             index = 1,
             count = count,
-            icon = Icons.Rounded.FormatSize,
+            icon = RxIcons.FormatSize,
             title = stringResource(R.string.settings_subs_text_size),
             value = subtitles.textScale,
             range = SubtitleSettings.MIN_SCALE..SubtitleSettings.MAX_SCALE,
@@ -452,7 +428,7 @@ internal fun SubtitlesSection(subtitles: SubtitleSettings, actions: SettingsActi
         SwitchRow(
             index = 2,
             count = count,
-            icon = Icons.Rounded.ClosedCaption,
+            icon = RxIcons.ClosedCaption,
             title = stringResource(R.string.settings_subs_background),
             supporting = stringResource(R.string.settings_subs_background_summary),
             checked = subtitles.background,
@@ -473,7 +449,7 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
             onClick = actions.onClearCache,
             enabled = cacheBytes != null && cacheBytes > 0,
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
-            leadingContent = { Icon(Icons.Rounded.DeleteSweep, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.DeleteSweep, contentDescription = null) },
             supportingContent = {
                 Text(
                     if (cacheBytes == null) {
@@ -487,7 +463,7 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
         SegmentedListItem(
             onClick = { confirmHistory = true },
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
-            leadingContent = { Icon(Icons.Rounded.History, contentDescription = null) },
+            leadingContent = { Icon(RxIcons.History, contentDescription = null) },
             supportingContent = { Text(stringResource(R.string.settings_clear_history_summary)) },
         ) { Text(stringResource(R.string.settings_clear_history)) }
     }
@@ -640,7 +616,7 @@ private fun <T> ConnectedChoices(
             ) {
                 if (icon != null) {
                     Icon(
-                        imageVector = if (checked) Icons.Rounded.Check else icon(option),
+                        imageVector = if (checked) RxIcons.Check else icon(option),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )

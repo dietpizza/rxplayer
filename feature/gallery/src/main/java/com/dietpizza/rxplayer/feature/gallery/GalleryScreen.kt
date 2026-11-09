@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,15 +20,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.PhotoAlbum
-import androidx.compose.material.icons.rounded.PhotoCamera
-import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -143,7 +135,7 @@ internal fun GalleryContent(
                 title = { Text(stringResource(R.string.gallery_title)) },
                 actions = {
                     IconButton(onClick = onOpenSearch) {
-                        Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.gallery_search))
+                        Icon(RxIcons.Search, contentDescription = stringResource(R.string.gallery_search))
                     }
                     SortMenuButton(
                         options = AlbumSortOptions,
@@ -153,7 +145,7 @@ internal fun GalleryContent(
                         onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
                     )
                     IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
-                        Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.gallery_settings))
+                        Icon(RxIcons.Settings, contentDescription = stringResource(R.string.gallery_settings))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -169,7 +161,7 @@ internal fun GalleryContent(
                 Modifier.padding(innerPadding).padding(contentPadding),
             )
             GalleryUiState.Empty -> RxEmptyState(
-                icon = Icons.Rounded.PhotoLibrary,
+                icon = RxIcons.PhotoLibrary,
                 title = stringResource(R.string.gallery_empty_title),
                 body = stringResource(R.string.gallery_empty_body),
                 modifier = Modifier
@@ -282,7 +274,7 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                 ) {
                     Icon(
-                        Icons.Rounded.Add,
+                        RxIcons.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(32.dp),
@@ -303,11 +295,11 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
 private const val NEW_ALBUM_KEY = "new_album"
 
 private fun pinnedIcon(album: AlbumTile): ImageVector? = when (album.kind) {
-    AlbumKind.FAVOURITES -> Icons.Rounded.Favorite
-    AlbumKind.CUSTOM -> Icons.Rounded.PhotoAlbum
+    AlbumKind.FAVOURITES -> RxIcons.Favorite
+    AlbumKind.CUSTOM -> RxIcons.PhotoAlbum
     AlbumKind.VIRTUAL, AlbumKind.FOLDER -> when (album.virtual) {
-        VirtualAlbum.ALL_VIDEOS -> Icons.Rounded.Videocam
-        VirtualAlbum.CAMERA -> Icons.Rounded.PhotoCamera
+        VirtualAlbum.ALL_VIDEOS -> RxIcons.Videocam
+        VirtualAlbum.CAMERA -> RxIcons.PhotoCamera
         null -> null
     }
 }

@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,14 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,21 +57,18 @@ internal fun PlaylistsSection(
         LazyColumn(
             state = rememberLazyListState(),
             contentPadding = contentPadding,
-            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
             modifier = Modifier.fillMaxSize(),
         ) {
             item(key = "new", contentType = "new") {
-                SegmentedListItem(
+                ListItem(
                     onClick = { creating = true },
-                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
                     verticalAlignment = Alignment.CenterVertically,
-                    leadingContent = { IconTile(Icons.Rounded.Add) },
+                    leadingContent = { IconTile(RxIcons.Add) },
                 ) { Text(stringResource(R.string.playlist_new)) }
             }
             itemsIndexed(current, key = { _, p -> p.id }, contentType = { _, _ -> "playlist" }) { index, playlist ->
-                SegmentedListItem(
+                ListItem(
                     onClick = { context.startActivity(PlaylistActivity.intent(context, playlist.id, playlist.name)) },
-                    shapes = ListItemDefaults.segmentedShapes(index = index + 1, count = count),
                     verticalAlignment = Alignment.CenterVertically,
                     leadingContent = {
                         if (playlist.coverUri != null) {
@@ -82,12 +76,12 @@ internal fun PlaylistsSection(
                                 contentUri = playlist.coverUri,
                                 duration = null,
                                 resumeFraction = 0f,
-                                shape = MaterialTheme.shapes.medium,
+                                shape = MaterialTheme.shapes.extraSmall,
                                 requestWidth = FolderThumbWidth,
                                 modifier = Modifier.size(FolderThumbWidth, FolderThumbWidth * 9 / 16),
                             )
                         } else {
-                            IconTile(Icons.AutoMirrored.Rounded.PlaylistPlay)
+                            IconTile(RxIcons.PlaylistPlay)
                         }
                     },
                     supportingContent = { Text(playlist.summary, maxLines = 1) },
@@ -136,7 +130,7 @@ internal fun HistorySection(
     when {
         current == null -> DelayedLoadingIndicator(Modifier.padding(contentPadding))
         current.isEmpty() -> RxEmptyState(
-            icon = Icons.Rounded.History,
+            icon = RxIcons.History,
             title = stringResource(R.string.history_empty_title),
             body = stringResource(R.string.history_empty_body),
             modifier = Modifier.padding(contentPadding),
@@ -146,7 +140,6 @@ internal fun HistorySection(
             LazyColumn(
                 state = rememberLazyListState(),
                 contentPadding = contentPadding,
-                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 item(key = "header", contentType = "header") {
@@ -167,18 +160,17 @@ internal fun HistorySection(
                 }
                 itemsIndexed(current, key = { _, r -> r.video.key }, contentType = { _, _ -> "video" }) { index, row ->
                     val video = row.video
-                    SegmentedListItem(
+                    ListItem(
                         onClick = {
                             context.startActivity(RxIntents.player(context, listOf(MediaKey(video.key)), 0))
                         },
-                        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
                         verticalAlignment = Alignment.CenterVertically,
                         leadingContent = {
                             VideoThumbnail(
                                 contentUri = video.contentUri,
                                 duration = video.duration,
                                 resumeFraction = video.resumeFraction,
-                                shape = MaterialTheme.shapes.medium,
+                                shape = MaterialTheme.shapes.extraSmall,
                                 requestWidth = ListThumbWidth,
                                 dimmed = video.watched,
                                 modifier = Modifier.size(ListThumbWidth, ListThumbWidth * 9 / 16),

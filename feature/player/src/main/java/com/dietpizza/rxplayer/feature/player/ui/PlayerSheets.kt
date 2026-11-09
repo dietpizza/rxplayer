@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,11 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FileOpen
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.PhotoCamera
-import androidx.compose.material.icons.rounded.PictureInPictureAlt
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -158,7 +154,7 @@ internal fun SubtitleSheet(controller: PlaybackController, onLoadFile: () -> Uni
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Rounded.FileOpen, contentDescription = null, Modifier.padding(horizontal = 12.dp))
+            Icon(RxIcons.FileOpen, contentDescription = null, Modifier.padding(horizontal = 12.dp))
             Spacer(Modifier.width(8.dp))
             Text("Load from file…", style = MaterialTheme.typography.bodyLarge)
         }
@@ -273,7 +269,7 @@ internal fun MoreSheet(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             FilledTonalButton(onClick = onScreenshot, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.PhotoCamera, contentDescription = null)
+                Icon(RxIcons.PhotoCamera, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Screenshot", maxLines = 1)
             }
@@ -282,12 +278,12 @@ internal fun MoreSheet(
                 enabled = host.canEnterPip,
                 modifier = Modifier.weight(1f),
             ) {
-                Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = null)
+                Icon(RxIcons.PictureInPictureAlt, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Pop out", maxLines = 1)
             }
             FilledTonalButton(onClick = { showInfo = !showInfo }, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Rounded.Info, contentDescription = null)
+                Icon(RxIcons.Info, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Info", maxLines = 1)
             }

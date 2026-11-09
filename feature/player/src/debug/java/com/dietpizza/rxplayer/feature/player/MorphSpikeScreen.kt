@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import android.graphics.Outline
 import android.view.SurfaceView
 import android.view.TextureView
@@ -33,11 +34,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -498,7 +494,7 @@ private fun PageChrome(modifier: Modifier) {
             Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 32.dp).fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            listOf(Icons.Outlined.Share, Icons.Outlined.Edit, Icons.Outlined.Info, Icons.Outlined.Delete).forEach {
+            listOf(RxIcons.Share, RxIcons.Edit, RxIcons.Info, RxIcons.Delete).forEach {
                 Icon(it, contentDescription = null, tint = onSurface)
             }
         }

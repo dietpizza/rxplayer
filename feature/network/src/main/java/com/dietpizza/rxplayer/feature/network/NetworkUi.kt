@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import android.content.Context
 import android.text.format.DateUtils
 import android.text.format.Formatter
@@ -11,17 +12,6 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
-import androidx.compose.material.icons.rounded.AudioFile
-import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.Computer
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Subtitles
-import androidx.compose.material.icons.rounded.SwapVert
-import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
@@ -45,19 +35,19 @@ import com.dietpizza.rxplayer.core.netfs.model.NetProtocol
 import kotlinx.coroutines.delay
 
 internal fun NetProtocol.icon(): ImageVector = when (this) {
-    NetProtocol.SMB -> Icons.Rounded.Computer
-    NetProtocol.SFTP -> Icons.Rounded.Terminal
-    NetProtocol.FTP, NetProtocol.FTPS -> Icons.Rounded.SwapVert
-    NetProtocol.WEBDAV -> Icons.Rounded.Cloud
+    NetProtocol.SMB -> RxIcons.Computer
+    NetProtocol.SFTP -> RxIcons.Terminal
+    NetProtocol.FTP, NetProtocol.FTPS -> RxIcons.SwapVert
+    NetProtocol.WEBDAV -> RxIcons.Cloud
 }
 
 internal fun MediaType.icon(): ImageVector = when (this) {
-    MediaType.FOLDER -> Icons.Rounded.Folder
-    MediaType.VIDEO -> Icons.Rounded.Movie
-    MediaType.IMAGE -> Icons.Rounded.Image
-    MediaType.AUDIO -> Icons.Rounded.AudioFile
-    MediaType.SUBTITLE -> Icons.Rounded.Subtitles
-    MediaType.OTHER -> Icons.AutoMirrored.Rounded.InsertDriveFile
+    MediaType.FOLDER -> RxIcons.Folder
+    MediaType.VIDEO -> RxIcons.Movie
+    MediaType.IMAGE -> RxIcons.Image
+    MediaType.AUDIO -> RxIcons.AudioFile
+    MediaType.SUBTITLE -> RxIcons.Subtitles
+    MediaType.OTHER -> RxIcons.InsertDriveFile
 }
 
 @StringRes

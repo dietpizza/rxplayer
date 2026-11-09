@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,22 +13,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedListItem
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -125,7 +119,7 @@ internal fun PlaylistContent(
                 subtitle = { Text(content?.summary.orEmpty(), maxLines = 1) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.folder_back))
+                        Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.folder_back))
                     }
                 },
                 actions = {
@@ -133,29 +127,21 @@ internal fun PlaylistContent(
                         onClick = { content?.let { onPlay(it.playable, 0) } },
                         enabled = content != null && content.playable.isNotEmpty(),
                     ) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.playlist_play_all))
+                        Icon(RxIcons.PlayArrow, contentDescription = stringResource(R.string.playlist_play_all))
                     }
                     var menu by remember { mutableStateOf(false) }
                     Box {
                         IconButton(onClick = { menu = true }, enabled = content != null) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.action_more))
+                            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.action_more))
                         }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.playlist_rename)) },
-                                onClick = {
-                                    menu = false
-                                    onRename()
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.playlist_delete)) },
-                                onClick = {
-                                    menu = false
-                                    onDelete()
-                                },
-                            )
-                        }
+                        RxMenu(
+                            expanded = menu,
+                            onDismissRequest = { menu = false },
+                            groups = listOf(
+                                listOf(RxMenuItem(stringResource(R.string.playlist_rename), onRename, RxIcons.DriveFileRenameOutline)),
+                                listOf(RxMenuItem(stringResource(R.string.playlist_delete), onDelete, RxIcons.Delete, destructive = true)),
+                            ),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -169,14 +155,14 @@ internal fun PlaylistContent(
         when {
             content == null -> DelayedLoadingIndicator(Modifier.padding(innerPadding))
             content.items.isEmpty() -> RxEmptyState(
-                icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                icon = RxIcons.PlaylistPlay,
                 title = stringResource(R.string.playlist_empty_title),
                 body = stringResource(R.string.playlist_empty_body),
                 modifier = Modifier.padding(innerPadding),
             )
             else -> ReorderableItems(
                 content = content,
-                contentPadding = listPadding(innerPadding, PaddingValues()),
+                contentPadding = listPadding(innerPadding, PaddingValues(), gutter = 0.dp),
                 onPlay = { index ->
                     val playable = content.playableIndex(index)
                     if (playable >= 0) onPlay(content.playable, playable)
@@ -223,7 +209,6 @@ private fun ReorderableItems(
     LazyColumn(
         state = listState,
         contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         modifier = Modifier.fillMaxSize(),
     ) {
         itemsIndexed(items, key = { _, r -> r.key }, contentType = { _, _ -> "video" }) { index, row ->
@@ -254,18 +239,17 @@ private fun PlaylistItem(
     modifier: Modifier = Modifier,
 ) {
     val video = row.video
-    SegmentedListItem(
+    ListItem(
         onClick = onClick,
         enabled = true,
         modifier = modifier,
-        shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
             VideoThumbnail(
                 contentUri = video?.contentUri,
                 duration = video?.duration,
                 resumeFraction = video?.resumeFraction ?: 0f,
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.extraSmall,
                 requestWidth = ListThumbWidth,
                 dimmed = video?.watched == true,
                 modifier = Modifier.size(PlaylistThumbWidth, PlaylistThumbWidth * 9 / 16),
@@ -280,10 +264,10 @@ private fun PlaylistItem(
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onRemove) {
-                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.playlist_remove))
+                    Icon(RxIcons.Close, contentDescription = stringResource(R.string.playlist_remove))
                 }
                 Box(handle.size(40.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.DragHandle, contentDescription = stringResource(R.string.playlist_reorder))
+                    Icon(RxIcons.DragHandle, contentDescription = stringResource(R.string.playlist_reorder))
                 }
             }
         },

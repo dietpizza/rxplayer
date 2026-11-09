@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.onboarding
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -47,13 +48,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.NotificationsActive
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -268,7 +262,7 @@ private fun Details(
         Spacer(Modifier.height(28.dp))
 
         PermissionRow(
-            icon = Icons.Rounded.FolderOpen,
+            icon = RxIcons.FolderOpen,
             iconShape = MaterialShapes.Cookie9Sided,
             title = stringResource(R.string.onboarding_files_title),
             badge = stringResource(R.string.onboarding_required),
@@ -280,7 +274,7 @@ private fun Details(
         )
         Spacer(Modifier.height(12.dp))
         PermissionRow(
-            icon = Icons.Rounded.NotificationsActive,
+            icon = RxIcons.NotificationsActive,
             iconShape = MaterialShapes.Clover4Leaf,
             title = stringResource(R.string.onboarding_notifications_title),
             badge = stringResource(R.string.onboarding_optional),
@@ -303,7 +297,7 @@ private fun Details(
             Text(stringResource(R.string.onboarding_continue), style = ButtonDefaults.textStyleFor(height))
             Spacer(Modifier.size(ButtonDefaults.iconSpacingFor(height)))
             Icon(
-                Icons.AutoMirrored.Rounded.ArrowForward,
+                RxIcons.ArrowForward,
                 contentDescription = null,
                 modifier = Modifier.size(ButtonDefaults.iconSizeFor(height)),
             )
@@ -399,7 +393,7 @@ private fun PermissionRow(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            Icons.Rounded.Check,
+                            RxIcons.Check,
                             contentDescription = stringResource(R.string.onboarding_granted, title),
                             tint = MaterialTheme.colorScheme.onPrimary,
                         )
@@ -465,7 +459,7 @@ private fun HeroIllustration(modifier: Modifier = Modifier) {
             drawPath(path, colors.primaryContainer)
         }
         HeroTile(
-            icon = Icons.Rounded.Image,
+            icon = RxIcons.Image,
             shape = MaterialShapes.Slanted,
             container = colors.tertiaryContainer,
             content = colors.onTertiaryContainer,
@@ -479,7 +473,7 @@ private fun HeroIllustration(modifier: Modifier = Modifier) {
                 },
         )
         HeroTile(
-            icon = Icons.Rounded.PlayArrow,
+            icon = RxIcons.PlayArrow,
             shape = MaterialShapes.Cookie4Sided,
             container = colors.primary,
             content = colors.onPrimary,

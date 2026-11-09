@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.core.designsystem.component
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -16,8 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialShapes
@@ -144,7 +143,7 @@ private fun RxEmptyStateLightPreview() {
     RxTheme(AppearanceSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)) {
         Surface {
             RxEmptyState(
-                icon = Icons.Rounded.VideoLibrary,
+                icon = RxIcons.VideoLibrary,
                 title = "No videos yet",
                 body = "Videos you record or download will show up here.",
                 action = { FilledTonalButton(onClick = {}) { Text("Grant access") } },
@@ -159,7 +158,7 @@ private fun RxEmptyStateDarkPreview() {
     RxTheme(AppearanceSettings(themeMode = ThemeMode.DARK, dynamicColor = false, pureBlack = true)) {
         Surface {
             RxEmptyState(
-                icon = Icons.Rounded.VideoLibrary,
+                icon = RxIcons.VideoLibrary,
                 title = "Nothing here",
                 body = "This folder doesn't contain any videos.",
             )

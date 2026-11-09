@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -27,32 +28,7 @@ import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AspectRatio
-import androidx.compose.material.icons.rounded.Audiotrack
-import androidx.compose.material.icons.rounded.ClosedCaption
-import androidx.compose.material.icons.rounded.ClosedCaptionDisabled
-import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.LockOpen
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.rounded.FastRewind
-import androidx.compose.material.icons.rounded.Forward10
-import androidx.compose.material.icons.rounded.Forward30
-import androidx.compose.material.icons.rounded.Forward5
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material.icons.rounded.Replay30
-import androidx.compose.material.icons.rounded.Replay5
-import androidx.compose.material.icons.rounded.ScreenLockRotation
-import androidx.compose.material.icons.rounded.ScreenRotation
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.automirrored.rounded.VolumeOff
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -135,7 +111,7 @@ private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+            Icon(RxIcons.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
         Text(
             text = nowPlaying?.title.orEmpty(),
@@ -150,13 +126,13 @@ private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: 
         )
         val tracks by controller.trackMenu.collectAsStateWithLifecycle()
         if (tracks.audio.size > 1) {
-            TopIcon(Icons.Rounded.Audiotrack, "Audio track") { ui.sheet = PlayerSheet.Audio; ui.bump() }
+            TopIcon(RxIcons.Audiotrack, "Audio track") { ui.sheet = PlayerSheet.Audio; ui.bump() }
         }
         TopIcon(
-            if (tracks.textOff) Icons.Rounded.ClosedCaptionDisabled else Icons.Rounded.ClosedCaption,
+            if (tracks.textOff) RxIcons.ClosedCaptionDisabled else RxIcons.ClosedCaption,
             "Subtitles",
         ) { ui.sheet = PlayerSheet.Subtitles; ui.bump() }
-        TopIcon(Icons.Rounded.MoreVert, "More") { ui.sheet = PlayerSheet.More; ui.bump() }
+        TopIcon(RxIcons.MoreVert, "More") { ui.sheet = PlayerSheet.More; ui.bump() }
     }
 }
 
@@ -187,7 +163,7 @@ internal fun AlwaysOnMute(controller: PlaybackController, ui: FullPlayerState, m
                 .graphicsLayer { this.alpha = alpha },
         ) {
             Icon(
-                imageVector = if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
+                imageVector = if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
                 contentDescription = if (muted) "Unmute" else "Mute",
                 tint = Color.White,
             )
@@ -208,7 +184,7 @@ private fun CenterControls(controller: PlaybackController, ui: FullPlayerState, 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ControlButton(Icons.Rounded.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
+        ControlButton(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
         ControlButton(seekBackIcon(settings.seekStepSeconds), "Back ${settings.seekStepSeconds} seconds") {
             controller.seekBack(); ui.bump()
         }
@@ -237,16 +213,16 @@ fadeIn(iconFade) togetherWith fadeOut(iconFade)
         ControlButton(seekForwardIcon(settings.seekStepSeconds), "Forward ${settings.seekStepSeconds} seconds") {
             controller.seekForward(); ui.bump()
         }
-        ControlButton(Icons.Rounded.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) {
+        ControlButton(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) {
             controller.next(); ui.bump()
         }
     }
 }
 
 private enum class PlayIcon(val vector: ImageVector, val label: String) {
-    Play(Icons.Rounded.PlayArrow, "Play"),
-    Pause(Icons.Rounded.Pause, "Pause"),
-    Replay(Icons.Rounded.Replay, "Replay"),
+    Play(RxIcons.PlayArrow, "Play"),
+    Pause(RxIcons.Pause, "Pause"),
+    Replay(RxIcons.Replay, "Replay"),
 }
 
 @Composable
@@ -271,17 +247,17 @@ private fun ControlButton(
 }
 
 private fun seekBackIcon(seconds: Int) = when (seconds) {
-    5 -> Icons.Rounded.Replay5
-    10 -> Icons.Rounded.Replay10
-    30 -> Icons.Rounded.Replay30
-    else -> Icons.Rounded.FastRewind
+    5 -> RxIcons.Replay5
+    10 -> RxIcons.Replay10
+    30 -> RxIcons.Replay30
+    else -> RxIcons.FastRewind
 }
 
 private fun seekForwardIcon(seconds: Int) = when (seconds) {
-    5 -> Icons.Rounded.Forward5
-    10 -> Icons.Rounded.Forward10
-    30 -> Icons.Rounded.Forward30
-    else -> Icons.Rounded.FastForward
+    5 -> RxIcons.Forward5
+    10 -> RxIcons.Forward10
+    30 -> RxIcons.Forward30
+    else -> RxIcons.FastForward
 }
 
 @Composable
@@ -305,13 +281,13 @@ private fun BottomBar(
                 onClick = { ui.lock() },
                 modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
             ) {
-                Icon(Icons.Rounded.LockOpen, contentDescription = "Lock controls", tint = Color.White)
+                Icon(RxIcons.LockOpen, contentDescription = "Lock controls", tint = Color.White)
             }
             IconButton(
                 onClick = onCycleAspect,
                 modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
             ) {
-                Icon(Icons.Rounded.AspectRatio, contentDescription = "Aspect: ${ui.aspectMode.label}", tint = Color.White)
+                Icon(RxIcons.AspectRatio, contentDescription = "Aspect: ${ui.aspectMode.label}", tint = Color.White)
             }
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
@@ -320,7 +296,7 @@ private fun BottomBar(
                 modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
             ) {
                 Icon(
-                    if (rotationLocked) Icons.Rounded.ScreenLockRotation else Icons.Rounded.ScreenRotation,
+                    if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,
                     contentDescription = if (rotationLocked) "Unlock rotation" else "Lock rotation",
                     tint = Color.White,
                 )

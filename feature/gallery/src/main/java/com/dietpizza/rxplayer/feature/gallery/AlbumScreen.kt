@@ -1,8 +1,10 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
@@ -32,22 +34,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DriveFileMove
-import androidx.compose.material.icons.rounded.DriveFileRenameOutline
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.LibraryAdd
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material.icons.rounded.RadioButtonUnchecked
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -370,7 +356,7 @@ internal fun AlbumContent(
                     subtitle = { Text(content?.subtitle.orEmpty(), maxLines = 1) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.album_back))
+                            Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.album_back))
                         }
                     },
                     actions = {
@@ -395,7 +381,7 @@ internal fun AlbumContent(
         when {
             content == null -> DelayedLoadingIndicator(Modifier.padding(innerPadding))
             content.grid.mediaCount == 0 -> RxEmptyState(
-                icon = Icons.Rounded.PhotoLibrary,
+                icon = RxIcons.PhotoLibrary,
                 title = stringResource(R.string.album_empty_title),
                 body = stringResource(emptyBody),
                 modifier = Modifier.fillMaxSize().padding(innerPadding),
@@ -650,7 +636,7 @@ private fun MediaTile(
 private fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
     if (selected) {
         Icon(
-            Icons.Rounded.CheckCircle,
+            RxIcons.CheckCircle,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = modifier
@@ -659,7 +645,7 @@ private fun SelectionMark(selected: Boolean, modifier: Modifier = Modifier) {
         )
     } else {
         Icon(
-            Icons.Rounded.RadioButtonUnchecked,
+            RxIcons.RadioButtonUnchecked,
             contentDescription = null,
             tint = Color.White,
             modifier = modifier.size(22.dp),
@@ -682,31 +668,39 @@ private fun SelectionTopBar(
         title = { Text(pluralStringResource(R.plurals.selection_count, count, GalleryFormat.count(count))) },
         navigationIcon = {
             IconButton(onClick = onClear) {
-                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.selection_clear))
+                Icon(RxIcons.Close, contentDescription = stringResource(R.string.selection_clear))
             }
         },
         actions = {
-            SelectionIcon(SelectionAction.SHARE, Icons.Rounded.Share, R.string.selection_share, enabled, onAction)
-            SelectionIcon(SelectionAction.FAVOURITE, Icons.Rounded.FavoriteBorder, R.string.selection_favourite, enabled, onAction)
-            SelectionIcon(SelectionAction.ADD_TO_ALBUM, Icons.Rounded.LibraryAdd, R.string.selection_add_to_album, enabled, onAction)
+            SelectionIcon(SelectionAction.SHARE, RxIcons.Share, R.string.selection_share, enabled, onAction)
+            SelectionIcon(SelectionAction.FAVOURITE, RxIcons.FavoriteBorder, R.string.selection_favourite, enabled, onAction)
+            SelectionIcon(SelectionAction.ADD_TO_ALBUM, RxIcons.LibraryAdd, R.string.selection_add_to_album, enabled, onAction)
             Box {
                 IconButton(onClick = { overflow = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.selection_more))
+                    Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.selection_more))
                 }
-                DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
-                    if (SelectionAction.REMOVE_FROM_ALBUM in enabled) {
-                        OverflowItem(
-                            SelectionAction.REMOVE_FROM_ALBUM, Icons.Rounded.RemoveCircleOutline, removeLabel, enabled, onAction,
-                        ) { overflow = false }
-                    }
-                    OverflowItem(SelectionAction.MOVE, Icons.Rounded.DriveFileMove, R.string.selection_move, enabled, onAction) { overflow = false }
-                    OverflowItem(SelectionAction.COPY, Icons.Rounded.ContentCopy, R.string.selection_copy, enabled, onAction) { overflow = false }
-                    OverflowItem(
-                        SelectionAction.RENAME, Icons.Rounded.DriveFileRenameOutline, R.string.selection_rename,
-                        if (count == 1) enabled else emptySet(), onAction,
-                    ) { overflow = false }
-                    OverflowItem(SelectionAction.DELETE, Icons.Rounded.Delete, R.string.selection_delete, enabled, onAction) { overflow = false }
-                }
+                fun item(action: SelectionAction, icon: ImageVector, text: String, on: Set<SelectionAction> = enabled) =
+                    RxMenuItem(text, { onAction(action) }, icon, enabled = action in on, destructive = action == SelectionAction.DELETE)
+                RxMenu(
+                    expanded = overflow,
+                    onDismissRequest = { overflow = false },
+                    groups = listOf(
+                        listOfNotNull(
+                            if (SelectionAction.REMOVE_FROM_ALBUM in enabled) {
+                                item(SelectionAction.REMOVE_FROM_ALBUM, RxIcons.RemoveCircleOutline, stringResource(removeLabel))
+                            } else {
+                                null
+                            },
+                            item(SelectionAction.MOVE, RxIcons.DriveFileMove, stringResource(R.string.selection_move)),
+                            item(SelectionAction.COPY, RxIcons.ContentCopy, stringResource(R.string.selection_copy)),
+                            item(
+                                SelectionAction.RENAME, RxIcons.DriveFileRenameOutline, stringResource(R.string.selection_rename),
+                                if (count == 1) enabled else emptySet(),
+                            ),
+                        ),
+                        listOf(item(SelectionAction.DELETE, RxIcons.Delete, stringResource(R.string.selection_delete))),
+                    ),
+                )
             }
         },
         expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
@@ -721,26 +715,16 @@ private fun AlbumOverflow(menu: AlbumMenu) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.selection_more))
+            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.selection_more))
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.album_rename)) },
-                leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, contentDescription = null) },
-                onClick = {
-                    expanded = false
-                    menu.onRename()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.album_delete)) },
-                leadingIcon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
-                onClick = {
-                    expanded = false
-                    menu.onDelete()
-                },
-            )
-        }
+        RxMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            groups = listOf(
+                listOf(RxMenuItem(stringResource(R.string.album_rename), menu.onRename, RxIcons.DriveFileRenameOutline)),
+                listOf(RxMenuItem(stringResource(R.string.album_delete), menu.onDelete, RxIcons.Delete, destructive = true)),
+            ),
+        )
     }
 }
 
@@ -755,26 +739,6 @@ private fun SelectionIcon(
     IconButton(onClick = { onAction(action) }, enabled = action in enabled) {
         Icon(icon, contentDescription = stringResource(label))
     }
-}
-
-@Composable
-private fun OverflowItem(
-    action: SelectionAction,
-    icon: ImageVector,
-    label: Int,
-    enabled: Set<SelectionAction>,
-    onAction: (SelectionAction) -> Unit,
-    dismiss: () -> Unit,
-) {
-    DropdownMenuItem(
-        text = { Text(stringResource(label)) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-        enabled = action in enabled,
-        onClick = {
-            dismiss()
-            onAction(action)
-        },
-    )
 }
 
 // ---- Previews ----------------------------------------------------------------------------------
