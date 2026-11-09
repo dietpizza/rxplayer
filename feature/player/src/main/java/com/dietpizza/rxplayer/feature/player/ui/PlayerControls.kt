@@ -80,10 +80,8 @@ internal fun PlayerControls(
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val landscape = maxWidth > maxHeight
-        if (landscape) {
-            // YouTube-style: a faint overall dim keeps the plain centre icons legible.
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.18f)))
-        }
+        // YouTube-style: a faint overall dim keeps the plain transport icons legible.
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.18f)))
         // Light scrims only at the edges; the middle stays clear and doesn't catch touches.
         Box(
             Modifier
@@ -96,10 +94,12 @@ internal fun PlayerControls(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(160.dp)
+                .height(if (landscape) 160.dp else 260.dp)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
         )
         TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
+        // One layout for both orientations; only where the transport sits differs:
+        // centred in landscape, just above the seek bar in portrait (inside BottomBar).
         if (landscape) CenterTransport(controller, ui, Modifier.align(Alignment.Center))
         BottomBar(
             controller = controller,
@@ -171,7 +171,7 @@ private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
     }
 }
 
-/** Landscape only: previous · play/pause · next as plain, shadowless icons in the centre. */
+/** Previous · play/pause · next as plain icons (centred in landscape, above the seek bar in portrait). */
 @Composable
 private fun CenterTransport(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
@@ -241,34 +241,23 @@ private fun BottomBar(
     val multiple = (nowPlaying?.count ?: 0) > 1
     val shuffle = settings.shuffle
     Column(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-        // Row 1: [play ·] elapsed · seek · duration (play moves to the centre in landscape).
+        if (!landscape) {
+            CenterTransport(controller, ui, Modifier.align(Alignment.CenterHorizontally).padding(bottom = 8.dp))
+        }
+        // Row 1: elapsed · seek · duration.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!landscape) {
-                PlainIcon(
-                    icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
-                    description = if (ended) "Replay" else if (playing) "Pause" else "Play",
-                ) { controller.togglePlayPause(); ui.bump() }
-            } else {
-                Spacer(Modifier.size(8.dp))
-            }
+            Spacer(Modifier.size(8.dp))
             ElapsedTime(controller)
             Box(Modifier.weight(1f).padding(horizontal = 8.dp)) { SeekBar(controller, ui) }
             DurationTime(controller, ui)
             Spacer(Modifier.size(8.dp))
         }
-        // Row 2: lock, aspect, speed · [prev, next] · mute, rotation, shuffle (bottom-right).
+        // Row 2: lock, aspect, speed · mute, rotation, shuffle (bottom-right).
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlainIcon(RxIcons.LockOpen, "Lock controls") { ui.lock() }
             PlainIcon(RxIcons.AspectRatio, "Aspect: ${ui.aspectMode.label}", onClick = onCycleAspect)
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
-            if (!landscape) {
-                PlainIcon(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
-                PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true || (shuffle && multiple)) {
-                    controller.next(); ui.bump()
-                }
-                Spacer(Modifier.weight(1f))
-            }
             MuteButton(controller, ui)
             PlainIcon(
                 if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,

@@ -54,7 +54,7 @@ internal fun SubtitleOverlay(controller: PlaybackController, liftForControls: Bo
     // Portrait stacks transport + seek bar + action row at the bottom, so lift further there.
     val portrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val lift by animateDpAsState(
-        if (liftForControls) (if (portrait) 130.dp else 120.dp) else 24.dp,
+        if (liftForControls) (if (portrait) 210.dp else 120.dp) else 24.dp,
         MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "subtitleLift",
     )
