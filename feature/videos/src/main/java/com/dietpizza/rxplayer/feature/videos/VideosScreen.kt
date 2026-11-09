@@ -38,6 +38,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.layout.width
@@ -276,34 +278,31 @@ private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: (
         onClick = onClick,
         modifier = Modifier.testTag("videos_folder"),
         leadingContent = {
-            VideoThumbnail(
-                contentUri = folder.coverUri,
-                duration = null,
-                resumeFraction = 0f,
-                shape = MaterialTheme.shapes.extraSmall,
-                requestWidth = FolderThumbWidth,
-                modifier = Modifier.size(FolderThumbWidth, FolderThumbWidth * 9 / 16),
-            )
+            Box {
+                VideoThumbnail(
+                    contentUri = folder.coverUri,
+                    duration = null,
+                    resumeFraction = 0f,
+                    shape = MaterialTheme.shapes.extraSmall,
+                    requestWidth = FolderThumbWidth,
+                    modifier = Modifier.size(FolderThumbWidth, FolderThumbWidth * 9 / 16),
+                )
+                // Something unplayed from the last 7 days: a dot on the thumbnail's top-right,
+                // ringed in the surface colour so it reads on any cover.
+                if (folder.newBadge != null) {
+                    NewDot(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(5.dp)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .padding(2.dp),
+                    )
+                }
+            }
         },
         supportingContent = { Text(folder.summary, maxLines = 1) },
     ) {
-        // Name, then the unplayed count as a badge right after it (ellipsis keeps it visible).
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                folder.name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            folder.newBadge?.let { badge ->
-                Spacer(Modifier.width(8.dp))
-                // Primary, not the default error red: "new" is good news, not a warning.
-                Badge(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ) { Text(badge) }
-            }
-        }
+        Text(folder.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
