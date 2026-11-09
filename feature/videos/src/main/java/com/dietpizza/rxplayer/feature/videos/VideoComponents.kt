@@ -1,5 +1,11 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import androidx.compose.animation.core.animate
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -173,3 +179,41 @@ internal fun sortLabels() = com.dietpizza.rxplayer.core.designsystem.component.R
     descending = stringResource(R.string.sort_descending),
     button = stringResource(R.string.sort),
 )
+
+/**
+ * Quick-return header: scrolling the content down slides the header away; any scroll back up
+ * brings it straight back (even mid-list). A half-hidden header snaps open/closed after a
+ * fling. The offset is applied in the draw phase, so scrolling never re-lays out the list.
+ */
+@Stable
+internal class QuickReturnState {
+    /** How far the header can hide, px (its height below the status bar). */
+    var rangePx by mutableFloatStateOf(0f)
+
+    /** 0 = fully shown, -[rangePx] = fully hidden. */
+    var offsetPx by mutableFloatStateOf(0f)
+
+    val connection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (rangePx <= 0f) return Offset.Zero
+            val next = (offsetPx + available.y).coerceIn(-rangePx, 0f)
+            val used = next - offsetPx
+            offsetPx = next
+            return Offset(0f, used)
+        }
+
+        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+            if (offsetPx == 0f || offsetPx == -rangePx) return Velocity.Zero
+            val target = if (offsetPx > -rangePx / 2f) 0f else -rangePx
+            animate(offsetPx, target) { value, _ -> offsetPx = value }
+            return Velocity.Zero
+        }
+    }
+
+    fun show() {
+        offsetPx = 0f
+    }
+}
+
+@Composable
+internal fun rememberQuickReturnState(): QuickReturnState = remember { QuickReturnState() }

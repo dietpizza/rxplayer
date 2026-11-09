@@ -1,5 +1,18 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.remember
 import com.dietpizza.rxplayer.core.designsystem.component.RxSortButton
 import com.dietpizza.rxplayer.core.designsystem.component.RxSortOption
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -141,57 +154,76 @@ private fun VideosScaffold(
     sortAction: @Composable () -> Unit = {},
     content: @Composable (listPadding: PaddingValues) -> Unit,
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val background = MaterialTheme.colorScheme.surfaceContainer
+    val header = rememberQuickReturnState()
+    // A different section starts with the header showing.
+    LaunchedEffect(section) { header.show() }
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.nestedScroll(header.connection),
         containerColor = background,
-        topBar = {
-            MediumFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.videos_title)) },
-                actions = {
-                    val context = LocalContext.current
-                    IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
-                        Icon(RxIcons.Search, contentDescription = stringResource(R.string.videos_search))
-                    }
-                    if (section == VideosSection.FOLDERS) sortAction()
-                    IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
-                        Icon(RxIcons.Settings, contentDescription = stringResource(R.string.videos_settings))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = background,
-                    scrolledContainerColor = background,
-                ),
-                scrollBehavior = scrollBehavior,
-            )
-        },
+        // The header handles the top inset itself (and keeps the status bar covered).
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(
+            WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+        ),
     ) { innerPadding ->
         val dir = LocalLayoutDirection.current
         val start = innerPadding.calculateStartPadding(dir) + contentPadding.calculateStartPadding(dir)
         val end = innerPadding.calculateEndPadding(dir) + contentPadding.calculateEndPadding(dir)
-        Column(Modifier.fillMaxSize()) {
-            SectionHeader(
-                selected = section,
-                onSelect = onSectionChange,
-                modifier = Modifier.padding(
-                    start = start + 16.dp,
-                    end = end + 16.dp,
-                    // 8 dp above, 12 dp below (4 here + the list's 8 dp top), collapsed or not.
-                    top = innerPadding.calculateTopPadding() + contentPadding.calculateTopPadding() + 8.dp,
-                    bottom = 4.dp,
+        val headerHeight = with(density) { headerHeightPx.toDp() }
+        Box(Modifier.fillMaxSize()) {
+            content(
+                // The list starts below the (overlaid) header and scrolls under it once it hides.
+                listPadding(
+                    PaddingValues(start = start, end = end, top = headerHeight, bottom = innerPadding.calculateBottomPadding()),
+                    PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    gutter = 0.dp,
                 ),
             )
-            Box(Modifier.weight(1f)) {
-                content(
-                    // Below the header: sides + bottom insets, no top inset.
-                    listPadding(
-                        PaddingValues(start = start, end = end, bottom = innerPadding.calculateBottomPadding()),
-                        PaddingValues(bottom = contentPadding.calculateBottomPadding()),
-                        gutter = 0.dp,
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { headerHeightPx = it.height }
+                    .graphicsLayer { translationY = header.offsetPx }
+                    .background(background)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .onSizeChanged {
+                        // Everything below the status bar can hide.
+                        header.rangePx = it.height.toFloat()
+                    },
+            ) {
+                MediumFlexibleTopAppBar(
+                    title = { Text(stringResource(R.string.videos_title)) },
+                    actions = {
+                        val context = LocalContext.current
+                        IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
+                            Icon(RxIcons.Search, contentDescription = stringResource(R.string.videos_search))
+                        }
+                        if (section == VideosSection.FOLDERS) sortAction()
+                        IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
+                            Icon(RxIcons.Settings, contentDescription = stringResource(R.string.videos_settings))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = background,
+                        scrolledContainerColor = background,
                     ),
+                    windowInsets = WindowInsets(0),
+                )
+                SectionHeader(
+                    selected = section,
+                    onSelect = onSectionChange,
+                    modifier = Modifier.padding(start = start + 16.dp, end = end + 16.dp, top = 8.dp, bottom = 12.dp),
                 )
             }
+            // Status-bar cover: the sliding header and the list pass underneath it.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(background),
+            )
         }
     }
 }
