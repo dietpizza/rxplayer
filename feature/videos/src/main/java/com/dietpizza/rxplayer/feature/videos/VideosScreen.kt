@@ -152,7 +152,12 @@ private fun VideosScaffold(
     val background = MaterialTheme.colorScheme.surfaceContainer
     // Only the Folders · Playlists · History bar quick-returns; the title bar collapses as usual.
     val sectionBar = rememberQuickReturnState()
-    LaunchedEffect(section) { sectionBar.show() }
+    // Show the bar when the user switches section, not when the tab merely comes back.
+    var barSection by rememberSaveable { mutableStateOf(section) }
+    if (barSection != section) {
+        barSection = section
+        sectionBar.show()
+    }
     var barHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     Scaffold(

@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.animation.core.animate
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableFloatStateOf
@@ -214,5 +216,8 @@ internal class QuickReturnState {
     }
 }
 
+/** Survives leaving composition (tab switches) and recreation: the bar stays where it was. */
 @Composable
-internal fun rememberQuickReturnState(): QuickReturnState = remember { QuickReturnState() }
+internal fun rememberQuickReturnState(): QuickReturnState = rememberSaveable(
+    saver = Saver(save = { it.offsetPx }, restore = { QuickReturnState().apply { offsetPx = it } }),
+) { QuickReturnState() }
