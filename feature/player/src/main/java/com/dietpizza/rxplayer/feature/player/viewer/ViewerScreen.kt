@@ -402,5 +402,5 @@ private fun formatDate(epochMs: Long): String =
 
 private const val DEFAULT_ASPECT = 16f / 9f
 private val CARD_SIDE = 12.dp
-private val CARD_RADIUS = 28.dp
+private val CARD_RADIUS = 12.dp
 private val PAGE_SPACING = 16.dp

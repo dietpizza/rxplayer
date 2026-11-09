@@ -421,6 +421,7 @@ Tooling: JankStats in debug builds, Compose compiler stability reports, and Perf
 | 37 | Network server configs live in a separate small Room DB inside `:core:netfs` (`netfs.db`), not `RxDatabase`, to keep modules decoupled; custom schemes plug into playback via `SchemeDataSourceFactory` multibinding | 2026-11-09 |
 | 38 | Viewer decodes full-size images with ImageDecoder (not Coil); inline→full morph animates the single SurfaceView's bounds with a corner mask inside `PlayerActivity`; `PlaybackController.playInline/promoteInline` keep inline plays out of resume/history | 2026-11-10 |
 | 39 | Player controls: portrait puts prev/play/next under the seek bar; landscape centres them lower; no ±seek buttons (double-tap left/right third seeks, middle plays/pauses); mute moves to the bottom row next to rotation (no longer always visible); shuffle button jumps to a random unplayed item | 2026-11-10 |
+| 40 | Full player chrome matches the gallery inline controls: plain white icons, no centre cluster; bottom row 1 = play · time · seek bar · duration, row 2 = lock, aspect, speed · prev, next, shuffle · mute, rotation. Inline video card corner radius 12 dp (was 28) | 2026-11-10 |
 
 ## 14. Open questions
 Every product question is answered. The rest get settled during the build:

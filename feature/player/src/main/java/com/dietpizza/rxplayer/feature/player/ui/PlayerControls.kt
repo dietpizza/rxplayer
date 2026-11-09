@@ -13,7 +13,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -44,7 +43,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -63,7 +61,11 @@ internal fun Modifier.controlsInsets(): Modifier =
     // Ignoring visibility keeps the layout still when the system bars fade in/out with the controls.
     windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
 
-/** The control set (plan §6.3). */
+/**
+ * The control set (plan §6.3), in the gallery viewer's slim style: plain white icons, a top
+ * row, and two slim rows at the bottom (play · time · seek bar · duration, then actions).
+ * Nothing sits over the middle of the video.
+ */
 @Composable
 internal fun PlayerControls(
     controller: PlaybackController,
@@ -72,33 +74,26 @@ internal fun PlayerControls(
     onCycleAspect: () -> Unit,
     onBack: () -> Unit,
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val portrait = maxHeight > maxWidth
-        // Scrims only at the edges; the middle stays clear and doesn't catch touches.
+    Box(Modifier.fillMaxSize()) {
+        // Light scrims only at the edges; the middle stays clear and doesn't catch touches.
         Box(
             Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(160.dp)
+                .height(120.dp)
                 .background(Brush.verticalGradient(listOf(Scrim, Color.Transparent))),
         )
         Box(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(if (portrait) 320.dp else 200.dp)
+                .height(160.dp)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
         )
-
         TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
-        if (!portrait) {
-            // Landscape: transport sits below centre so faces/subjects stay clear.
-            TransportControls(controller, ui, Modifier.align(LandscapeTransportAlignment))
-        }
         BottomBar(
             controller = controller,
             ui = ui,
-            portrait = portrait,
             rotationLocked = host.rotationLocked,
             onToggleRotationLock = { host.toggleRotationLock(); ui.bump() },
             onCycleAspect = onCycleAspect,
@@ -106,8 +101,6 @@ internal fun PlayerControls(
         )
     }
 }
-
-private val LandscapeTransportAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = 0.35f)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -119,7 +112,7 @@ private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: 
             .padding(start = 4.dp, end = 4.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+        IconButton(onClick = onBack) {
             Icon(RxIcons.ArrowBack, contentDescription = "Back", tint = Color.White)
         }
         Text(
@@ -147,7 +140,7 @@ private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: 
 
 @Composable
 private fun TopIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+    IconButton(onClick = onClick) {
         Icon(icon, contentDescription = description, tint = Color.White)
     }
 }
@@ -158,7 +151,6 @@ private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
     val muted by controller.isMuted.collectAsStateWithLifecycle()
     IconButton(
         onClick = { controller.toggleMute(); ui.bump() },
-        modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
     ) {
         Icon(
             imageVector = if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
@@ -169,133 +161,59 @@ private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
 }
 
 @Composable
-private fun TransportControls(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
-    val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
-    val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
-    val ended by controller.isEnded.collectAsStateWithLifecycle()
-    val playing = playWhenReady && !ended
-
-    Row(
-        modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-    ) {
-        ControlButton(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
-        val iconFade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-        // Expressive shape-morphing toggle: round while paused, squircle while playing.
-        FilledIconToggleButton(
-            checked = playing,
-            onCheckedChange = { controller.togglePlayPause(); ui.bump() },
-            shapes = IconButtonDefaults.toggleableShapes(),
-            modifier = Modifier.size(IconButtonDefaults.largeContainerSize()),
-        ) {
-            AnimatedContent(
-                targetState = if (ended) PlayIcon.Replay else if (playing) PlayIcon.Pause else PlayIcon.Play,
-                transitionSpec = {
-fadeIn(iconFade) togetherWith fadeOut(iconFade)
-                },
-                label = "playPause",
-            ) { icon ->
-                Icon(
-                    imageVector = icon.vector,
-                    contentDescription = icon.label,
-                    modifier = Modifier.size(IconButtonDefaults.largeIconSize),
-                )
-            }
-        }
-        ControlButton(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) {
-            controller.next(); ui.bump()
-        }
-    }
-}
-
-private enum class PlayIcon(val vector: ImageVector, val label: String) {
-    Play(RxIcons.PlayArrow, "Play"),
-    Pause(RxIcons.Pause, "Pause"),
-    Replay(RxIcons.Replay, "Replay"),
-}
-
-@Composable
-private fun ControlButton(
-    icon: ImageVector,
-    description: String,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-    ) {
-        Icon(
-            icon,
-            contentDescription = description,
-            tint = if (enabled) Color.White else Color.White.copy(alpha = 0.38f),
-            modifier = Modifier.size(32.dp),
-        )
-    }
-}
-
-@Composable
 private fun BottomBar(
     controller: PlaybackController,
     ui: FullPlayerState,
-    portrait: Boolean,
     rotationLocked: Boolean,
     onToggleRotationLock: () -> Unit,
     onCycleAspect: () -> Unit,
     modifier: Modifier,
 ) {
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
+    val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
+    val ended by controller.isEnded.collectAsStateWithLifecycle()
+    val playing = playWhenReady && !ended
+    val multiple = (nowPlaying?.count ?: 0) > 1
+    Column(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+        // Row 1 — same shape as the inline viewer row: play · elapsed · seek · duration.
         Row(verticalAlignment = Alignment.CenterVertically) {
+            PlainIcon(
+                icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                description = if (ended) "Replay" else if (playing) "Pause" else "Play",
+            ) { controller.togglePlayPause(); ui.bump() }
             ElapsedTime(controller)
-            Spacer(Modifier.weight(1f))
+            Box(Modifier.weight(1f).padding(horizontal = 8.dp)) { SeekBar(controller, ui) }
             DurationTime(controller, ui)
+            Spacer(Modifier.size(8.dp))
         }
-        SeekBar(controller, ui)
-        if (portrait) {
-            // Portrait: transport lives down here so the video stays visible.
-            TransportControls(controller, ui, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 4.dp))
-        }
+        // Row 2 — actions.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = { ui.lock() },
-                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-            ) {
-                Icon(RxIcons.LockOpen, contentDescription = "Lock controls", tint = Color.White)
-            }
-            IconButton(
-                onClick = onCycleAspect,
-                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-            ) {
-                Icon(RxIcons.AspectRatio, contentDescription = "Aspect: ${ui.aspectMode.label}", tint = Color.White)
-            }
+            PlainIcon(RxIcons.LockOpen, "Lock controls") { ui.lock() }
+            PlainIcon(RxIcons.AspectRatio, "Aspect: ${ui.aspectMode.label}", onClick = onCycleAspect)
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
-            val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
-            IconButton(
-                onClick = { controller.shuffleNext(); ui.bump() },
-                enabled = (nowPlaying?.count ?: 0) > 1,
-                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-            ) {
-                Icon(
-                    RxIcons.Shuffle,
-                    contentDescription = "Play a random video",
-                    tint = if ((nowPlaying?.count ?: 0) > 1) Color.White else Color.White.copy(alpha = 0.38f),
-                )
-            }
+            PlainIcon(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
+            PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true) { controller.next(); ui.bump() }
+            PlainIcon(RxIcons.Shuffle, "Play a random video", enabled = multiple) { controller.shuffleNext(); ui.bump() }
+            Spacer(Modifier.weight(1f))
             MuteButton(controller, ui)
-            IconButton(
+            PlainIcon(
+                if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,
+                if (rotationLocked) "Unlock rotation" else "Lock rotation",
                 onClick = onToggleRotationLock,
-                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
-            ) {
-                Icon(
-                    if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,
-                    contentDescription = if (rotationLocked) "Unlock rotation" else "Lock rotation",
-                    tint = Color.White,
-                )
-            }
+            )
         }
+    }
+}
+
+@Composable
+private fun PlainIcon(icon: ImageVector, description: String, enabled: Boolean = true, onClick: () -> Unit) {
+    IconButton(onClick = onClick, enabled = enabled) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = if (enabled) Color.White else Color.White.copy(alpha = 0.38f),
+        )
     }
 }
 
@@ -303,7 +221,7 @@ private fun BottomBar(
 @Composable
 private fun ElapsedTime(controller: PlaybackController) {
     val position by controller.positionMs.collectAsStateWithLifecycle()
-    Text(formatTime(position), style = MaterialTheme.typography.labelLarge, color = Color.White)
+    Text(formatTime(position), style = MaterialTheme.typography.labelMedium, color = Color.White)
 }
 
 /** Total duration, or remaining time (`-4:12`) after a tap. */
@@ -318,10 +236,10 @@ private fun DurationTime(controller: PlaybackController, ui: FullPlayerState) {
     }
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelMedium,
         color = Color.White,
         modifier = Modifier
-            .widthIn(min = 48.dp)
+            .widthIn(min = 40.dp)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -374,7 +292,7 @@ private fun SeekBar(controller: PlaybackController, ui: FullPlayerState) {
                 }
             },
             colors = SliderDefaults.colors(inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
-            modifier = Modifier.fillMaxWidth().height(48.dp),
+            modifier = Modifier.fillMaxWidth().height(40.dp),
         )
         SeekPreviewBubble(controller, ui, state)
     }
