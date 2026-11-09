@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -104,8 +105,7 @@ internal fun VideoPage(
                 onDragStopped = { v -> onDragStopped(v) },
             ),
     ) {
-        // One surface box whose modifier switches between the inline card and the morphing
-        // video. The poster stays composed in the same slot across that switch (no reload,
+        // One box whose modifier switches between the inline card and the morphing video rect. The poster stays composed in the same slot across that switch (no reload,
         // no blank frame) and only fades once this page's own first video frame is on screen.
         val firstFrameKey by controller.firstFrameKey.collectAsStateWithLifecycle()
         val posterUp = !active || firstFrameKey != item.key
@@ -122,16 +122,8 @@ internal fun VideoPage(
                 Modifier.inlineCard(geo, aspect).clip(RoundedCornerShape(radius))
             },
         ) {
-            if (active) {
-                ContentFrame(
-                    player = controller.player,
-                    modifier = Modifier.fillMaxSize(),
-                    surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                    contentScale = ContentScale.Fit,
-                    keepContentOnReset = false,
-                    shutter = {},
-                )
-            }
+            // The video itself is ViewerVideoSurface, one persistent surface under the pager that
+            // lines up with this box; the poster covers it until this item's first frame.
             Poster(item, Modifier.fillMaxSize().graphicsLayer { alpha = if (posterUp) 1f else 0f })
         }
         if (active) InlineError(controller, geo, morph, aspect)
@@ -294,3 +286,61 @@ private fun InlineScrubBar(controller: PlaybackController, modifier: Modifier) {
 }
 
 private const val POSTER_PX = 512
+
+/**
+ * The viewer's only video surface. It lives under the pager for the screen's whole life, so
+ * swiping never creates or destroys a SurfaceView: ExoPlayer would block the main thread while
+ * moving its output between surfaces, which is what made settling on a new video hitch.
+ *
+ * It sits on the page of the playing item ([surfaceIndex]) and follows the swipe through a
+ * draw-phase translation (no recomposition); the page above it is transparent there once that
+ * item's first frame is up. Off-screen when nothing in the pager is playing.
+ */
+@Composable
+internal fun ViewerVideoSurface(
+    controller: PlaybackController,
+    pager: PagerState,
+    surfaceIndex: () -> Int,
+    pageSpacingPx: Float,
+    geo: ViewerGeometry,
+    morph: MorphState,
+    fullState: FullPlayerState,
+    aspect: () -> Float,
+) {
+    val corner = remember { unitCornerPath() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                val index = surfaceIndex()
+                translationX = if (!morph.isInline) {
+                    // Full player: the pager can't scroll, and next/previous move it a frame
+                    // after the item changes, so the surface simply stays put.
+                    0f
+                } else if (index < 0) {
+                    size.width * 4f
+                } else {
+                    val position = pager.currentPage + pager.currentPageOffsetFraction
+                    (index - position) * (size.width + pageSpacingPx)
+                }
+            },
+    ) {
+        Box(
+            Modifier
+                .morphVideo(geo, morph, fullState, aspect)
+                .drawWithContent {
+                    drawContent()
+                    drawCornerMask(MorphMath.cornerRadius(morph.progress.value, geo.radius), corner, Color.Black)
+                },
+        ) {
+            ContentFrame(
+                player = controller.player,
+                modifier = Modifier.fillMaxSize(),
+                surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+                contentScale = ContentScale.Fit,
+                keepContentOnReset = false,
+                shutter = {},
+            )
+        }
+    }
+}

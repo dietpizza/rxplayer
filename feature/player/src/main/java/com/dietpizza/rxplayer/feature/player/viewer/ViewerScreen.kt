@@ -251,7 +251,31 @@ private fun ViewerContent(
 
     val userScroll by remember { derivedStateOf { morph.isInline && !zoomed } }
 
+    // The single video surface (see ViewerVideoSurface): which page it belongs to, and its aspect.
+    val surfaceIndex = nowPlaying?.key?.let { k -> items.indexOfFirst { it.isVideo && it.key == k } } ?: -1
+    val surfaceIndexState = rememberUpdatedState(surfaceIndex)
+    val surfaceAspectState = rememberUpdatedState(
+        if (videoSize.width > 0) {
+            videoSize.aspectRatio
+        } else {
+            items.getOrNull(surfaceIndex)?.aspect?.takeIf { it > 0f } ?: DEFAULT_ASPECT
+        },
+    )
+    val pageSpacingPx = with(density) { PAGE_SPACING.toPx() }
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (items.any { it.isVideo }) {
+            ViewerVideoSurface(
+                controller = controller,
+                pager = pager,
+                surfaceIndex = { surfaceIndexState.value },
+                pageSpacingPx = pageSpacingPx,
+                geo = geo,
+                morph = morph,
+                fullState = fullState,
+                aspect = { surfaceAspectState.value },
+            )
+        }
         HorizontalPager(
             state = pager,
             modifier = Modifier.fillMaxSize(),
