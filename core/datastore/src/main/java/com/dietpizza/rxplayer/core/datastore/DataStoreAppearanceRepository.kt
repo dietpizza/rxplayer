@@ -48,6 +48,14 @@ class DataStoreAppearanceRepository @Inject constructor(
         dataStore.edit { it[Keys.PURE_BLACK] = enabled }
     }
 
+    override suspend fun update(settings: AppearanceSettings) {
+        dataStore.edit {
+            it[Keys.THEME_MODE] = settings.themeMode.name
+            it[Keys.DYNAMIC_COLOR] = settings.dynamicColor
+            it[Keys.PURE_BLACK] = settings.pureBlack
+        }
+    }
+
     private object Keys {
         val THEME_MODE = stringPreferencesKey("appearance.theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("appearance.dynamic_color")

@@ -10,4 +10,7 @@ interface AppearanceRepository {
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setDynamicColor(enabled: Boolean)
     suspend fun setPureBlack(enabled: Boolean)
+
+    /** Writes all appearance fields in one DataStore transaction, so observers see one change. */
+    suspend fun update(settings: AppearanceSettings)
 }

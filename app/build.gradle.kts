@@ -13,6 +13,10 @@ android {
     buildTypes {
         release {
             optimization { enable = true }
+            // Until a real keystore is configured (plan §10b), sign release with the debug key so
+            // the optimized build can be installed locally. Debug builds run Compose unoptimized
+            // and are not representative of real smoothness.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }

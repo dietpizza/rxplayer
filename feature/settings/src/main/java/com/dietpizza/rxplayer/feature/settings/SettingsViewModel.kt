@@ -60,15 +60,9 @@ class SettingsViewModel @Inject constructor(
                 delay(APPLY_DELAY_MS)
             } finally {
                 // Also runs if the screen closes before the delay is up, so the choice is never lost.
-                withContext(NonCancellable) { save(pending.value ?: next) }
+                withContext(NonCancellable) { appearanceRepository.update(pending.value ?: next) }
             }
         }
-    }
-
-    private suspend fun save(settings: AppearanceSettings) {
-        appearanceRepository.setThemeMode(settings.themeMode)
-        appearanceRepository.setDynamicColor(settings.dynamicColor)
-        appearanceRepository.setPureBlack(settings.pureBlack)
     }
 
     private companion object {

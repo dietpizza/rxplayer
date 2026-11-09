@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.dietpizza.rxplayer.core.datastore.AppearanceRepository
@@ -38,7 +39,10 @@ abstract class RxActivity : ComponentActivity() {
     private val appearance = MutableStateFlow<AppearanceSettings?>(null)
 
     protected fun setRxContent(content: @Composable () -> Unit) {
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+        )
         lifecycleScope.launch { appearanceRepository.appearance.collect { appearance.value = it } }
         holdFirstFrameUntilAppearanceLoaded()
 
@@ -46,9 +50,13 @@ abstract class RxActivity : ComponentActivity() {
             val settings by appearance.collectAsStateWithLifecycle()
             val current = settings ?: return@setContent
             val darkTheme = current.themeMode.isDark()
+            // Only flip the bar icon contrast. Re-running enableEdgeToEdge() here would reset
+            // window flags and force a full insets/layout pass on the frame the theme changes.
             DisposableEffect(darkTheme) {
-                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
-                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
                 onDispose {}
             }
             RxTheme(current, content)

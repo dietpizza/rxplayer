@@ -24,25 +24,32 @@ fun RxTheme(
 ) {
     val dark = appearance.themeMode.isDark()
     val context = LocalContext.current
-    val base = when {
-        appearance.dynamicColor && dark -> dynamicDarkColorScheme(context)
-        appearance.dynamicColor -> dynamicLightColorScheme(context)
-        dark -> RxDarkColorScheme
-        else -> RxLightColorScheme
-    }
-    val colorScheme = remember(base, dark, appearance.pureBlack) {
+    // ColorScheme has identity equality and dynamic*ColorScheme() builds a new one per call, so
+    // everything must be remembered. Otherwise each recomposition of RxTheme hands
+    // MaterialTheme a "new" scheme, and since LocalColorScheme is a static local that
+    // invalidates the entire UI tree.
+    val colorScheme = remember(appearance.dynamicColor, dark, appearance.pureBlack) {
+        val base = when {
+            appearance.dynamicColor && dark -> dynamicDarkColorScheme(context)
+            appearance.dynamicColor -> dynamicLightColorScheme(context)
+            dark -> RxDarkColorScheme
+            else -> RxLightColorScheme
+        }
         if (dark && appearance.pureBlack) base.toPureBlack() else base
     }
-    CompositionLocalProvider(LocalRxSpacing provides RxSpacing()) {
+    CompositionLocalProvider(LocalRxSpacing provides DefaultSpacing) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
-            motionScheme = MotionScheme.expressive(),
+            motionScheme = ExpressiveMotion,
             shapes = RxShapes,
             typography = RxTypography,
             content = content,
         )
     }
 }
+
+private val DefaultSpacing = RxSpacing()
+private val ExpressiveMotion = MotionScheme.expressive()
 
 /** Resolves [ThemeMode] against the system setting. */
 @Composable
