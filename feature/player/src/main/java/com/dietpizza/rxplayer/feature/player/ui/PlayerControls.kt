@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
@@ -77,7 +78,12 @@ internal fun PlayerControls(
     onCycleAspect: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val landscape = maxWidth > maxHeight
+        if (landscape) {
+            // YouTube-style: a faint overall dim keeps the plain centre icons legible.
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.18f)))
+        }
         // Light scrims only at the edges; the middle stays clear and doesn't catch touches.
         Box(
             Modifier
@@ -94,9 +100,11 @@ internal fun PlayerControls(
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
         )
         TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
+        if (landscape) CenterTransport(controller, ui, Modifier.align(Alignment.Center))
         BottomBar(
             controller = controller,
             ui = ui,
+            landscape = landscape,
             rotationLocked = host.rotationLocked,
             onToggleRotationLock = { host.toggleRotationLock(); ui.bump() },
             onCycleAspect = onCycleAspect,
@@ -163,10 +171,58 @@ private fun MuteButton(controller: PlaybackController, ui: FullPlayerState) {
     }
 }
 
+/** Landscape only: previous · play/pause · next as plain, shadowless icons in the centre. */
+@Composable
+private fun CenterTransport(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
+    val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
+    val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
+    val ended by controller.isEnded.collectAsStateWithLifecycle()
+    val settings by controller.settings.collectAsStateWithLifecycle()
+    val playing = playWhenReady && !ended
+    val multiple = (nowPlaying?.count ?: 0) > 1
+    Row(
+        modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(48.dp),
+    ) {
+        BigPlainIcon(RxIcons.SkipPrevious, "Previous", size = 36.dp) { controller.previous(); ui.bump() }
+        BigPlainIcon(
+            icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+            description = if (ended) "Replay" else if (playing) "Pause" else "Play",
+            size = 56.dp,
+        ) { controller.togglePlayPause(); ui.bump() }
+        BigPlainIcon(
+            RxIcons.SkipNext,
+            "Next",
+            size = 36.dp,
+            enabled = nowPlaying?.hasNext == true || (settings.shuffle && multiple),
+        ) { controller.next(); ui.bump() }
+    }
+}
+
+@Composable
+private fun BigPlainIcon(
+    icon: ImageVector,
+    description: String,
+    size: androidx.compose.ui.unit.Dp,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(size + 24.dp)) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = if (enabled) Color.White else Color.White.copy(alpha = 0.38f),
+            modifier = Modifier.size(size),
+        )
+    }
+}
+
 @Composable
 private fun BottomBar(
     controller: PlaybackController,
     ui: FullPlayerState,
+    landscape: Boolean,
     rotationLocked: Boolean,
     onToggleRotationLock: () -> Unit,
     onCycleAspect: () -> Unit,
@@ -175,32 +231,45 @@ private fun BottomBar(
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
     val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
     val ended by controller.isEnded.collectAsStateWithLifecycle()
+    val settings by controller.settings.collectAsStateWithLifecycle()
     val playing = playWhenReady && !ended
     val multiple = (nowPlaying?.count ?: 0) > 1
+    val shuffle = settings.shuffle
     Column(modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-        // Row 1 — same shape as the inline viewer row: play · elapsed · seek · duration.
+        // Row 1: [play ·] elapsed · seek · duration (play moves to the centre in landscape).
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PlainIcon(
-                icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
-                description = if (ended) "Replay" else if (playing) "Pause" else "Play",
-            ) { controller.togglePlayPause(); ui.bump() }
+            if (!landscape) {
+                PlainIcon(
+                    icon = if (ended) RxIcons.Replay else if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                    description = if (ended) "Replay" else if (playing) "Pause" else "Play",
+                ) { controller.togglePlayPause(); ui.bump() }
+            } else {
+                Spacer(Modifier.size(8.dp))
+            }
             ElapsedTime(controller)
             Box(Modifier.weight(1f).padding(horizontal = 8.dp)) { SeekBar(controller, ui) }
             DurationTime(controller, ui)
             Spacer(Modifier.size(8.dp))
         }
-        // Row 2 — actions.
+        // Row 2: lock, aspect, speed · [prev, next] · mute, rotation, shuffle (bottom-right).
         Row(verticalAlignment = Alignment.CenterVertically) {
             PlainIcon(RxIcons.LockOpen, "Lock controls") { ui.lock() }
             PlainIcon(RxIcons.AspectRatio, "Aspect: ${ui.aspectMode.label}", onClick = onCycleAspect)
             SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
-            PlainIcon(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
-            val settings by controller.settings.collectAsStateWithLifecycle()
-            val shuffle = settings.shuffle
-            PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true || (shuffle && multiple)) {
-                controller.next(); ui.bump()
+            if (!landscape) {
+                PlainIcon(RxIcons.SkipPrevious, "Previous") { controller.previous(); ui.bump() }
+                PlainIcon(RxIcons.SkipNext, "Next", enabled = nowPlaying?.hasNext == true || (shuffle && multiple)) {
+                    controller.next(); ui.bump()
+                }
+                Spacer(Modifier.weight(1f))
             }
+            MuteButton(controller, ui)
+            PlainIcon(
+                if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,
+                if (rotationLocked) "Unlock rotation" else "Lock rotation",
+                onClick = onToggleRotationLock,
+            )
             // Toggle: on = Next and auto-next pick a random unplayed video.
             IconToggleButton(
                 checked = shuffle,
@@ -213,13 +282,6 @@ private fun BottomBar(
                     tint = if (shuffle) MaterialTheme.colorScheme.primary else Color.White,
                 )
             }
-            Spacer(Modifier.weight(1f))
-            MuteButton(controller, ui)
-            PlainIcon(
-                if (rotationLocked) RxIcons.ScreenLockRotation else RxIcons.ScreenRotation,
-                if (rotationLocked) "Unlock rotation" else "Lock rotation",
-                onClick = onToggleRotationLock,
-            )
         }
     }
 }

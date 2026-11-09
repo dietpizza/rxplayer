@@ -172,6 +172,8 @@ private fun ViewerContent(
     fun expand(velocity: Float = 0f) {
         if (activeState.value == null) return
         controller.promoteInline()
+        // Next/previous/auto-next run through this album's videos (a folder album = that folder).
+        controller.adoptPlaylist(items.filter { it.isVideo }.map { it.key })
         fullState.isDismissDragging = false
         fullState.showControls(true)
         morph.collapseFrom = null
@@ -204,6 +206,15 @@ private fun ViewerContent(
                 }
             }
         }
+    }
+
+    // Next/previous in the full player change the item: keep the pager on it, so the surface
+    // stays on the active page and swiping down lands on the video that's playing.
+    LaunchedEffect(nowPlaying?.key, shownFull.value) {
+        val key = nowPlaying?.key ?: return@LaunchedEffect
+        if (!shownFull.value || key == settledItem.key) return@LaunchedEffect
+        val target = items.indexOfFirst { it.key == key }
+        if (target >= 0) pager.scrollToPage(target)
     }
 
     var dragStart by remember { mutableFloatStateOf(0f) }

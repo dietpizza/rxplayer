@@ -355,6 +355,22 @@ class PlaybackController @Inject constructor(
         player.repeatMode = Player.REPEAT_MODE_OFF
     }
 
+    /**
+     * Swaps the playlist around the item that is already playing, without re-preparing it
+     * (the gallery viewer's full player gets its album's videos for next/prev/auto-next).
+     * No-op if the current item isn't in [keys].
+     */
+    fun adoptPlaylist(keys: List<MediaKey>) {
+        val current = playlist.getOrNull(index) ?: return
+        val newIndex = keys.indexOf(current)
+        if (newIndex < 0) return
+        playlist = keys.toList()
+        index = newIndex
+        played.clear()
+        played += newIndex
+        _nowPlaying.value = _nowPlaying.value?.copy(index = newIndex, count = playlist.size)
+    }
+
     /** True when [keys]/[startIndex] are what's already loaded (e.g. the activity was recreated). */
     fun isShowing(keys: List<MediaKey>, startIndex: Int): Boolean =
         playlist == keys && player.playbackState != Player.STATE_IDLE &&
