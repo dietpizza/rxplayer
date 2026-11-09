@@ -38,6 +38,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -282,26 +286,34 @@ private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: (
             )
         },
         supportingContent = { Text(folder.summary, maxLines = 1) },
-        trailingContent = folder.newBadge?.let { badge ->
-            {
+    ) {
+        // Name, then the unplayed count as a badge right after it (ellipsis keeps it visible).
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                folder.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            folder.newBadge?.let { badge ->
+                Spacer(Modifier.width(8.dp))
                 // Primary, not the default error red: "new" is good news, not a warning.
                 Badge(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.semantics { contentDescription = "$badge new" },
                 ) { Text(badge) }
             }
-        },
-    ) {
-        Text(folder.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
 internal val FolderThumbWidth = 112.dp
 
 private val previewFolders = listOf(
-    FolderRow("/storage/emulated/0/DCIM/Camera", "Camera", null, "214 videos · 38 GB", "3 NEW"),
+    FolderRow("/storage/emulated/0/DCIM/Camera", "Camera", null, "214 videos · 38 GB", "3"),
     FolderRow("/storage/emulated/0/Download", "Download", null, "12 videos · 4.2 GB", null),
-    FolderRow("/storage/emulated/0/Movies/Series", "Series – Season 1 with a long folder name", null, "10 videos · 7.9 GB", "10 NEW"),
+    FolderRow("/storage/emulated/0/Movies/Series", "Series – Season 1 with a long folder name", null, "10 videos · 7.9 GB", "10"),
     FolderRow("/storage/emulated/0/WhatsApp/Video", "WhatsApp Video", null, "1 video · 4.1 MB", null),
 )
 

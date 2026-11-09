@@ -32,7 +32,7 @@ data class FolderRow(
     val coverUri: String?,
     /** "12 videos · 4.2 GB" */
     val summary: String,
-    /** "3 NEW", or null when nothing is unplayed. */
+    /** Unplayed count ("3"), or null when nothing is new. */
     val newBadge: String?,
 )
 
@@ -90,5 +90,5 @@ internal fun VideoFolder.toRow() = FolderRow(
     name = name,
     coverUri = coverContentUri,
     summary = VideoFormat.videoCount(videoCount) + " · " + VideoFormat.bytes(totalSizeBytes),
-    newBadge = if (newCount > 0) "$newCount NEW" else null,
+    newBadge = if (newCount > 0) "$newCount" else null,
 )
