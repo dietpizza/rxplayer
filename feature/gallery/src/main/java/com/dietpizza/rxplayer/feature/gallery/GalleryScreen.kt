@@ -175,7 +175,8 @@ internal fun GalleryContent(
                 albums = uiState.albums,
                 onOpenAlbum = onOpenAlbum,
                 onNewAlbum = onNewAlbum,
-                contentPadding = gridPadding(innerPadding, contentPadding),
+                // Small outer margin; the cards' inner padding adds the rest (8 + 6 ≈ the old 16).
+                contentPadding = gridPadding(innerPadding, contentPadding, gutter = 8.dp, top = 4.dp),
             )
         }
     }
@@ -189,11 +190,11 @@ private fun AlbumsGrid(
     onNewAlbum: () -> Unit,
     contentPadding: PaddingValues,
 ) {
+    // No arrangement gaps: each card's own inner padding (CardInset) makes the gap, so the tap
+    // highlight has breathing room around the thumbnail; contentPadding keeps it off the edges.
     LazyVerticalGrid(
         columns = GridCells.Adaptive(AlbumMinCellWidth),
         contentPadding = contentPadding,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
             .fillMaxSize()
             .testTag("gallery_albums"),
@@ -210,6 +211,9 @@ private fun AlbumsGrid(
 }
 
 private const val PINNED_ROW_KEY = "pinned"
+
+/** Inner padding of every album card: half the visual gap between neighbouring thumbnails. */
+private val CardInset = 6.dp
 private val AlbumMinCellWidth = 152.dp
 
 /** Adaptive cells are 152–304 dp wide; 240 dp buckets to a size that stays sharp across them. */
@@ -222,16 +226,14 @@ private val PinnedTileWidth = 112.dp
  */
 @Composable
 private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit, onNewAlbum: () -> Unit) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+    LazyRow(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
         items(pinned, key = { it.id }, contentType = { "pinned" }) { album ->
             Column(
                 Modifier
-                    .width(PinnedTileWidth)
+                    .width(PinnedTileWidth + CardInset * 2)
                     .clip(MaterialTheme.shapes.large)
-                    .clickable(role = Role.Button) { onOpenAlbum(album) },
+                    .clickable(role = Role.Button) { onOpenAlbum(album) }
+                    .padding(CardInset),
             ) {
                 Box {
                     MediaThumbnail(
@@ -262,9 +264,10 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
         item(key = NEW_ALBUM_KEY, contentType = NEW_ALBUM_KEY) {
             Column(
                 Modifier
-                    .width(PinnedTileWidth)
+                    .width(PinnedTileWidth + CardInset * 2)
                     .clip(MaterialTheme.shapes.large)
-                    .clickable(role = Role.Button, onClick = onNewAlbum),
+                    .clickable(role = Role.Button, onClick = onNewAlbum)
+                    .padding(CardInset),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -313,6 +316,7 @@ private fun AlbumCard(album: AlbumTile, onClick: () -> Unit) {
         Modifier
             .clip(MaterialTheme.shapes.largeIncreased)
             .clickable(role = Role.Button, onClick = onClick)
+            .padding(CardInset)
             .testTag("gallery_album"),
     ) {
         MediaThumbnail(
