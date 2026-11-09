@@ -1,6 +1,8 @@
 package com.dietpizza.rxplayer.feature.videos
 
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortButton
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortOption
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
@@ -403,37 +405,21 @@ private fun SelectionActions(count: Int, allFavourite: Boolean, actions: FolderA
 
 @Composable
 private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { open = true }) {
-            Icon(RxIcons.Sort, contentDescription = stringResource(R.string.sort))
-        }
-        RxMenu(
-            expanded = open,
-            onDismissRequest = { open = false },
-            groups = listOf(
-                VideoSortField.entries.map { field ->
-                    RxMenuItem(
-                        label = stringResource(field.label()),
-                        onClick = { if (field != sort.field) onSort(VideoSort.defaultFor(field)) },
-                        selected = field == sort.field,
-                    )
-                },
-                listOf(
-                    RxMenuItem(
-                        label = stringResource(R.string.sort_ascending),
-                        onClick = { if (sort.descending) onSort(sort.copy(descending = false)) },
-                        selected = !sort.descending,
-                    ),
-                    RxMenuItem(
-                        label = stringResource(R.string.sort_descending),
-                        onClick = { if (!sort.descending) onSort(sort.copy(descending = true)) },
-                        selected = sort.descending,
-                    ),
-                ),
-            ),
-        )
-    }
+    RxSortButton(
+        options = VideoSortField.entries.map { RxSortOption(it, stringResource(it.label()), it.icon()) },
+        current = sort.field,
+        descending = sort.descending,
+        labels = sortLabels(),
+        naturalDescending = { VideoSort.defaultFor(it).descending },
+        onSortChange = { field, desc -> onSort(VideoSort(field, desc)) },
+    )
+}
+
+private fun VideoSortField.icon() = when (this) {
+    VideoSortField.NAME -> RxIcons.SortByAlpha
+    VideoSortField.DATE_MODIFIED -> RxIcons.CalendarToday
+    VideoSortField.SIZE -> RxIcons.Storage
+    VideoSortField.DURATION -> RxIcons.Timer
 }
 
 private fun VideoSortField.label(): Int = when (this) {

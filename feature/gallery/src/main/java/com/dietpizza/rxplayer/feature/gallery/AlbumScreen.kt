@@ -307,9 +307,9 @@ private const val PROGRESS_GRACE_MS = 400L
 internal class AlbumMenu(val onRename: () -> Unit, val onDelete: () -> Unit)
 
 private val MediaSortOptions = listOf(
-    SortOption(MediaSortField.DATE_TAKEN, R.string.gallery_sort_date_taken),
-    SortOption(MediaSortField.NAME, R.string.gallery_sort_name),
-    SortOption(MediaSortField.SIZE, R.string.gallery_sort_size),
+    SortOption(MediaSortField.DATE_TAKEN, R.string.gallery_sort_date_taken, RxIcons.Event),
+    SortOption(MediaSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha),
+    SortOption(MediaSortField.SIZE, R.string.gallery_sort_size, RxIcons.Storage),
 )
 
 @Composable
@@ -364,8 +364,8 @@ internal fun AlbumContent(
                             options = MediaSortOptions,
                             current = sort.field,
                             descending = sort.descending,
-                            onFieldSelected = { onSortChange(MediaSort.defaultFor(it)) },
-                            onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
+                            naturalDescending = { MediaSort.defaultFor(it).descending },
+                            onSortChange = { field, desc -> onSortChange(MediaSort(field, desc)) },
                         )
                         if (albumMenu != null) AlbumOverflow(albumMenu)
                     },

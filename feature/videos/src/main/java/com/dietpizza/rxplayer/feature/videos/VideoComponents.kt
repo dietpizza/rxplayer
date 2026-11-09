@@ -164,3 +164,12 @@ internal fun listPadding(
         bottom = innerPadding.calculateBottomPadding() + extra.calculateBottomPadding() + bottom,
     )
 }
+
+/** Strings for the shared sort sheet. */
+@Composable
+internal fun sortLabels() = com.dietpizza.rxplayer.core.designsystem.component.RxSortLabels(
+    title = stringResource(R.string.sort_title),
+    ascending = stringResource(R.string.sort_ascending),
+    descending = stringResource(R.string.sort_descending),
+    button = stringResource(R.string.sort),
+)

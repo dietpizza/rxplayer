@@ -76,7 +76,7 @@ class AlbumViewModel @Inject constructor(
     private val favourites: FavouritesRepository,
     private val albums: AlbumsRepository,
     private val files: MediaFileService,
-    librarySettings: LibrarySettingsRepository,
+    private val librarySettings: LibrarySettingsRepository,
 ) : ViewModel() {
 
     val source: AlbumSource = parseSource(savedStateHandle)
@@ -88,13 +88,12 @@ class AlbumViewModel @Inject constructor(
             is AlbumSource.Custom -> ""
         }
 
-    private val _sort = MutableStateFlow(
-        MediaSort(
-            field = MediaSortField.entries.getOrNull(savedStateHandle[KEY_SORT_FIELD] ?: -1) ?: MediaSortField.DATE_TAKEN,
-            descending = savedStateHandle[KEY_SORT_DESC] ?: true,
-        ),
-    )
-    val sort: StateFlow<MediaSort> = _sort.asStateFlow()
+    /** Set on tap so the grid re-sorts this frame; DataStore catches up behind it. */
+    private val sortOverride = MutableStateFlow<MediaSort?>(null)
+    private val sortFlow: Flow<MediaSort> =
+        combine(librarySettings.settings.map { it.mediaSort }, sortOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
+    val sort: StateFlow<MediaSort> = sortFlow.stateIn(viewModelScope, SharingStarted.Eagerly, MediaSort.DEFAULT)
 
     val selection = AlbumSelection()
 
@@ -123,7 +122,7 @@ class AlbumViewModel @Inject constructor(
             .map { sortItems(it, sort) }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<AlbumUiState> = _sort
+    val uiState: StateFlow<AlbumUiState> = sortFlow
         .flatMapLatest { sort ->
             combine(items(sort), title, defaultColumns) { list, t, columns ->
                 AlbumUiState.Content(
@@ -147,9 +146,8 @@ class AlbumViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AlbumUiState.Loading(initialTitle))
 
     fun setSort(sort: MediaSort) {
-        savedStateHandle[KEY_SORT_FIELD] = sort.field.ordinal
-        savedStateHandle[KEY_SORT_DESC] = sort.descending
-        _sort.value = sort
+        sortOverride.value = sort
+        viewModelScope.launch { librarySettings.setMediaSort(sort) }
     }
 
     // ---- Selection actions -------------------------------------------------------------------
@@ -352,8 +350,6 @@ class AlbumViewModel @Inject constructor(
     }
 
     private companion object {
-        const val KEY_SORT_FIELD = "album.sort.field"
-        const val KEY_SORT_DESC = "album.sort.desc"
 
         fun parseSource(state: SavedStateHandle): AlbumSource {
             val customId = state.get<Long>(AlbumActivity.EXTRA_CUSTOM_ALBUM_ID)

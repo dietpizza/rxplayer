@@ -1,6 +1,10 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortButton
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortOption
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
+import com.dietpizza.rxplayer.core.model.AlbumSort
+import com.dietpizza.rxplayer.core.model.AlbumSortField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,18 +82,34 @@ fun VideosScreen(
     var section by rememberSaveable { mutableStateOf(VideosSection.FOLDERS) }
     // Each section keeps its own scroll position across switches (like the tabs do).
     val sectionStates = rememberSaveableStateHolder()
+    val foldersModel: VideosViewModel = hiltViewModel()
+    val folderSort by foldersModel.sort.collectAsStateWithLifecycle()
     VideosScaffold(
         section = section,
         onSectionChange = { section = it },
         onOpenSettings = onOpenSettings,
         modifier = modifier,
         contentPadding = contentPadding,
+        sortAction = {
+            RxSortButton(
+                options = listOf(
+                    RxSortOption(AlbumSortField.NAME, stringResource(R.string.sort_name), RxIcons.SortByAlpha),
+                    RxSortOption(AlbumSortField.DATE_MODIFIED, stringResource(R.string.sort_date), RxIcons.CalendarToday),
+                    RxSortOption(AlbumSortField.COUNT, stringResource(R.string.sort_count), RxIcons.FormatListNumbered),
+                    RxSortOption(AlbumSortField.SIZE, stringResource(R.string.sort_size), RxIcons.Storage),
+                ),
+                current = folderSort.field,
+                descending = folderSort.descending,
+                labels = sortLabels(),
+                naturalDescending = { AlbumSort.defaultFor(it).descending },
+                onSortChange = { field, desc -> foldersModel.setSort(AlbumSort(field, desc)) },
+            )
+        },
     ) { listPadding ->
         sectionStates.SaveableStateProvider(section) {
             when (section) {
                 VideosSection.FOLDERS -> {
-                    val viewModel: VideosViewModel = hiltViewModel()
-                    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+                    val uiState by foldersModel.uiState.collectAsStateWithLifecycle()
                     FoldersSection(
                         uiState = uiState,
                         onOpenFolder = { folder ->
@@ -112,6 +132,7 @@ private fun VideosScaffold(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    sortAction: @Composable () -> Unit = {},
     content: @Composable (listPadding: PaddingValues) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -127,6 +148,7 @@ private fun VideosScaffold(
                     IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
                         Icon(RxIcons.Search, contentDescription = stringResource(R.string.videos_search))
                     }
+                    if (section == VideosSection.FOLDERS) sortAction()
                     IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
                         Icon(RxIcons.Settings, contentDescription = stringResource(R.string.videos_settings))
                     }

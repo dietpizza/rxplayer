@@ -5,6 +5,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
 import com.dietpizza.rxplayer.core.data.AlbumsRepository
 import com.dietpizza.rxplayer.core.data.FavouritesRepository
 import com.dietpizza.rxplayer.core.data.GalleryRepository
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -66,15 +68,15 @@ class GalleryViewModel @Inject constructor(
     repository: GalleryRepository,
     favourites: FavouritesRepository,
     private val customAlbums: AlbumsRepository,
+    private val librarySettings: LibrarySettingsRepository,
 ) : ViewModel() {
 
-    private val _sort = MutableStateFlow(
-        AlbumSort(
-            field = AlbumSortField.entries.getOrNull(savedStateHandle[KEY_SORT_FIELD] ?: -1) ?: AlbumSortField.DATE_MODIFIED,
-            descending = savedStateHandle[KEY_SORT_DESC] ?: true,
-        ),
-    )
-    val sort: StateFlow<AlbumSort> = _sort.asStateFlow()
+    /** Set on tap so the grid re-sorts this frame; DataStore catches up behind it. */
+    private val sortOverride = MutableStateFlow<AlbumSort?>(null)
+    private val sortFlow: Flow<AlbumSort> =
+        combine(librarySettings.settings.map { it.albumSort }, sortOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
+    val sort: StateFlow<AlbumSort> = sortFlow.stateIn(viewModelScope, SharingStarted.Eagerly, AlbumSort.DEFAULT)
 
     /** Favourites + custom album tiles: DB rows joined with the live library for counts/covers. */
     private val keyedTiles: Flow<List<AlbumTile>> =
@@ -106,7 +108,7 @@ class GalleryViewModel @Inject constructor(
         }.distinctUntilChanged()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<GalleryUiState> = _sort
+    val uiState: StateFlow<GalleryUiState> = sortFlow
         .flatMapLatest { sort ->
             combine(keyedTiles, repository.virtualAlbums(), repository.albums(sort)) { keyed, virtual, albums ->
                 if (virtual.isEmpty() && albums.isEmpty()) {
@@ -131,9 +133,8 @@ class GalleryViewModel @Inject constructor(
         context.resources.getQuantityString(R.plurals.gallery_item_count, n, GalleryFormat.count(n))
 
     fun setSort(sort: AlbumSort) {
-        savedStateHandle[KEY_SORT_FIELD] = sort.field.ordinal
-        savedStateHandle[KEY_SORT_DESC] = sort.descending
-        _sort.value = sort
+        sortOverride.value = sort
+        viewModelScope.launch { librarySettings.setAlbumSort(sort) }
     }
 
     private fun GalleryAlbum.toTile() = AlbumTile(
@@ -150,8 +151,6 @@ class GalleryViewModel @Inject constructor(
     )
 
     private companion object {
-        const val KEY_SORT_FIELD = "gallery.sort.field"
-        const val KEY_SORT_DESC = "gallery.sort.desc"
         const val FAVOURITES_ID = "favourites"
     }
 }

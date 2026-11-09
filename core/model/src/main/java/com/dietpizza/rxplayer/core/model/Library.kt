@@ -63,6 +63,12 @@ data class LibrarySettings(
      * [GRID_COLUMNS_AUTO] = follow the screen width.
      */
     val galleryGridColumns: Int = GRID_COLUMNS_AUTO,
+    /** Gallery tab album order. */
+    val albumSort: AlbumSort = AlbumSort.DEFAULT,
+    /** Order of photos/videos inside a gallery album. */
+    val mediaSort: MediaSort = MediaSort.DEFAULT,
+    /** Videos tab folder order (same fields as gallery albums). */
+    val videoFolderSort: AlbumSort = AlbumSort(AlbumSortField.NAME, descending = false),
 ) {
     companion object {
         const val GRID_COLUMNS_AUTO = 0

@@ -1,6 +1,8 @@
 package com.dietpizza.rxplayer.core.datastore
 
+import com.dietpizza.rxplayer.core.model.AlbumSort
 import com.dietpizza.rxplayer.core.model.LibrarySettings
+import com.dietpizza.rxplayer.core.model.MediaSort
 import com.dietpizza.rxplayer.core.model.VideoSort
 import com.dietpizza.rxplayer.core.model.VideoViewMode
 import kotlinx.coroutines.flow.Flow
@@ -17,4 +19,10 @@ interface LibrarySettingsRepository {
 
     /** [LibrarySettings.GRID_COLUMNS_AUTO] or 2..6. */
     suspend fun setGalleryGridColumns(columns: Int)
+
+    suspend fun setAlbumSort(sort: AlbumSort)
+
+    suspend fun setMediaSort(sort: MediaSort)
+
+    suspend fun setVideoFolderSort(sort: AlbumSort)
 }

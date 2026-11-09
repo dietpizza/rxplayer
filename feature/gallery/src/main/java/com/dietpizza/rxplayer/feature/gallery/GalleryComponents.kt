@@ -1,7 +1,8 @@
 package com.dietpizza.rxplayer.feature.gallery
 
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortButton
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortLabels
+import com.dietpizza.rxplayer.core.designsystem.component.RxSortOption
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,49 +69,28 @@ internal fun gridPadding(
 }
 
 /** One sort field in a [SortMenuButton]. */
-internal class SortOption<F>(val field: F, @param:StringRes val label: Int)
+internal class SortOption<F>(val field: F, @param:StringRes val label: Int, val icon: ImageVector)
 
-/**
- * Top-bar sort action: a menu of fields (radio-style check on the current one), then the
- * direction. Picking a new field applies that field's natural direction via [onFieldSelected].
- */
+/** Top-bar sort action: opens the shared expressive sort sheet ([RxSortButton]). */
 @Composable
 internal fun <F> SortMenuButton(
     options: List<SortOption<F>>,
     current: F,
     descending: Boolean,
-    onFieldSelected: (F) -> Unit,
-    onDirectionSelected: (descending: Boolean) -> Unit,
+    naturalDescending: (F) -> Boolean,
+    onSortChange: (field: F, descending: Boolean) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(RxIcons.Sort, contentDescription = stringResource(R.string.gallery_sort))
-        }
-        RxMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            groups = listOf(
-                options.map { option ->
-                    RxMenuItem(
-                        label = stringResource(option.label),
-                        onClick = { if (option.field != current) onFieldSelected(option.field) },
-                        selected = option.field == current,
-                    )
-                },
-                listOf(
-                    RxMenuItem(
-                        label = stringResource(R.string.gallery_sort_ascending),
-                        onClick = { if (descending) onDirectionSelected(false) },
-                        selected = !descending,
-                    ),
-                    RxMenuItem(
-                        label = stringResource(R.string.gallery_sort_descending),
-                        onClick = { if (!descending) onDirectionSelected(true) },
-                        selected = descending,
-                    ),
-                ),
-            ),
-        )
-    }
+    RxSortButton(
+        options = options.map { RxSortOption(it.field, stringResource(it.label), it.icon) },
+        current = current,
+        descending = descending,
+        labels = RxSortLabels(
+            title = stringResource(R.string.gallery_sort_title),
+            ascending = stringResource(R.string.gallery_sort_ascending),
+            descending = stringResource(R.string.gallery_sort_descending),
+            button = stringResource(R.string.gallery_sort),
+        ),
+        naturalDescending = naturalDescending,
+        onSortChange = onSortChange,
+    )
 }

@@ -108,10 +108,10 @@ fun GalleryScreen(
 }
 
 private val AlbumSortOptions = listOf(
-    SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified),
-    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name),
-    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count),
-    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size),
+    SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified, RxIcons.CalendarToday),
+    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha),
+    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count, RxIcons.FormatListNumbered),
+    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size, RxIcons.Storage),
 )
 
 @Composable
@@ -142,8 +142,8 @@ internal fun GalleryContent(
                         options = AlbumSortOptions,
                         current = sort.field,
                         descending = sort.descending,
-                        onFieldSelected = { onSortChange(AlbumSort.defaultFor(it)) },
-                        onDirectionSelected = { onSortChange(sort.copy(descending = it)) },
+                        naturalDescending = { AlbumSort.defaultFor(it).descending },
+                        onSortChange = { field, desc -> onSortChange(AlbumSort(field, desc)) },
                     )
                     IconButton(onClick = onOpenSettings, modifier = Modifier.testTag("open_settings")) {
                         Icon(RxIcons.Settings, contentDescription = stringResource(R.string.gallery_settings))

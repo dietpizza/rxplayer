@@ -22,6 +22,8 @@
     <string name="video_progress">%1$d%% watched</string>
 
     <string name="sort">Sort</string>
+    <string name="sort_title">Sort by</string>
+    <string name="sort_count">Number of videos</string>
     <string name="sort_name">Name</string>
     <string name="sort_date">Date modified</string>
     <string name="sort_size">Size</string>
