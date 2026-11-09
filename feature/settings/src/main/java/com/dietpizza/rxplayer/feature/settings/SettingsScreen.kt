@@ -39,6 +39,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -163,8 +165,10 @@ private fun AppearanceSection(
         ) { Text("Theme") }
 
         SegmentedListItem(
-            checked = appearance.dynamicColor,
-            onCheckedChange = onDynamicColorChange,
+            // onClick (not checked/onCheckedChange) so the row itself never takes a "selected" highlight;
+            // the Switch alone shows state.
+            onClick = { onDynamicColorChange(!appearance.dynamicColor) },
+            modifier = Modifier.switchSemantics(appearance.dynamicColor),
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
             leadingContent = { Icon(Icons.Rounded.Palette, contentDescription = null) },
             supportingContent = { Text("Use colours from your wallpaper") },
@@ -173,8 +177,8 @@ private fun AppearanceSection(
 
         val canBeDark = appearance.themeMode != ThemeMode.LIGHT
         SegmentedListItem(
-            checked = appearance.pureBlack,
-            onCheckedChange = onPureBlackChange,
+            onClick = { onPureBlackChange(!appearance.pureBlack) },
+            modifier = Modifier.switchSemantics(appearance.pureBlack),
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
             enabled = canBeDark,
             leadingContent = { Icon(Icons.Rounded.DarkMode, contentDescription = null) },
@@ -223,6 +227,12 @@ private fun ThemeModeButtonGroup(
             }
         }
     }
+}
+
+/** The row is a plain clickable; announce it to TalkBack as a switch with its on/off state. */
+private fun Modifier.switchSemantics(checked: Boolean) = semantics {
+    role = Role.Switch
+    toggleableState = ToggleableState(checked)
 }
 
 private val ThemeMode.label: String
