@@ -104,31 +104,37 @@ internal fun VideoPage(
                 onDragStopped = { v -> onDragStopped(v) },
             ),
     ) {
-        if (active) {
-            Box(
+        // One surface box whose modifier switches between the inline card and the morphing
+        // video. The poster stays composed in the same slot across that switch (no reload,
+        // no blank frame) and only fades once this page's own first video frame is on screen.
+        val firstFrameKey by controller.firstFrameKey.collectAsStateWithLifecycle()
+        val posterUp = !active || firstFrameKey != item.key
+        val radius = with(LocalDensity.current) { geo.radius.toDp() }
+        Box(
+            if (active) {
                 Modifier
                     .morphVideo(geo, morph, fullState, aspect)
                     .drawWithContent {
                         drawContent()
                         drawCornerMask(MorphMath.cornerRadius(morph.progress.value, geo.radius), corner, Color.Black)
-                    },
-            ) {
+                    }
+            } else {
+                Modifier.inlineCard(geo, aspect).clip(RoundedCornerShape(radius))
+            },
+        ) {
+            if (active) {
                 ContentFrame(
                     player = controller.player,
                     modifier = Modifier.fillMaxSize(),
                     surfaceType = SURFACE_TYPE_SURFACE_VIEW,
                     contentScale = ContentScale.Fit,
                     keepContentOnReset = false,
-                    shutter = { Poster(item, Modifier.fillMaxSize()) },
+                    shutter = {},
                 )
             }
-            InlineError(controller, geo, morph, aspect)
-        } else {
-            val radius = with(LocalDensity.current) { geo.radius.toDp() }
-            Box(Modifier.inlineCard(geo, aspect).clip(RoundedCornerShape(radius))) {
-                Poster(item, Modifier.fillMaxSize())
-            }
+            Poster(item, Modifier.fillMaxSize().graphicsLayer { alpha = if (posterUp) 1f else 0f })
         }
+        if (active) InlineError(controller, geo, morph, aspect)
         if (active) {
             InlineControls(
                 controller = controller,

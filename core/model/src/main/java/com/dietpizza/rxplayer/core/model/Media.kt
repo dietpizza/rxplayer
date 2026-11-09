@@ -49,10 +49,17 @@ data class VideoItem(
     val width: Int,
     val height: Int,
     val dateModifiedMs: Long,
-    /** null = never played → show NEW badge. */
+    /** null = never played. */
     val playback: PlaybackState?,
 ) {
-    val isNew: Boolean get() = playback == null
+    /** NEW badge: never played and added/modified within the last [NEW_WINDOW_MS] (7 days). */
+    val isNew: Boolean get() = isNewAt(System.currentTimeMillis())
+
+    fun isNewAt(nowMs: Long): Boolean = playback == null && nowMs - dateModifiedMs <= NEW_WINDOW_MS
+
+    companion object {
+        const val NEW_WINDOW_MS: Long = 7L * 24 * 60 * 60 * 1000
+    }
 }
 
 /** A folder that contains at least one video (Videos tab, MX-style). */

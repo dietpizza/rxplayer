@@ -10,7 +10,10 @@ import org.junit.Test
 
 class VideoLibraryTest {
     private var nextId = 1L
-    private fun video(path: String, size: Long = 100, modified: Long = 0) = LocalVideo(
+
+    /** "Now-ish": recent enough that unplayed videos count as NEW (7-day window). */
+    private val recent = System.currentTimeMillis() - 1_000L
+    private fun video(path: String, size: Long = 100, modified: Long = recent) = LocalVideo(
         id = nextId++,
         contentUri = "content://media/external/video/media/${nextId - 1}",
         path = path,
@@ -29,9 +32,9 @@ class VideoLibraryTest {
     @Test
     fun foldersAggregateAndSortByName() {
         val videos = listOf(
-            video("/s/zeta/a.mp4", size = 10, modified = 5),
-            video("/s/Alpha/Ep 10.mkv", size = 20, modified = 7),
-            video("/s/Alpha/Ep 2.mkv", size = 30, modified = 9),
+            video("/s/zeta/a.mp4", size = 10, modified = recent + 5),
+            video("/s/Alpha/Ep 10.mkv", size = 20, modified = recent + 7),
+            video("/s/Alpha/Ep 2.mkv", size = 30, modified = recent + 9),
             video("/s/beta/x.mp4"),
         )
         val states = mapOf(MediaKey.forFile("/s/Alpha/Ep 2.mkv").value to state("/s/Alpha/Ep 2.mkv"))
@@ -43,7 +46,7 @@ class VideoLibraryTest {
         assertEquals(2, alpha.videoCount)
         assertEquals(1, alpha.newCount)
         assertEquals(50L, alpha.totalSizeBytes)
-        assertEquals(9L, alpha.lastModifiedMs)
+        assertEquals(recent + 9, alpha.lastModifiedMs)
         assertEquals(videos[2].contentUri, alpha.coverContentUri)
     }
 
@@ -56,6 +59,23 @@ class VideoLibraryTest {
         assertTrue(items[0].isNew)
         assertEquals(10L, items[2].playback?.positionMs)
         assertEquals(MediaKey("file:///s/A/Ep 1.mkv"), items[0].key)
+    }
+
+    @Test
+    fun newOnlyWithinSevenDays() {
+        val now = 1_000_000_000_000L
+        val day = 24L * 60 * 60 * 1000
+        val videos = listOf(
+            video("/s/N/fresh.mp4", modified = now - 2 * day),
+            video("/s/N/edge.mp4", modified = now - 7 * day),
+            video("/s/N/old.mp4", modified = now - 8 * day),
+        )
+        val items = buildVideoLibrary(videos, emptyMap()).videosByFolder.getValue("/s/N")
+        val byTitle = items.associateBy { it.title }
+        assertTrue(byTitle.getValue("fresh").isNewAt(now))
+        assertTrue(byTitle.getValue("edge").isNewAt(now))
+        assertTrue(!byTitle.getValue("old").isNewAt(now))
+        assertEquals(2, aggregateFolder("/s/N", items, nowMs = now).newCount)
     }
 
     @Test

@@ -27,6 +27,9 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import com.dietpizza.rxplayer.core.player.source.FragmentIndexingExtractorsFactory
+import com.dietpizza.rxplayer.core.player.source.FragmentSeekIndexStore
 import androidx.media3.datasource.DefaultDataSource
 import com.dietpizza.rxplayer.core.datastore.SubtitleSettings
 import com.dietpizza.rxplayer.core.datastore.SubtitleSettingsRepository
@@ -124,6 +127,8 @@ class PlaybackController @Inject constructor(
         .setMediaSourceFactory(
             DefaultMediaSourceFactory(
                 SchemeRoutingDataSourceFactory(schemeRouter, DefaultDataSource.Factory(context)),
+                // Unindexed fragmented MP4s (common for downloads) get a seek table we build.
+                FragmentIndexingExtractorsFactory(DefaultExtractorsFactory(), FragmentSeekIndexStore(context)),
             ),
         )
         .setAudioAttributes(
@@ -144,6 +149,14 @@ class PlaybackController @Inject constructor(
     val sessionPlayer: Player = SessionPlayer(player)
 
     // region state
+    private val _firstFrameKey = MutableStateFlow<MediaKey?>(null)
+
+    /**
+     * The item whose first video frame is on screen (null between loading an item and that
+     * frame). Surfaces keep their poster up until this matches, so swaps never flash black.
+     */
+    val firstFrameKey: StateFlow<MediaKey?> = _firstFrameKey.asStateFlow()
+
     private val _settings = MutableStateFlow(PlayerSettings())
     val settings: StateFlow<PlayerSettings> = _settings.asStateFlow()
 
@@ -248,8 +261,11 @@ class PlaybackController @Inject constructor(
     private var videoDecoderName: String? = null
     private var audioDecoderName: String? = null
 
+    /** Tolerance for the final (committed) scrub seek; 0 = exact. Set by [endScrub]. */
+    private var commitToleranceMs = 0L
+
     private val coalescer = SeekCoalescer({ positionMs, exact ->
-        player.setSeekParameters(if (exact) SeekParameters.EXACT else SeekParameters.CLOSEST_SYNC)
+        player.setSeekParameters(if (exact) seekParameters(commitToleranceMs) else SeekParameters.CLOSEST_SYNC)
         player.seekTo(positionMs)
         if (!exact) {
             handler.removeCallbacks(seekTimeout)
@@ -423,6 +439,7 @@ class PlaybackController @Inject constructor(
         _isHdrVideo.value = false
         index = newIndex
         val key = playlist[newIndex]
+        _firstFrameKey.value = null
         loadJob?.cancel()
         session = null
         coalescer.reset()
@@ -560,20 +577,32 @@ class PlaybackController @Inject constructor(
         player.pause()
     }
 
-    fun seekTo(positionMs: Long) {
+    /**
+     * Seeks to [positionMs]. With [toleranceMs] > 0 the player may land on a keyframe within
+     * that distance either side instead of decoding up to the exact frame: near-instant on
+     * files with sparse keyframes.
+     */
+    fun seekTo(positionMs: Long, toleranceMs: Long = 0L) {
         val target = clampPosition(positionMs)
-        player.setSeekParameters(SeekParameters.EXACT)
+        player.setSeekParameters(seekParameters(toleranceMs))
         player.seekTo(target)
         _positionMs.value = target
     }
 
-    fun seekBy(deltaMs: Long) = seekTo(player.currentPosition + deltaMs)
+    /**
+     * Relative steps (double tap, keys, notification): land on a keyframe within half a step
+     * either side, so the jump is always in the right direction and roughly the right size.
+     */
+    fun seekBy(deltaMs: Long) = seekTo(player.currentPosition + deltaMs, toleranceMs = kotlin.math.abs(deltaMs) / 2)
 
     /** ⏩ — one seek step (PlayerSettings.seekStepSeconds). */
     fun seekForward() = seekBy(_settings.value.seekStepSeconds * 1_000L)
 
     /** ⏪ — one seek step. */
     fun seekBack() = seekBy(-_settings.value.seekStepSeconds * 1_000L)
+
+    private fun seekParameters(toleranceMs: Long): SeekParameters =
+        if (toleranceMs <= 0L) SeekParameters.EXACT else SeekParameters(toleranceMs * 1_000L, toleranceMs * 1_000L)
 
     /** Current position straight from the player (for gesture start points). */
     val currentPositionMs: Long get() = player.currentPosition
@@ -603,9 +632,13 @@ class PlaybackController @Inject constructor(
         coalescer.request(target, SystemClock.uptimeMillis())
     }
 
-    /** Released at [positionMs]: one exact seek, then playback continues if it was playing. */
-    fun endScrub(positionMs: Long) {
+    /**
+     * Released at [positionMs]: one final seek (exact, or within [toleranceMs] of a keyframe),
+     * then playback continues if it was playing.
+     */
+    fun endScrub(positionMs: Long, toleranceMs: Long = 0L) {
         if (!scrubbing) return
+        commitToleranceMs = toleranceMs
         scrubbing = false
         handler.removeCallbacks(seekTimeout)
         val target = clampPosition(positionMs)
@@ -777,6 +810,7 @@ class PlaybackController @Inject constructor(
         }
 
         override fun onRenderedFirstFrame() {
+            _firstFrameKey.value = playlist.getOrNull(index)
             if (coalescer.inFlight) {
                 handler.removeCallbacks(seekTimeout)
                 coalescer.onSeekProcessed(SystemClock.uptimeMillis())

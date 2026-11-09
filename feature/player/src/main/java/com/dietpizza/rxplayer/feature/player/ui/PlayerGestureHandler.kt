@@ -107,7 +107,8 @@ internal class PlayerGestureHandler(
     override fun onHorizontalSeekEnd(cancelled: Boolean) {
         if (!ui.swipeSeeking) return
         ui.swipeSeeking = false
-        controller.endScrub(ui.swipeTargetMs)
+        // Swipe-seek lands on a keyframe within 1 s of the shown target: instant on sparse-GOP files.
+        controller.endScrub(ui.swipeTargetMs, toleranceMs = 1_000L)
         ui.bump()
     }
     // endregion

@@ -74,12 +74,12 @@ fun buildVideoLibrary(videos: List<LocalVideo>, states: Map<String, PlaybackStat
 }
 
 /** Folder card stats: count, NEW count, total size, cover = most recently modified video. */
-fun aggregateFolder(path: String, items: List<VideoItem>): VideoFolder {
+fun aggregateFolder(path: String, items: List<VideoItem>, nowMs: Long = System.currentTimeMillis()): VideoFolder {
     var newCount = 0
     var totalSize = 0L
     var latest: VideoItem? = null
     for (item in items) {
-        if (item.isNew) newCount++
+        if (item.isNewAt(nowMs)) newCount++
         totalSize += item.sizeBytes
         if (latest == null || item.dateModifiedMs > latest.dateModifiedMs) latest = item
     }
