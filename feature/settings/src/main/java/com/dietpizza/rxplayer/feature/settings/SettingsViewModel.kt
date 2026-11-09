@@ -66,7 +66,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
-        const val APPLY_DELAY_MS = 500L
+        const val APPLY_DELAY_MS = 200L
     }
 }
 

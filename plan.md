@@ -326,7 +326,7 @@ network_server
 
 ## 9. Visual design ✅
 - Material 3 Expressive throughout: expressive motion scheme (springy), shape morphing on the play/pause button and the FAB, a wavy `LinearWavyProgressIndicator` for the inline resume bar, and button groups in the player's ⋮ sheet
-- Dynamic colour by default, with an AMOLED toggle. **Theme changes apply 500 ms after the tap ✅**, so the switch or toggle finishes animating before the screen restyles. **The player is always pure black** whatever the theme.
+- Dynamic colour by default, with an AMOLED toggle. **Theme changes apply 200 ms after the tap ✅**, so the switch or toggle finishes animating before the screen restyles. **The player is always pure black** whatever the theme.
 - Edge-to-edge everywhere. Predictive back with an expressive animation.
 - **Switching bottom-nav tabs has no animation ✅.** Tapping an unselected tab swaps the content instantly: no fade, scale, slide or stack effect. Every other screen change is an Activity, so it gets the **system's** activity transition and predictive back (§3.2a). There are no custom page transitions.
 - Seed colour: **coral red ✅** (e.g. `#FF5A4E`, tuned in M0). The icon is a coral play glyph.
