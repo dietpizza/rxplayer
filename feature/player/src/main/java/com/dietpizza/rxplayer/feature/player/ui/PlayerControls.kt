@@ -29,7 +29,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AspectRatio
+import androidx.compose.material.icons.rounded.Audiotrack
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ClosedCaptionDisabled
 import androidx.compose.material.icons.rounded.FastForward
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Forward30
@@ -74,17 +81,17 @@ private val Scrim = Color.Black.copy(alpha = 0.6f)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Modifier.controlsInsets(): Modifier =
+internal fun Modifier.controlsInsets(): Modifier =
     // Ignoring visibility keeps the layout still when the system bars fade in/out with the controls.
     windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
 
-/** The M1 control set (plan §6.3). Room is left for lock / aspect / tracks / speed (M3). */
+/** The control set (plan §6.3). */
 @Composable
 internal fun PlayerControls(
     controller: PlaybackController,
-    ui: PlayerUiState,
-    rotationLocked: Boolean,
-    onToggleRotationLock: () -> Unit,
+    ui: FullPlayerState,
+    host: FullPlayerHost,
+    onCycleAspect: () -> Unit,
     onBack: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -104,13 +111,14 @@ internal fun PlayerControls(
                 .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
         )
 
-        TopBar(controller, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
+        TopBar(controller, ui, onBack, Modifier.align(Alignment.TopCenter).controlsInsets())
         CenterControls(controller, ui, Modifier.align(Alignment.Center))
         BottomBar(
             controller = controller,
             ui = ui,
-            rotationLocked = rotationLocked,
-            onToggleRotationLock = { onToggleRotationLock(); ui.bump() },
+            rotationLocked = host.rotationLocked,
+            onToggleRotationLock = { host.toggleRotationLock(); ui.bump() },
+            onCycleAspect = onCycleAspect,
             modifier = Modifier.align(Alignment.BottomCenter).controlsInsets(),
         )
     }
@@ -118,7 +126,7 @@ internal fun PlayerControls(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TopBar(controller: PlaybackController, onBack: () -> Unit, modifier: Modifier) {
+private fun TopBar(controller: PlaybackController, ui: FullPlayerState, onBack: () -> Unit, modifier: Modifier) {
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
     Row(
         modifier
@@ -140,7 +148,22 @@ private fun TopBar(controller: PlaybackController, onBack: () -> Unit, modifier:
                 .padding(horizontal = 8.dp)
                 .basicMarquee(initialDelayMillis = 1_500),
         )
-        // ⋮ / audio / subtitle buttons land here in M3.
+        val tracks by controller.trackMenu.collectAsStateWithLifecycle()
+        if (tracks.audio.size > 1) {
+            TopIcon(Icons.Rounded.Audiotrack, "Audio track") { ui.sheet = PlayerSheet.Audio; ui.bump() }
+        }
+        TopIcon(
+            if (tracks.textOff) Icons.Rounded.ClosedCaptionDisabled else Icons.Rounded.ClosedCaption,
+            "Subtitles",
+        ) { ui.sheet = PlayerSheet.Subtitles; ui.bump() }
+        TopIcon(Icons.Rounded.MoreVert, "More") { ui.sheet = PlayerSheet.More; ui.bump() }
+    }
+}
+
+@Composable
+private fun TopIcon(icon: ImageVector, description: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+        Icon(icon, contentDescription = description, tint = Color.White)
     }
 }
 
@@ -149,7 +172,7 @@ private val MuteSlotWidth = 64.dp
 
 /** Mute stays visible (dimmed) when controls hide: it's a first-class control (plan §3.3). */
 @Composable
-internal fun AlwaysOnMute(controller: PlaybackController, ui: PlayerUiState, modifier: Modifier) {
+internal fun AlwaysOnMute(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
     val muted by controller.isMuted.collectAsStateWithLifecycle()
     val alpha by animateFloatAsState(
         targetValue = if (ui.controlsVisible) 1f else 0.45f,
@@ -173,7 +196,7 @@ internal fun AlwaysOnMute(controller: PlaybackController, ui: PlayerUiState, mod
 }
 
 @Composable
-private fun CenterControls(controller: PlaybackController, ui: PlayerUiState, modifier: Modifier) {
+private fun CenterControls(controller: PlaybackController, ui: FullPlayerState, modifier: Modifier) {
     val nowPlaying by controller.nowPlaying.collectAsStateWithLifecycle()
     val settings by controller.settings.collectAsStateWithLifecycle()
     val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
@@ -264,9 +287,10 @@ private fun seekForwardIcon(seconds: Int) = when (seconds) {
 @Composable
 private fun BottomBar(
     controller: PlaybackController,
-    ui: PlayerUiState,
+    ui: FullPlayerState,
     rotationLocked: Boolean,
     onToggleRotationLock: () -> Unit,
+    onCycleAspect: () -> Unit,
     modifier: Modifier,
 ) {
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -277,7 +301,19 @@ private fun BottomBar(
         }
         SeekBar(controller, ui)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Lock / aspect / speed / tracks slots (M3) go on this row.
+            IconButton(
+                onClick = { ui.lock() },
+                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+            ) {
+                Icon(Icons.Rounded.LockOpen, contentDescription = "Lock controls", tint = Color.White)
+            }
+            IconButton(
+                onClick = onCycleAspect,
+                modifier = Modifier.size(IconButtonDefaults.mediumContainerSize()),
+            ) {
+                Icon(Icons.Rounded.AspectRatio, contentDescription = "Aspect: ${ui.aspectMode.label}", tint = Color.White)
+            }
+            SpeedChip(controller, ui)
             Spacer(Modifier.weight(1f))
             IconButton(
                 onClick = onToggleRotationLock,
@@ -302,7 +338,7 @@ private fun ElapsedTime(controller: PlaybackController) {
 
 /** Total duration, or remaining time (`-4:12`) after a tap. */
 @Composable
-private fun DurationTime(controller: PlaybackController, ui: PlayerUiState) {
+private fun DurationTime(controller: PlaybackController, ui: FullPlayerState) {
     val duration by controller.durationMs.collectAsStateWithLifecycle()
     val text = if (ui.showRemaining) {
         val position by controller.positionMs.collectAsStateWithLifecycle()
@@ -324,9 +360,23 @@ private fun DurationTime(controller: PlaybackController, ui: PlayerUiState) {
     )
 }
 
-/** Seek bar: dragging is a live seek (closest-sync, coalesced); release does one exact seek. */
+/** Current speed when it isn't 1×; tap opens the ⋮ sheet. */
 @Composable
-private fun SeekBar(controller: PlaybackController, ui: PlayerUiState) {
+private fun SpeedChip(controller: PlaybackController, ui: FullPlayerState) {
+    val speed by controller.speed.collectAsStateWithLifecycle()
+    val boosted by controller.isSpeedBoosted.collectAsStateWithLifecycle()
+    if (speed == 1f || boosted) return
+    TextButton(onClick = { ui.sheet = PlayerSheet.More; ui.bump() }) {
+        Text(formatSpeed(speed), color = Color.White, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+/**
+ * Seek bar: dragging is a live seek (closest-sync, coalesced); release does one exact seek.
+ * While dragging, a thumbnail bubble (decision 31) shows the nearest ready sprite frame.
+ */
+@Composable
+private fun SeekBar(controller: PlaybackController, ui: FullPlayerState) {
     val position by controller.positionMs.collectAsStateWithLifecycle()
     val duration by controller.durationMs.collectAsStateWithLifecycle()
     val max = duration.coerceAtLeast(1L).toFloat()
@@ -334,25 +384,28 @@ private fun SeekBar(controller: PlaybackController, ui: PlayerUiState) {
     SideEffect {
         if (!ui.seekBarDragging) state.value = position.toFloat().coerceIn(0f, max)
     }
-    Slider(
-        state = state,
-        enabled = duration > 0,
-        onValueChange = { v ->
-            if (!ui.seekBarDragging) {
-                ui.seekBarDragging = true
-                controller.beginScrub()
-            }
-            state.value = v
-            controller.scrubTo(v.toLong())
-        },
-        onValueChangeFinished = {
-            if (ui.seekBarDragging) {
-                ui.seekBarDragging = false
-                controller.endScrub(state.value.toLong())
-                ui.bump()
-            }
-        },
-        colors = SliderDefaults.colors(inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
-        modifier = Modifier.fillMaxWidth().height(48.dp),
-    )
+    Box(Modifier.fillMaxWidth()) {
+        Slider(
+            state = state,
+            enabled = duration > 0,
+            onValueChange = { v ->
+                if (!ui.seekBarDragging) {
+                    ui.seekBarDragging = true
+                    controller.beginScrub()
+                }
+                state.value = v
+                controller.scrubTo(v.toLong())
+            },
+            onValueChangeFinished = {
+                if (ui.seekBarDragging) {
+                    ui.seekBarDragging = false
+                    controller.endScrub(state.value.toLong())
+                    ui.bump()
+                }
+            },
+            colors = SliderDefaults.colors(inactiveTrackColor = Color.White.copy(alpha = 0.3f)),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+        )
+        SeekPreviewBubble(controller, ui, state)
+    }
 }

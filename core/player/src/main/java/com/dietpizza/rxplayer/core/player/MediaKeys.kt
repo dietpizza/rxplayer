@@ -16,19 +16,24 @@ object MediaKeys {
     }
 
     /**
-     * Title when nothing better is known: the last path segment, percent-decoded, without its
-     * extension. `smb://3/Movies/My%20Film.mkv` → `My Film`; `/sdcard/a/b.mp4` → `b`.
+     * Title when nothing better is known: the last path segment without its extension.
+     *
+     * Network keys (`smb://3/Movies/My film #2.mkv`) hold RAW paths that may contain spaces,
+     * `#`, `?` and `%`, so for [rawPath] keys we cut after the last '/' of the string as-is
+     * (never `Uri.getLastPathSegment()`, which stops at `#`/`?`). Other URIs (content, http)
+     * are encoded: their query/fragment is dropped and the segment percent-decoded.
      */
-    fun fallbackTitle(value: String): String {
-        var path = value.substringBefore('?').substringBefore('#')
+    fun fallbackTitle(value: String, rawPath: Boolean): String {
+        var path = value
+        if (!rawPath) path = path.substringBefore('?').substringBefore('#')
         val schemeEnd = path.indexOf("://")
         if (schemeEnd >= 0) path = path.substring(schemeEnd + 3)
         path = path.trimEnd('/')
-        val segment = decode(path.substringAfterLast('/'))
+        var segment = path.substringAfterLast('/')
+        if (!rawPath) segment = decode(segment).substringAfterLast('/')
         if (segment.isEmpty()) return value
-        val name = segment.substringAfterLast('/')
-        val dot = name.lastIndexOf('.')
-        return if (dot > 0) name.substring(0, dot) else name
+        val dot = segment.lastIndexOf('.')
+        return if (dot > 0) segment.substring(0, dot) else segment
     }
 
     /** Percent-decoding that leaves `+` alone (it's a literal in paths). Malformed input is kept. */

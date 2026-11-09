@@ -1,135 +1,143 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.dietpizza.rxplayer.core.model.PlayerSettings
-import com.dietpizza.rxplayer.core.player.PlaybackController
-import com.dietpizza.rxplayer.core.player.gesture.PlayerGestureSink
-import com.dietpizza.rxplayer.core.player.gesture.SwipeSeek
+import com.dietpizza.rxplayer.core.player.zoom.AspectMode
 
-/** Screen-local UI state of the full player (things the controller doesn't own). */
+/** Which bottom sheet is open over the full player. */
+internal enum class PlayerSheet { None, Audio, Subtitles, More }
+
+/**
+ * Screen-local state of the full player (things the controller doesn't own): controls
+ * visibility, lock, aspect/zoom, swipe-down, sheets. Hoistable so a host (the M4b viewer) can
+ * observe the swipe-down drag while it morphs: see [dismissOffsetPx] / [isDismissDragging].
+ */
 @Stable
-internal class PlayerUiState {
-    var controlsVisible by mutableStateOf(true)
+class FullPlayerState internal constructor() {
+    // region public, read-only for hosts
+
+    /** Current swipe-down offset of the video, px (0 at rest). Snapshot state. */
+    var dismissOffsetPx by mutableFloatStateOf(0f)
+        internal set
+
+    /** A swipe-down drag is in progress (or settling back). */
+    var isDismissDragging by mutableStateOf(false)
+        internal set
+
+    /** Controls are locked (only the unlock button can be revealed). */
+    var locked by mutableStateOf(false)
+        internal set
+    // endregion
+
+    internal var controlsVisible by mutableStateOf(true)
         private set
 
     /** Bumped on every interaction; restarts the auto-hide timer. */
-    var interaction by mutableIntStateOf(0)
+    internal var interaction by mutableIntStateOf(0)
         private set
 
-    var seekBarDragging by mutableStateOf(false)
-
-    var swipeSeeking by mutableStateOf(false)
+    internal var seekBarDragging by mutableStateOf(false)
+    internal var swipeSeeking by mutableStateOf(false)
 
     /** Read only inside the overlay leaf; written per drag frame. */
-    var swipeStartMs by mutableLongStateOf(0L)
-    var swipeTargetMs by mutableLongStateOf(0L)
+    internal var swipeStartMs by mutableLongStateOf(0L)
+    internal var swipeTargetMs by mutableLongStateOf(0L)
 
     /** Centre pop after a double tap: which icon, and a counter that restarts the animation. */
-    var popShowsPlay by mutableStateOf(false)
+    internal var popShowsPlay by mutableStateOf(false)
         private set
-    var popKey by mutableIntStateOf(0)
+    internal var popKey by mutableIntStateOf(0)
         private set
 
-    var showRemaining by mutableStateOf(false)
+    internal var showRemaining by mutableStateOf(false)
 
-    val isDragging: Boolean get() = seekBarDragging || swipeSeeking
+    /** Lock button revealed by a tap while locked; bumped to restart its fade-out timer. */
+    internal var lockRevealKey by mutableIntStateOf(0)
+        private set
+    internal var lockButtonVisible by mutableStateOf(false)
+
+    // region aspect / zoom
+
+    internal var aspectMode by mutableStateOf(AspectMode.Fit)
+
+    /** Free pinch zoom relative to Fit, or 0 when [aspectMode] applies. */
+    internal var customZoom by mutableFloatStateOf(0f)
+
+    /** Displayed scale of the video relative to Fit. Read in graphicsLayer only. */
+    internal var scaleX by mutableFloatStateOf(1f)
+    internal var scaleY by mutableFloatStateOf(1f)
+
+    internal var pinching by mutableStateOf(false)
+    // endregion
+
+    /** Short centred label ("Crop", "125%"), restarted by [toastKey]. */
+    internal var toastText by mutableStateOf("")
+        private set
+    internal var toastKey by mutableIntStateOf(0)
+        private set
+
+    internal var sheet by mutableStateOf(PlayerSheet.None)
+
+    internal val isDragging: Boolean get() = seekBarDragging || swipeSeeking || isDismissDragging || pinching
 
     private var visibilityBeforeTap = true
 
-    fun bump() {
+    internal fun bump() {
         interaction++
     }
 
-    fun showControls(visible: Boolean) {
+    internal fun showControls(visible: Boolean) {
         controlsVisible = visible
         bump()
     }
 
-    fun toggleControls() {
+    internal fun toggleControls() {
         visibilityBeforeTap = controlsVisible
         showControls(!controlsVisible)
     }
 
     /** The first tap of a double tap already toggled the controls: put them back. */
-    fun undoTapToggle() {
+    internal fun undoTapToggle() {
         controlsVisible = visibilityBeforeTap
         bump()
     }
 
-    fun pop(showsPlay: Boolean) {
+    internal fun pop(showsPlay: Boolean) {
         popShowsPlay = showsPlay
         popKey++
     }
+
+    internal fun toast(text: String) {
+        toastText = text
+        toastKey++
+    }
+
+    internal fun lock() {
+        locked = true
+        controlsVisible = false
+        sheet = PlayerSheet.None
+        revealLockButton()
+    }
+
+    internal fun unlock() {
+        locked = false
+        lockButtonVisible = false
+        showControls(true)
+    }
+
+    internal fun revealLockButton() {
+        lockButtonVisible = true
+        lockRevealKey++
+    }
 }
 
-/** Gesture intents → player actions. Holds no per-frame allocations. */
-internal class PlayerGestureHandler(
-    private val controller: PlaybackController,
-    private val ui: PlayerUiState,
-) : PlayerGestureSink {
-    /** Updated from layout (onSizeChanged); not snapshot state. */
-    var widthPx: Float = 0f
-
-    /** Updated from composition (SideEffect). */
-    var settings: PlayerSettings = PlayerSettings()
-
-    private var boosting = false
-
-    override fun onSingleTap(x: Float, y: Float) = ui.toggleControls()
-
-    override fun onDoubleTap(x: Float, y: Float) {
-        ui.undoTapToggle()
-        val willPlay = !(controller.player.playWhenReady && !controller.isEnded.value)
-        controller.togglePlayPause()
-        ui.pop(showsPlay = willPlay)
-    }
-
-    override fun onLongPressStart(x: Float, y: Float) {
-        if (!settings.longPressSpeedEnabled || !controller.player.isPlaying) return
-        boosting = true
-        controller.startSpeedBoost()
-    }
-
-    override fun onLongPressEnd() {
-        if (!boosting) return
-        boosting = false
-        controller.endSpeedBoost()
-    }
-
-    override fun onHorizontalSeekStart() {
-        if (controller.nowPlaying.value == null || controller.durationMs.value <= 0) return
-        val start = controller.currentPositionMs
-        ui.swipeStartMs = start
-        ui.swipeTargetMs = start
-        ui.swipeSeeking = true
-        controller.beginScrub()
-    }
-
-    override fun onHorizontalSeek(totalDx: Float) {
-        if (!ui.swipeSeeking) return
-        val target = SwipeSeek.targetMs(
-            startMs = ui.swipeStartMs,
-            dxPx = totalDx,
-            widthPx = widthPx,
-            sensitivity = settings.swipeSeekSensitivity,
-            durationMs = controller.durationMs.value,
-        )
-        if (target == ui.swipeTargetMs) return
-        ui.swipeTargetMs = target
-        controller.scrubTo(target)
-    }
-
-    override fun onHorizontalSeekEnd(cancelled: Boolean) {
-        if (!ui.swipeSeeking) return
-        ui.swipeSeeking = false
-        controller.endScrub(ui.swipeTargetMs)
-        ui.bump()
-    }
-
-    // Swipe-down (minimise/dismiss) and pinch-zoom are M3: plumbing only.
-}
+/** Remembers a [FullPlayerState] for [FullPlayer]. */
+@Composable
+fun rememberFullPlayerState(): FullPlayerState = remember { FullPlayerState() }

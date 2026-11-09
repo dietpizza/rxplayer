@@ -876,7 +876,7 @@ class PlaybackController @Inject constructor(
         }
         return MediaInfo.from(
             title = now.title,
-            location = now.key.filePath ?: MediaKeys.decode(now.key.value),
+            location = now.key.filePath ?: now.key.value,
             video = video,
             audio = audio,
             displaySize = _videoSize.value,
@@ -942,13 +942,15 @@ class PlaybackController @Inject constructor(
 
     private fun fallbackTitle(key: MediaKey): String {
         key.filePath?.let { return File(it).nameWithoutExtension.ifEmpty { File(it).name } }
-        return MediaKeys.fallbackTitle(key.value)
+        val scheme = MediaKeys.scheme(key.value)
+        return MediaKeys.fallbackTitle(key.value, rawPath = scheme != null && scheme in schemeRouter.schemes)
     }
 
     /**
      * The URI ExoPlayer opens. Local keys keep the `Uri.fromFile` path (escapes `#`, `?` and
-     * spaces in names); every other key (content, `smb://3/Movies/x.mkv`, …) is the key itself,
-     * so the scheme router sees the original scheme.
+     * spaces in names). Every other key (content, `smb://3/Movies/My film #2.mkv`, …) is passed
+     * untouched through `Uri.parse` (never re-encoded or rebuilt), so the scheme router and the
+     * network DataSource see the raw key; `toString()` round-trips it exactly.
      */
     private fun uriFor(key: MediaKey): Uri =
         key.filePath?.let { Uri.fromFile(File(it)) } ?: Uri.parse(key.value)

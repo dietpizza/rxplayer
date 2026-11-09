@@ -3,6 +3,9 @@ package com.dietpizza.rxplayer.feature.player
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.provider.OpenableColumns
+import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -28,7 +31,10 @@ import com.dietpizza.rxplayer.core.player.PlaybackController
 import com.dietpizza.rxplayer.core.player.VideoDimensions
 import com.dietpizza.rxplayer.core.ui.RxActivity
 import com.dietpizza.rxplayer.core.ui.RxIntents
-import com.dietpizza.rxplayer.feature.player.ui.PlayerScreen
+import com.dietpizza.rxplayer.feature.player.ui.FullPlayer
+import com.dietpizza.rxplayer.feature.player.ui.FullPlayerHost
+import com.dietpizza.rxplayer.feature.player.ui.OrientationMode
+import kotlinx.coroutines.flow.combine
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
@@ -38,19 +44,37 @@ import kotlinx.coroutines.withContext
 
 /**
  * Full-screen player (plan §6). Always black and immersive; owns a [MediaSession] for hardware /
- * Bluetooth media keys while it exists (no service, no notification in M1).
+ * Bluetooth media keys while it exists (no service, no notification: see [PlayerPip]).
  *
- * Leaving it pauses playback (decision 28) and coming back resumes if it was playing when you
- * left (plan §6.4). Closing it saves progress and unloads the player.
+ * Activity-level concerns live here (the [FullPlayerHost]): PiP, orientation, immersive bars,
+ * the session, the subtitle picker. The player UI itself is [FullPlayer], which M4b's viewer
+ * pager will host in this same activity ([RxIntents.MODE_VIEWER] is treated as MODE_PLAYER
+ * until then).
+ *
+ * Leaving it pauses playback (decision 28) unless auto-PiP takes over (decision 10); coming
+ * back resumes if it was playing when you left (plan §6.4). Closing it saves progress and
+ * unloads the player.
  */
 @AndroidEntryPoint
-class PlayerActivity : RxActivity() {
+class PlayerActivity : RxActivity(), FullPlayerHost {
 
     @Inject
     lateinit var controller: PlaybackController
 
     private var mediaSession: MediaSession? = null
-    private var rotationLocked by mutableStateOf(false)
+    private lateinit var pip: PlayerPip
+
+    override var rotationLocked by mutableStateOf(false)
+        private set
+    override var orientationMode by mutableStateOf(OrientationMode.Auto)
+        private set
+    override var isInPip by mutableStateOf(false)
+        private set
+    override val canEnterPip: Boolean get() = pip.canEnter
+
+    private val subtitlePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onSubtitlePicked(uri)
+    }
 
     @OptIn(UnstableApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,6 +82,10 @@ class PlayerActivity : RxActivity() {
         mediaSession = MediaSession.Builder(this, controller.sessionPlayer)
             .setId("rx.player.${System.identityHashCode(this)}")
             .build()
+
+        pip = PlayerPip(this, controller)
+        pip.register()
+        isInPip = isInPictureInPictureMode
 
         openFrom(intent, restoring = savedInstanceState != null)
 
@@ -71,11 +99,12 @@ class PlayerActivity : RxActivity() {
                     pureBlack = true,
                 ),
             ) {
-                PlayerScreen(
+                FullPlayer(
                     controller = controller,
-                    rotationLocked = rotationLocked,
-                    onToggleRotationLock = ::toggleRotationLock,
-                    onControlsVisibleChange = ::setSystemBarsVisible,
+                    host = this,
+                    // Standalone player: swipe-down closes (plan §4.1). M4b's viewer mode
+                    // minimises into the pager instead.
+                    onMinimize = ::finish,
                     onBack = ::finish,
                 )
             }
@@ -91,6 +120,18 @@ class PlayerActivity : RxActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { controller.videoSize.collect { applyOrientation(it) } }
+                launch {
+                    combine(
+                        controller.settings,
+                        controller.playWhenReady,
+                        controller.isEnded,
+                        controller.resumePrompt,
+                        controller.videoSize,
+                    ) { s, pwr, ended, prompt, size ->
+                        val playing = pwr && !ended
+                        PipInputs(s.autoPip && playing && prompt == null, playing, size)
+                    }.collect { pip.update(it.autoEnter, it.playing, it.size) }
+                }
                 launch {
                     controller.isPlaying.collect { playing ->
                         if (playing) {
@@ -121,7 +162,18 @@ class PlayerActivity : RxActivity() {
         super.onStop()
     }
 
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        isInPip = isInPictureInPictureMode
+        if (!isInPictureInPictureMode && !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            // The PiP window was dismissed (swiped away / ✕): no background play (decision 28).
+            controller.pause()
+            finish()
+        }
+    }
+
     override fun onDestroy() {
+        pip.unregister()
         mediaSession?.release()
         mediaSession = null
         if (isFinishing) controller.stop()
@@ -155,7 +207,7 @@ class PlayerActivity : RxActivity() {
 
     // region window
 
-    private fun setSystemBarsVisible(visible: Boolean) {
+    override fun setSystemBarsVisible(visible: Boolean) {
         val controller = window.insetsController ?: return
         if (visible) {
             controller.show(WindowInsets.Type.systemBars())
@@ -170,16 +222,49 @@ class PlayerActivity : RxActivity() {
         }
     }
 
-    private fun toggleRotationLock() {
+    override fun toggleRotationLock() {
         rotationLocked = !rotationLocked
         applyOrientation(controller.videoSize.value)
     }
 
-    /** Decision 18: orientation follows the video's aspect, unless the user locked it. */
+    override fun chooseOrientationMode(mode: OrientationMode) {
+        orientationMode = mode
+        rotationLocked = false
+        applyOrientation(controller.videoSize.value)
+    }
+
+    /** Decision 18: orientation follows the video's aspect, unless the user locked/chose it. */
     private fun applyOrientation(size: VideoDimensions) {
-        val wanted = orientationFor(size, rotationLocked) ?: return
+        if (isInPip) return
+        val wanted = orientationFor(size, rotationLocked, orientationMode) ?: return
         if (requestedOrientation != wanted) requestedOrientation = wanted
     }
+
+    override fun enterPip() {
+        val playing = controller.playWhenReady.value && !controller.isEnded.value
+        pip.enter(playing, controller.videoSize.value)
+    }
+
+    override fun pickSubtitleFile() {
+        runCatching { subtitlePicker.launch(arrayOf("application/x-subrip", "text/*", "application/octet-stream")) }
+    }
+
+    private fun onSubtitlePicked(uri: Uri) {
+        lifecycleScope.launch {
+            val name = withContext(Dispatchers.IO) {
+                runCatching {
+                    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                }.getOrNull()
+            }
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            controller.addSubtitle(uri, name)
+        }
+    }
+
+    private data class PipInputs(val autoEnter: Boolean, val playing: Boolean, val size: VideoDimensions)
 
     // endregion
 
@@ -203,8 +288,15 @@ class PlayerActivity : RxActivity() {
          * Requested orientation for a video, or null to leave it as is (size unknown yet).
          * Locked keeps whatever the screen is showing now.
          */
-        internal fun orientationFor(size: VideoDimensions, locked: Boolean): Int? = when {
+        internal fun orientationFor(
+            size: VideoDimensions,
+            locked: Boolean,
+            mode: OrientationMode = OrientationMode.Auto,
+        ): Int? = when {
             locked -> ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            mode == OrientationMode.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            mode == OrientationMode.Portrait -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            mode == OrientationMode.Sensor -> ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
             size.isLandscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             size.isPortrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             size.width > 0 -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
