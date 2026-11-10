@@ -94,12 +94,12 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.VIDEO_FIELDS] = fields.mapTo(HashSet()) { f -> f.name } }
     }
 
-    override suspend fun setAlbumPinned(path: String, pinned: Boolean) {
-        dataStore.edit { it[Keys.PINNED_ALBUMS] = toggled(it[Keys.PINNED_ALBUMS], path, pinned) }
+    override suspend fun setAlbumsPinned(paths: Collection<String>, pinned: Boolean) {
+        dataStore.edit { it[Keys.PINNED_ALBUMS] = toggled(it[Keys.PINNED_ALBUMS], paths, pinned) }
     }
 
-    override suspend fun setVideoFolderPinned(path: String, pinned: Boolean) {
-        dataStore.edit { it[Keys.PINNED_VIDEO_FOLDERS] = toggled(it[Keys.PINNED_VIDEO_FOLDERS], path, pinned) }
+    override suspend fun setVideoFoldersPinned(paths: Collection<String>, pinned: Boolean) {
+        dataStore.edit { it[Keys.PINNED_VIDEO_FOLDERS] = toggled(it[Keys.PINNED_VIDEO_FOLDERS], paths, pinned) }
     }
 
     override suspend fun movePins(oldPath: String, newPath: String) {
@@ -118,8 +118,8 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         }
     }
 
-    private fun toggled(current: Set<String>?, path: String, on: Boolean): Set<String> =
-        (current ?: emptySet()).let { if (on) it + path else it - path }
+    private fun toggled(current: Set<String>?, paths: Collection<String>, on: Boolean): Set<String> =
+        (current ?: emptySet()).let { if (on) it + paths else it - paths.toSet() }
 
     private inline fun <reified E : Enum<E>> enumSet(names: Set<String>?, fallback: Set<E>): Set<E> =
         names?.mapNotNullTo(LinkedHashSet()) { n -> enumValues<E>().firstOrNull { it.name == n } } ?: fallback

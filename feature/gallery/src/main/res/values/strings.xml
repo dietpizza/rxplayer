@@ -144,4 +144,9 @@
     <string name="gallery_delete_folder_body">All %1$s in this folder will be permanently deleted from this device. Other files in it are left alone.</string>
     <string name="error_folder_exists">A folder with that name already exists</string>
     <string name="error_folder_not_found">The folder no longer exists</string>
+    <plurals name="gallery_delete_folders_title">
+        <item quantity="one">Delete %d album?</item>
+        <item quantity="other">Delete %d albums?</item>
+    </plurals>
+    <string name="gallery_delete_folders_body">All photos and videos in these albums will be permanently deleted from this device. Other files in them are left alone.</string>
 </resources>

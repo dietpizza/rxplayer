@@ -8,13 +8,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import com.dietpizza.rxplayer.core.designsystem.component.RxSectionHeader
 import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -89,9 +99,21 @@ fun VideosScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val grid by viewModel.grid.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf<FolderRow?>(null) }
     var renameError by remember { mutableStateOf<String?>(null) }
-    var deleting by remember { mutableStateOf<FolderRow?>(null) }
+    var deleting by remember { mutableStateOf<List<FolderRow>>(emptyList()) }
+    val tileActions = FolderTileActions(
+        onToggle = viewModel::toggleSelected,
+        onClear = viewModel::clearSelection,
+        onPin = viewModel::pinSelected,
+        onRename = {
+            renameError = null
+            renaming = viewModel.selectedFolders().singleOrNull()
+        },
+        onDelete = { deleting = viewModel.selectedFolders() },
+    )
+    BackHandler(enabled = selection.isNotEmpty(), onBack = viewModel::clearSelection)
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
@@ -99,6 +121,16 @@ fun VideosScreen(
         onOpenSettings = onOpenSettings,
         modifier = modifier,
         contentPadding = contentPadding,
+        selectionBar = if (selection.isEmpty()) {
+            null
+        } else {
+            {
+                val content = uiState as? VideosUiState.Content
+                val allPinned = content != null &&
+                    (content.pinned + content.folders).filter { it.path in selection }.let { s -> s.isNotEmpty() && s.all { it.pinned } }
+                FolderSelectionBar(selection.size, allPinned, tileActions)
+            }
+        },
         sortAction = {
             RxSortButton(
                 options = listOf(
@@ -130,14 +162,8 @@ fun VideosScreen(
                 context.startActivity(FolderActivity.intent(context, folder.path, folder.name))
             },
             contentPadding = listPadding,
-            actions = FolderTileActions(
-                onPin = viewModel::setPinned,
-                onRename = {
-                    renameError = null
-                    renaming = it
-                },
-                onDelete = { deleting = it },
-            ),
+            selection = selection,
+            actions = tileActions,
         )
     }
     renaming?.let { folder ->
@@ -154,27 +180,38 @@ fun VideosScreen(
             onDismiss = { renaming = null },
         )
     }
-    deleting?.let { folder ->
+    if (deleting.isNotEmpty()) {
+        val single = deleting.singleOrNull()
         ConfirmDialog(
-            title = stringResource(R.string.videos_delete_folder_title, folder.name),
-            text = stringResource(R.string.videos_delete_folder_body, folder.countLabel),
+            title = if (single != null) {
+                stringResource(R.string.videos_delete_folder_title, single.name)
+            } else {
+                pluralStringResource(R.plurals.videos_delete_folders_title, deleting.size, deleting.size)
+            },
+            text = if (single != null) {
+                stringResource(R.string.videos_delete_folder_body, single.countLabel)
+            } else {
+                stringResource(R.string.videos_delete_folders_body)
+            },
             confirmLabel = stringResource(R.string.action_delete),
             destructive = true,
             onConfirm = {
-                viewModel.deleteFolder(folder)
-                deleting = null
+                viewModel.deleteSelected()
+                deleting = emptyList()
             },
-            onDismiss = { deleting = null },
+            onDismiss = { deleting = emptyList() },
         )
     }
 }
 
-/** Long-press actions on a folder. */
+/** Selection of folders: long-press starts it, then taps toggle; the bar acts on it. */
 @Immutable
 internal class FolderTileActions(
-    val onPin: (FolderRow, Boolean) -> Unit = { _, _ -> },
-    val onRename: (FolderRow) -> Unit = {},
-    val onDelete: (FolderRow) -> Unit = {},
+    val onToggle: (FolderRow) -> Unit = {},
+    val onClear: () -> Unit = {},
+    val onPin: () -> Unit = {},
+    val onRename: () -> Unit = {},
+    val onDelete: () -> Unit = {},
 )
 
 /** Rename errors worded for a folder rather than a file. */
@@ -185,23 +222,31 @@ private fun FileOpError.folderNameErrorRes(): Int = when (this) {
     else -> R.string.error_generic
 }
 
-/** Pin / Rename, then Delete: the long-press menu of a folder. */
+/** Selection-mode top bar: Pin/Unpin, Rename (one folder only) and Delete, as plain icons. */
 @Composable
-private fun FolderMenu(folder: FolderRow, expanded: Boolean, onDismiss: () -> Unit, actions: FolderTileActions) {
-    RxMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        groups = listOf(
-            listOf(
-                RxMenuItem(
-                    stringResource(if (folder.pinned) R.string.action_unpin else R.string.action_pin),
-                    { actions.onPin(folder, !folder.pinned) },
-                    RxIcons.Keep,
-                ),
-                RxMenuItem(stringResource(R.string.action_rename), { actions.onRename(folder) }, RxIcons.Edit),
-            ),
-            listOf(RxMenuItem(stringResource(R.string.action_delete), { actions.onDelete(folder) }, RxIcons.Delete, destructive = true)),
-        ),
+private fun FolderSelectionBar(count: Int, allPinned: Boolean, actions: FolderTileActions) {
+    TopAppBar(
+        title = { Text(pluralStringResource(R.plurals.selected_count, count, count)) },
+        navigationIcon = {
+            IconButton(onClick = actions.onClear) {
+                Icon(RxIcons.Close, contentDescription = stringResource(R.string.selection_clear))
+            }
+        },
+        actions = {
+            IconButton(onClick = actions.onPin) {
+                Icon(RxIcons.Keep, contentDescription = stringResource(if (allPinned) R.string.action_unpin else R.string.action_pin))
+            }
+            if (count == 1) {
+                IconButton(onClick = actions.onRename) {
+                    Icon(RxIcons.Edit, contentDescription = stringResource(R.string.action_rename))
+                }
+            }
+            IconButton(onClick = actions.onDelete) {
+                Icon(RxIcons.Delete, contentDescription = stringResource(R.string.action_delete))
+            }
+        },
+        colors = RxBars.headerColors(MaterialTheme.colorScheme.surfaceContainerHighest),
+        modifier = Modifier.rxHeader(),
     )
 }
 
@@ -217,6 +262,7 @@ private fun VideosScaffold(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    selectionBar: (@Composable () -> Unit)? = null,
     sortAction: @Composable () -> Unit = {},
     content: @Composable (listPadding: PaddingValues) -> Unit,
 ) {
@@ -225,7 +271,8 @@ private fun VideosScaffold(
         modifier = modifier,
         containerColor = background,
         topBar = {
-            TopAppBar(
+            // Both bars are the same fixed-height small bar, so swapping them never moves the list.
+            if (selectionBar != null) selectionBar() else TopAppBar(
                 title = { Text(stringResource(R.string.videos_title)) },
                 actions = {
                     val context = LocalContext.current
@@ -251,6 +298,7 @@ internal fun FoldersSection(
     uiState: VideosUiState,
     onOpenFolder: (FolderRow) -> Unit,
     contentPadding: PaddingValues,
+    selection: Set<String> = emptySet(),
     actions: FolderTileActions = FolderTileActions(),
 ) {
     when (uiState) {
@@ -262,9 +310,9 @@ internal fun FoldersSection(
             modifier = Modifier.padding(contentPadding),
         )
         is VideosUiState.Content -> if (uiState.grid) {
-            FolderGrid(uiState.pinned, uiState.folders, onOpenFolder, actions, contentPadding)
+            FolderGrid(uiState.pinned, uiState.folders, onOpenFolder, selection, actions, contentPadding)
         } else {
-            FolderList(uiState.pinned, uiState.folders, onOpenFolder, actions, contentPadding)
+            FolderList(uiState.pinned, uiState.folders, onOpenFolder, selection, actions, contentPadding)
         }
     }
 }
@@ -275,12 +323,18 @@ private fun FolderGrid(
     pinned: List<FolderRow>,
     folders: List<FolderRow>,
     onOpenFolder: (FolderRow) -> Unit,
+    selection: Set<String>,
     actions: FolderTileActions,
     contentPadding: PaddingValues,
 ) {
+    val selecting = selection.isNotEmpty()
+    val onClick: (FolderRow) -> Unit = { if (selecting) actions.onToggle(it) else onOpenFolder(it) }
     val dir = LocalLayoutDirection.current
     LazyVerticalGrid(
         columns = GridCells.Adaptive(FolderMinCellWidth),
+        // A small gap so selected cards (tint + border) never touch their neighbours.
+        horizontalArrangement = Arrangement.spacedBy(CardGap),
+        verticalArrangement = Arrangement.spacedBy(CardGap),
         state = rememberLazyGridState(),
         // Small outer margin; each card's inner padding (CardInset) makes the gaps.
         contentPadding = PaddingValues(
@@ -299,7 +353,7 @@ private fun FolderGrid(
                 RxSectionHeader(stringResource(R.string.videos_section_pinned), GridHeaderModifier)
             }
             items(pinned, key = { it.path }, contentType = { "folder" }) { folder ->
-                FolderCard(folder, actions, onClick = { onOpenFolder(folder) })
+                FolderCard(folder, folder.path in selection, selecting, onClick = { onClick(folder) }, onLongClick = { actions.onToggle(folder) })
             }
             if (folders.isNotEmpty()) {
                 item(key = FOLDERS_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
@@ -308,24 +362,25 @@ private fun FolderGrid(
             }
         }
         items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
-            FolderCard(folder, actions, onClick = { onOpenFolder(folder) })
+            FolderCard(folder, folder.path in selection, selecting, onClick = { onClick(folder) }, onLongClick = { actions.onToggle(folder) })
         }
     }
 }
 
 @Composable
-private fun FolderCard(folder: FolderRow, actions: FolderTileActions, onClick: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-    FolderMenu(folder, menu, { menu = false }, actions)
+private fun FolderCard(folder: FolderRow, selected: Boolean, selecting: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val scale by animateFloatAsState(if (selected) SELECTED_SCALE else 1f, label = "folderScale")
     Column(
         Modifier
-            .clip(MaterialTheme.shapes.largeIncreased)
+            .clip(SelectedCardShape)
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .border(if (selected) 2.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, SelectedCardShape)
+            .semantics { this.selected = selected }
             .combinedClickable(
                 role = Role.Button,
                 onClick = onClick,
-                onLongClick = { menu = true },
-                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = onLongClick,
+                onLongClickLabel = stringResource(R.string.action_select),
             )
             .padding(CardInset)
             .testTag("videos_folder"),
@@ -337,14 +392,41 @@ private fun FolderCard(folder: FolderRow, actions: FolderTileActions, onClick: (
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
                     .clip(MaterialTheme.shapes.largeIncreased),
             )
+            if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(8.dp))
         }
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
             TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
             FolderDetails(folder, Modifier.padding(top = 4.dp), singleLine = true)
         }
     }
+}
+
+private const val SELECTED_SCALE = 0.9f
+
+/** Card shape for the tap/selected highlight: tighter than the thumbnail's own rounding. */
+private val SelectedCardShape = RoundedCornerShape(12.dp)
+private val CardGap = 6.dp
+
+/** Filled check when selected, an empty ring otherwise (selection mode only). */
+@Composable
+private fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
+    if (selected) {
+        Icon(
+            RxIcons.CheckCircle,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = modifier
+                .size(22.dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape),
+        )
+    } else {
+        Icon(RxIcons.RadioButtonUnchecked, contentDescription = null, tint = Color.White, modifier = modifier.size(22.dp))
     }
 }
 
@@ -354,9 +436,12 @@ private fun FolderList(
     pinned: List<FolderRow>,
     folders: List<FolderRow>,
     onOpenFolder: (FolderRow) -> Unit,
+    selection: Set<String>,
     actions: FolderTileActions,
     contentPadding: PaddingValues,
 ) {
+    val selecting = selection.isNotEmpty()
+    val onClick: (FolderRow) -> Unit = { if (selecting) actions.onToggle(it) else onOpenFolder(it) }
     LazyColumn(
         state = rememberLazyListState(),
         contentPadding = contentPadding,
@@ -369,7 +454,7 @@ private fun FolderList(
                 RxSectionHeader(stringResource(R.string.videos_section_pinned), ListHeaderModifier)
             }
             items(pinned, key = { it.path }, contentType = { "folder" }) { folder ->
-                FolderListRow(folder, actions, onClick = { onOpenFolder(folder) })
+                FolderListRow(folder, folder.path in selection, selecting, onClick = { onClick(folder) }, onLongClick = { actions.onToggle(folder) })
             }
             if (folders.isNotEmpty()) {
                 item(key = FOLDERS_HEADER_KEY, contentType = "header") {
@@ -378,38 +463,35 @@ private fun FolderList(
             }
         }
         items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
-            FolderListRow(folder, actions, onClick = { onOpenFolder(folder) })
+            FolderListRow(folder, folder.path in selection, selecting, onClick = { onClick(folder) }, onLongClick = { actions.onToggle(folder) })
         }
     }
 }
 
 @Composable
-private fun FolderListRow(folder: FolderRow, actions: FolderTileActions, onClick: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
-        FolderMenu(folder, menu, { menu = false }, actions)
-        ListItem(
-            colors = RxBars.flatListItemColors(),
-            selected = false,
-            onClick = onClick,
-            onLongClick = { menu = true },
-            verticalAlignment = Alignment.CenterVertically,
-            leadingContent = {
-                Box {
-                    MediaThumbnail(
-                        contentUri = folder.coverUri,
-                        requestWidth = FolderThumbWidth,
-                        modifier = Modifier
-                            .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
-                            .clip(MaterialTheme.shapes.extraSmall),
-                    )
-                }
-            },
-            supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
-            modifier = Modifier.testTag("videos_folder"),
-        ) {
-            TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
-        }
+private fun FolderListRow(folder: FolderRow, selected: Boolean, selecting: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    ListItem(
+        colors = RxBars.flatListItemColors(),
+        selected = selected,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        verticalAlignment = Alignment.CenterVertically,
+        leadingContent = {
+            Box {
+                MediaThumbnail(
+                    contentUri = folder.coverUri,
+                    requestWidth = FolderThumbWidth,
+                    modifier = Modifier
+                        .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
+                        .clip(MaterialTheme.shapes.extraSmall),
+                )
+                if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(4.dp))
+            }
+        },
+        supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
+        modifier = Modifier.testTag("videos_folder"),
+    ) {
+        TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
     }
 }
 

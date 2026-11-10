@@ -154,10 +154,36 @@ class GalleryViewModel @Inject constructor(
         viewModelScope.launch { customAlbums.create(name) }
     }
 
-    fun setPinned(album: AlbumTile, pinned: Boolean) {
+    /** Selected folder albums (paths). Non-empty = selection mode. */
+    private val _selection = MutableStateFlow<Set<String>>(emptySet())
+    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
+
+    fun toggleSelected(album: AlbumTile) {
+        if (album.kind != AlbumKind.FOLDER) return
+        _selection.value = _selection.value.let { if (album.path in it) it - album.path else it + album.path }
+    }
+
+    fun clearSelection() {
+        _selection.value = emptySet()
+    }
+
+    /** The selected albums still on screen, in display order. */
+    fun selectedAlbums(): List<AlbumTile> {
+        val content = uiState.value as? GalleryUiState.Content ?: return emptyList()
+        val selected = _selection.value
+        return (content.pinnedAlbums + content.albums).filter { it.path in selected }
+    }
+
+    /** Pins the selection, or unpins it when every selected album is already pinned. */
+    fun pinSelected() {
+        val albums = selectedAlbums()
+        if (albums.isEmpty()) return
+        val pin = !albums.all { it.pinned }
+        val paths = albums.map { it.path }
         val current = pinOverride.value ?: currentPins()
-        pinOverride.value = if (pinned) current + album.path else current - album.path
-        viewModelScope.launch { librarySettings.setAlbumPinned(album.path, pinned) }
+        pinOverride.value = if (pin) current + paths else current - paths.toSet()
+        clearSelection()
+        viewModelScope.launch { librarySettings.setAlbumsPinned(paths, pin) }
     }
 
     private fun currentPins(): Set<String> =
@@ -168,6 +194,7 @@ class GalleryViewModel @Inject constructor(
         viewModelScope.launch {
             val result = files.renameFolder(album.path, name)
             result.onSuccess { newPath ->
+                clearSelection()
                 if (newPath != album.path) {
                     pinOverride.value = null
                     librarySettings.movePins(album.path, newPath)
@@ -178,22 +205,36 @@ class GalleryViewModel @Inject constructor(
         }
     }
 
-    /** Permanently deletes every photo and video in the album's folder, then the folder if it's empty. */
-    fun deleteAlbum(album: AlbumTile) {
+    /**
+     * Permanently deletes every photo and video in the selected albums' folders (nothing else),
+     * then each folder that's left empty.
+     */
+    fun deleteSelected() {
+        val albums = selectedAlbums()
+        if (albums.isEmpty()) return
+        clearSelection()
         viewModelScope.launch {
-            val keys = repository.items(album.path).first().map { it.key }
-            val results = files.deleteFolder(album.path, keys)
-            val failed = results.count { !it.isSuccess }
-            val ok = results.size - failed
-            if (album.pinned && failed == 0) {
+            var failed = 0
+            var total = 0
+            val unpin = ArrayList<String>()
+            for (album in albums) {
+                val keys = repository.items(album.path).first().map { it.key }
+                val results = files.deleteFolder(album.path, keys)
+                val albumFailed = results.count { !it.isSuccess }
+                failed += albumFailed
+                total += results.size
+                if (album.pinned && albumFailed == 0) unpin += album.path
+            }
+            val ok = total - failed
+            if (unpin.isNotEmpty()) {
                 pinOverride.value = null
-                librarySettings.setAlbumPinned(album.path, false)
+                librarySettings.setAlbumsPinned(unpin, false)
             }
             _messages.tryEmit(
                 if (failed == 0) {
                     context.resources.getQuantityString(R.plurals.msg_deleted, ok, ok)
                 } else {
-                    context.resources.getQuantityString(R.plurals.msg_failed, results.size, failed, results.size)
+                    context.resources.getQuantityString(R.plurals.msg_failed, total, failed, total)
                 },
             )
         }

@@ -5,8 +5,12 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import com.dietpizza.rxplayer.core.designsystem.component.RxSectionHeader
 import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.designsystem.component.RxBars
@@ -14,6 +18,8 @@ import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,9 +91,10 @@ fun GalleryScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var newAlbum by rememberSaveable { mutableStateOf(false) }
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf<AlbumTile?>(null) }
     var renameError by remember { mutableStateOf<String?>(null) }
-    var deleting by remember { mutableStateOf<AlbumTile?>(null) }
+    var deleting by remember { mutableStateOf<List<AlbumTile>>(emptyList()) }
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
@@ -106,13 +113,16 @@ fun GalleryScreen(
             context.startActivity(intent)
         },
         onNewAlbum = { newAlbum = true },
+        selection = selection,
         albumActions = AlbumActions(
-            onPin = viewModel::setPinned,
+            onToggle = viewModel::toggleSelected,
+            onClear = viewModel::clearSelection,
+            onPin = viewModel::pinSelected,
             onRename = {
                 renameError = null
-                renaming = it
+                renaming = viewModel.selectedAlbums().singleOrNull()
             },
-            onDelete = { deleting = it },
+            onDelete = { deleting = viewModel.selectedAlbums() },
         ),
         modifier = modifier,
         contentPadding = contentPadding,
@@ -131,17 +141,26 @@ fun GalleryScreen(
             onDismiss = { renaming = null },
         )
     }
-    deleting?.let { album ->
+    if (deleting.isNotEmpty()) {
+        val single = deleting.singleOrNull()
         ConfirmDialog(
-            title = stringResource(R.string.gallery_delete_folder_title, album.name),
-            text = stringResource(R.string.gallery_delete_folder_body, album.count),
+            title = if (single != null) {
+                stringResource(R.string.gallery_delete_folder_title, single.name)
+            } else {
+                pluralStringResource(R.plurals.gallery_delete_folders_title, deleting.size, deleting.size)
+            },
+            text = if (single != null) {
+                stringResource(R.string.gallery_delete_folder_body, single.count)
+            } else {
+                stringResource(R.string.gallery_delete_folders_body)
+            },
             confirmLabel = stringResource(R.string.action_delete),
             destructive = true,
             onConfirm = {
-                viewModel.deleteAlbum(album)
-                deleting = null
+                viewModel.deleteSelected()
+                deleting = emptyList()
             },
-            onDismiss = { deleting = null },
+            onDismiss = { deleting = emptyList() },
         )
     }
     if (newAlbum) {
@@ -176,14 +195,27 @@ internal fun GalleryContent(
     contentPadding: PaddingValues = PaddingValues(),
     onOpenSearch: () -> Unit = {},
     onNewAlbum: () -> Unit = {},
+    selection: Set<String> = emptySet(),
     albumActions: AlbumActions = AlbumActions(),
 ) {
     val background = RxBars.pageColor
+    val selecting = selection.isNotEmpty()
+    BackHandler(enabled = selecting, onBack = albumActions.onClear)
     Scaffold(
         modifier = modifier,
         containerColor = background,
         topBar = {
-            TopAppBar(
+            if (selecting) {
+                val content = uiState as? GalleryUiState.Content
+                val allPinned = content != null &&
+                    (content.pinnedAlbums + content.albums).filter { it.path in selection }.let { s -> s.isNotEmpty() && s.all { it.pinned } }
+                FolderSelectionBar(
+                    count = selection.size,
+                    title = pluralStringResource(R.plurals.selection_count, selection.size, GalleryFormat.count(selection.size)),
+                    allPinned = allPinned,
+                    actions = albumActions,
+                )
+            } else TopAppBar(
                 title = { Text(stringResource(R.string.gallery_title)) },
                 actions = {
                     IconButton(onClick = onOpenSearch) {
@@ -224,6 +256,7 @@ internal fun GalleryContent(
                 albums = uiState.albums,
                 onOpenAlbum = onOpenAlbum,
                 onNewAlbum = onNewAlbum,
+                selection = selection,
                 actions = albumActions,
                 // Small outer margin; the cards' inner padding adds the rest (8 + 6 ≈ the old 16).
                 contentPadding = gridPadding(innerPadding, contentPadding, gutter = 8.dp, top = 4.dp),
@@ -239,13 +272,19 @@ private fun AlbumsGrid(
     albums: List<AlbumTile>,
     onOpenAlbum: (AlbumTile) -> Unit,
     onNewAlbum: () -> Unit,
+    selection: Set<String>,
     actions: AlbumActions,
     contentPadding: PaddingValues,
 ) {
+    val selecting = selection.isNotEmpty()
+    val onClick: (AlbumTile) -> Unit = { if (selecting) actions.onToggle(it) else onOpenAlbum(it) }
     // No arrangement gaps: each card's own inner padding (CardInset) makes the gap, so the tap
     // highlight has breathing room around the thumbnail; contentPadding keeps it off the edges.
     LazyVerticalGrid(
         columns = GridCells.Adaptive(AlbumMinCellWidth),
+        // A small gap so selected cards (tint + border) never touch their neighbours.
+        horizontalArrangement = Arrangement.spacedBy(CardGap),
+        verticalArrangement = Arrangement.spacedBy(CardGap),
         contentPadding = contentPadding,
         modifier = Modifier
             .fillMaxSize()
@@ -262,7 +301,7 @@ private fun AlbumsGrid(
                 RxSectionHeader(stringResource(R.string.gallery_section_pinned), SectionHeaderModifier)
             }
             items(pinnedAlbums, key = { it.id }, contentType = { "album" }) { album ->
-                AlbumCard(album, actions, onClick = { onOpenAlbum(album) })
+                AlbumCard(album, album.path in selection, selecting, onClick = { onClick(album) }, onLongClick = { actions.onToggle(album) })
             }
             if (albums.isNotEmpty()) {
                 item(key = ALBUMS_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
@@ -271,7 +310,7 @@ private fun AlbumsGrid(
             }
         }
         items(albums, key = { it.id }, contentType = { "album" }) { album ->
-            AlbumCard(album, actions, onClick = { onOpenAlbum(album) })
+            AlbumCard(album, album.path in selection, selecting, onClick = { onClick(album) }, onLongClick = { actions.onToggle(album) })
         }
     }
 }
@@ -281,13 +320,44 @@ private const val PINNED_HEADER_KEY = "header:pinned"
 private const val ALBUMS_HEADER_KEY = "header:albums"
 private val SectionHeaderModifier = Modifier.padding(start = 10.dp, top = 12.dp, bottom = 4.dp)
 
-/** Long-press actions on a folder album. */
+/** Selection of folder albums: long-press starts it, then taps toggle; the bar acts on it. */
 @Immutable
 internal class AlbumActions(
-    val onPin: (AlbumTile, Boolean) -> Unit = { _, _ -> },
-    val onRename: (AlbumTile) -> Unit = {},
-    val onDelete: (AlbumTile) -> Unit = {},
+    val onToggle: (AlbumTile) -> Unit = {},
+    val onClear: () -> Unit = {},
+    val onPin: () -> Unit = {},
+    val onRename: () -> Unit = {},
+    val onDelete: () -> Unit = {},
 )
+
+/** Selection-mode top bar: Pin/Unpin, Rename (one album only) and Delete, as plain icons. */
+@Composable
+private fun FolderSelectionBar(count: Int, title: String, allPinned: Boolean, actions: AlbumActions) {
+    TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+            IconButton(onClick = actions.onClear) {
+                Icon(RxIcons.Close, contentDescription = stringResource(R.string.selection_clear))
+            }
+        },
+        actions = {
+            IconButton(onClick = actions.onPin) {
+                Icon(RxIcons.Keep, contentDescription = stringResource(if (allPinned) R.string.action_unpin else R.string.action_pin))
+            }
+            if (count == 1) {
+                IconButton(onClick = actions.onRename) {
+                    Icon(RxIcons.Edit, contentDescription = stringResource(R.string.action_rename))
+                }
+            }
+            IconButton(onClick = actions.onDelete) {
+                Icon(RxIcons.Delete, contentDescription = stringResource(R.string.action_delete))
+            }
+        },
+        expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
+        colors = RxBars.headerColors(MaterialTheme.colorScheme.surfaceContainerHighest),
+        modifier = Modifier.rxHeader(),
+    )
+}
 
 /** Inner padding of every album card: half the visual gap between neighbouring thumbnails. */
 private val CardInset = 6.dp
@@ -396,46 +466,62 @@ private fun FileOpError.folderNameErrorRes(): Int = when (this) {
 private val BadgeScrim = Color.Black.copy(alpha = 0.5f)
 
 @Composable
-private fun AlbumCard(album: AlbumTile, actions: AlbumActions, onClick: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    Box {
+private fun AlbumCard(album: AlbumTile, selected: Boolean, selecting: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val scale by animateFloatAsState(if (selected) SELECTED_SCALE else 1f, label = "albumScale")
     Column(
         Modifier
-            .clip(MaterialTheme.shapes.largeIncreased)
+            .clip(SelectedCardShape)
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .border(if (selected) 2.dp else 0.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, SelectedCardShape)
+            .semantics { this.selected = selected }
             .combinedClickable(
                 role = Role.Button,
                 onClick = onClick,
-                onLongClick = { menu = true },
-                onLongClickLabel = stringResource(R.string.action_more),
+                onLongClick = onLongClick,
+                onLongClickLabel = stringResource(R.string.album_select),
             )
             .padding(CardInset)
             .testTag("gallery_album"),
     ) {
-        MediaThumbnail(
-            contentUri = album.coverUri,
-            requestWidth = AlbumThumbRequestWidth,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(MaterialTheme.shapes.largeIncreased),
-        )
+        Box {
+            MediaThumbnail(
+                contentUri = album.coverUri,
+                requestWidth = AlbumThumbRequestWidth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                    .clip(MaterialTheme.shapes.largeIncreased),
+            )
+            if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(8.dp))
+        }
         AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp))
     }
-    RxMenu(
-        expanded = menu,
-        onDismissRequest = { menu = false },
-        groups = listOf(
-            listOf(
-                RxMenuItem(
-                    stringResource(if (album.pinned) R.string.action_unpin else R.string.action_pin),
-                    { actions.onPin(album, !album.pinned) },
-                    RxIcons.Keep,
-                ),
-                RxMenuItem(stringResource(R.string.action_rename), { actions.onRename(album) }, RxIcons.Edit),
-            ),
-            listOf(RxMenuItem(stringResource(R.string.action_delete), { actions.onDelete(album) }, RxIcons.Delete, destructive = true)),
-        ),
-    )
+}
+
+private const val SELECTED_SCALE = 0.9f
+
+/** Card shape for the tap/selected highlight: tighter than the thumbnail's own rounding. */
+private val SelectedCardShape = RoundedCornerShape(12.dp)
+private val CardGap = 6.dp
+
+/** Filled check when selected, an empty ring otherwise (selection mode only). */
+@Composable
+private fun SelectionCheck(selected: Boolean, modifier: Modifier = Modifier) {
+    if (selected) {
+        Icon(
+            RxIcons.CheckCircle,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = modifier
+                .size(22.dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape),
+        )
+    } else {
+        Icon(RxIcons.RadioButtonUnchecked, contentDescription = null, tint = Color.White, modifier = modifier.size(22.dp))
     }
 }
 

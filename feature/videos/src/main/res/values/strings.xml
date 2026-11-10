@@ -119,4 +119,9 @@
     <string name="msg_folder_renamed">Renamed</string>
     <string name="error_folder_exists">A folder with that name already exists</string>
     <string name="error_folder_not_found">The folder no longer exists</string>
+    <plurals name="videos_delete_folders_title">
+        <item quantity="one">Delete %d folder?</item>
+        <item quantity="other">Delete %d folders?</item>
+    </plurals>
+    <string name="videos_delete_folders_body">All videos in these folders will be permanently deleted from this device. Other files in them are left alone.</string>
 </resources>

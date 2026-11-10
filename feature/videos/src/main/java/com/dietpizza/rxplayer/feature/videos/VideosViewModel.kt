@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -119,12 +120,37 @@ class VideosViewModel @Inject constructor(
         viewModelScope.launch { librarySettings.setVideoFolderSort(sort) }
     }
 
-    fun setPinned(folder: FolderRow, pinned: Boolean) {
+    /** Selected folders (paths). Non-empty = selection mode. */
+    private val _selection = MutableStateFlow<Set<String>>(emptySet())
+    val selection: StateFlow<Set<String>> = _selection.asStateFlow()
+
+    fun toggleSelected(folder: FolderRow) {
+        _selection.value = _selection.value.let { if (folder.path in it) it - folder.path else it + folder.path }
+    }
+
+    fun clearSelection() {
+        _selection.value = emptySet()
+    }
+
+    /** The selected folders still on screen, in display order. */
+    fun selectedFolders(): List<FolderRow> {
+        val content = uiState.value as? VideosUiState.Content ?: return emptyList()
+        val selected = _selection.value
+        return (content.pinned + content.folders).filter { it.path in selected }
+    }
+
+    /** Pins the selection, or unpins it when every selected folder is already pinned. */
+    fun pinSelected() {
+        val folders = selectedFolders()
+        if (folders.isEmpty()) return
+        val pin = !folders.all { it.pinned }
+        val paths = folders.map { it.path }
         val current = pinOverride.value
             ?: (uiState.value as? VideosUiState.Content)?.pinned?.mapTo(HashSet()) { it.path }
             ?: emptySet()
-        pinOverride.value = if (pinned) current + folder.path else current - folder.path
-        viewModelScope.launch { librarySettings.setVideoFolderPinned(folder.path, pinned) }
+        pinOverride.value = if (pin) current + paths else current - paths.toSet()
+        clearSelection()
+        viewModelScope.launch { librarySettings.setVideoFoldersPinned(paths, pin) }
     }
 
     /** Renames the folder on disk. [onDone] gets null on success, else why it failed. */
@@ -132,6 +158,7 @@ class VideosViewModel @Inject constructor(
         viewModelScope.launch {
             val result = files.renameFolder(folder.path, name)
             result.onSuccess { newPath ->
+                clearSelection()
                 if (newPath != folder.path) {
                     pinOverride.value = null
                     librarySettings.movePins(folder.path, newPath)
@@ -142,22 +169,33 @@ class VideosViewModel @Inject constructor(
         }
     }
 
-    /** Permanently deletes the folder's videos, then the folder itself if nothing else is in it. */
-    fun deleteFolder(folder: FolderRow) {
+    /** Permanently deletes the selected folders' videos (nothing else), then each folder left empty. */
+    fun deleteSelected() {
+        val folders = selectedFolders()
+        if (folders.isEmpty()) return
+        clearSelection()
         viewModelScope.launch {
-            val keys = repository.videosIn(folder.path).first().map { it.key }
-            val results = files.deleteFolder(folder.path, keys)
-            val failed = results.count { !it.isSuccess }
-            val ok = results.size - failed
-            if (folder.pinned && failed == 0) {
+            var failed = 0
+            var total = 0
+            val unpin = ArrayList<String>()
+            for (folder in folders) {
+                val keys = repository.videosIn(folder.path).first().map { it.key }
+                val results = files.deleteFolder(folder.path, keys)
+                val folderFailed = results.count { !it.isSuccess }
+                failed += folderFailed
+                total += results.size
+                if (folder.pinned && folderFailed == 0) unpin += folder.path
+            }
+            val ok = total - failed
+            if (unpin.isNotEmpty()) {
                 pinOverride.value = null
-                librarySettings.setVideoFolderPinned(folder.path, false)
+                librarySettings.setVideoFoldersPinned(unpin, false)
             }
             _messages.tryEmit(
                 if (failed == 0) {
                     context.resources.getQuantityString(R.plurals.msg_deleted, ok, ok)
                 } else {
-                    context.resources.getQuantityString(R.plurals.msg_failed, results.size, failed, results.size)
+                    context.resources.getQuantityString(R.plurals.msg_failed, total, failed, total)
                 },
             )
         }
