@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -170,6 +171,7 @@ internal fun TitleWithNewDot(
 internal fun FieldChips(
     chips: List<String>,
     modifier: Modifier = Modifier,
+    singleLine: Boolean = false,
     leading: @Composable () -> Unit = {},
 ) {
     FlowRow(
@@ -177,9 +179,14 @@ internal fun FieldChips(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
+        // Grid cards: one line only (chips that don't fit are left out), so every card in a
+        // row is the same height.
+        maxLines = if (singleLine) 1 else Int.MAX_VALUE,
     ) {
         leading()
         chips.forEach { FieldChip(it) }
+        // Keep the line's height even when this item has no chips (e.g. unknown resolution).
+        if (singleLine && chips.isEmpty()) FieldChip("0", Modifier.alpha(0f))
     }
 }
 

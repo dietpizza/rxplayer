@@ -527,13 +527,13 @@ private fun SelectedMark(modifier: Modifier = Modifier) {
 
 /** Favourite · then a chip for each switched-on field (duration sits on the thumbnail). */
 @Composable
-private fun VideoMeta(video: VideoRow, fields: Set<VideoField>, modifier: Modifier = Modifier) {
+private fun VideoMeta(video: VideoRow, fields: Set<VideoField>, modifier: Modifier = Modifier, singleLine: Boolean = false) {
     val chips = listOfNotNull(
         video.size.takeIf { VideoField.SIZE in fields },
         video.resolution.takeIf { VideoField.RESOLUTION in fields },
         video.date.takeIf { VideoField.DATE in fields && it.isNotEmpty() },
     )
-    FieldChips(chips, modifier) {
+    FieldChips(chips, modifier, singleLine = singleLine && fields.any { it != VideoField.DURATION }) {
         if (video.isFavourite) {
             Icon(
                 RxIcons.Favorite,
@@ -619,7 +619,7 @@ private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Bo
                     minLines = 2,
                     maxLines = 2,
                 )
-                VideoMeta(video, fields, Modifier.padding(top = 4.dp))
+                VideoMeta(video, fields, Modifier.padding(top = 4.dp), singleLine = true)
             }
         }
     }

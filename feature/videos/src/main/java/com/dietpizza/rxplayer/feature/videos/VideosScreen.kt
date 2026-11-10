@@ -228,7 +228,7 @@ private fun FolderCard(folder: FolderRow, onClick: () -> Unit) {
         }
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
             TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
-            FolderDetails(folder, Modifier.padding(top = 4.dp))
+            FolderDetails(folder, Modifier.padding(top = 4.dp), singleLine = true)
         }
     }
 }
@@ -274,8 +274,8 @@ private fun FolderList(
 
 /** A chip for each switched-on field. */
 @Composable
-private fun FolderDetails(folder: FolderRow, modifier: Modifier = Modifier) {
-    if (folder.details.isNotEmpty()) FieldChips(folder.details, modifier)
+private fun FolderDetails(folder: FolderRow, modifier: Modifier = Modifier, singleLine: Boolean = false) {
+    if (folder.details.isNotEmpty()) FieldChips(folder.details, modifier, singleLine = singleLine)
 }
 
 /** Same as the Gallery album grid. */
