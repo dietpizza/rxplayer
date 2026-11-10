@@ -3,7 +3,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_back">Back</string>
     <string name="settings_cache_cleared">Cache cleared</string>
-    <string name="settings_history_cleared">History cleared</string>
+    <string name="settings_history_cleared">Watch history cleared</string>
     <string name="settings_version_unknown">Unknown</string>
     <string name="settings_cancel">Cancel</string>
     <string name="settings_done">Done</string>
@@ -22,14 +22,14 @@
     <string name="settings_pure_black_disabled">Only applies to the dark theme</string>
 
     <!-- Library -->
-    <string name="settings_section_library">Library</string>
-    <string name="settings_video_view">Video list view</string>
+    <string name="settings_section_library">Folders &amp; albums</string>
+    <string name="settings_video_view">Video layout in folders</string>
     <string name="settings_view_list">List</string>
     <string name="settings_view_grid">Grid</string>
-    <string name="settings_default_sort">Default video sort</string>
-    <string name="settings_grid_columns">Default grid columns</string>
+    <string name="settings_default_sort">Sort videos in folders by</string>
+    <string name="settings_grid_columns">Gallery album columns</string>
     <!-- %1$s: "Automatic" or "3 columns" -->
-    <string name="settings_grid_columns_summary">%1$s · pinch an album to change it</string>
+    <string name="settings_grid_columns_summary">%1$s · pinch inside an album to change it</string>
     <string name="settings_grid_columns_auto">Automatic</string>
     <plurals name="settings_grid_columns_count">
         <item quantity="one">%1$d column</item>
@@ -55,49 +55,55 @@
     <string name="settings_sort_descending">Descending</string>
 
     <!-- Player -->
-    <string name="settings_section_player">Player</string>
-    <string name="settings_seek_step">Seek step</string>
+    <string name="settings_section_gestures">Player gestures</string>
+    <string name="settings_section_playback">Playback</string>
+    <string name="settings_section_interruptions">Calls &amp; headphones</string>
+    <string name="settings_seek_step">Double-tap skip length</string>
     <string name="settings_seek_step_seconds">%1$ds</string>
-    <string name="settings_swipe_sensitivity">Swipe-seek sensitivity</string>
-    <string name="settings_double_tap">Double-tap to play/pause</string>
-    <string name="settings_double_tap_summary">Double-tap the sides to seek</string>
-    <string name="settings_long_press">Long-press for speed</string>
-    <string name="settings_long_press_summary">Hold to play faster</string>
-    <string name="settings_long_press_speed">Long-press speed</string>
+    <string name="settings_swipe_sensitivity">Swipe-to-seek speed</string>
+    <string name="settings_double_tap">Double-tap the centre to play/pause</string>
+    <string name="settings_double_tap_summary">Double-tapping the left or right side always skips back or forward</string>
+    <string name="settings_long_press">Hold to speed up</string>
+    <string name="settings_long_press_summary">Press and hold the video to play it faster</string>
+    <string name="settings_long_press_speed">Hold speed</string>
     <string name="settings_pinch_zoom">Pinch to zoom</string>
     <string name="settings_swipe_down_close">Swipe down to close</string>
     <string name="settings_resume">Resume where you left off</string>
     <string name="settings_resume_ask">Ask</string>
     <string name="settings_resume_always">Always</string>
     <string name="settings_resume_never">Never</string>
-    <string name="settings_seek_thumbnails">Seek-bar thumbnails</string>
-    <string name="settings_seek_thumbnails_summary">Preview frames while scrubbing</string>
-    <string name="settings_auto_next">Auto-play next</string>
-    <string name="settings_auto_next_summary">Play the next video in the folder or playlist</string>
+    <string name="settings_seek_thumbnails">Seek preview thumbnails</string>
+    <string name="settings_seek_thumbnails_summary">Show a frame preview while dragging the seek bar</string>
+    <string name="settings_auto_next">Play next video automatically</string>
+    <string name="settings_auto_next_summary">When a video ends, start the next one in the folder</string>
     <string name="settings_pip">Picture-in-picture</string>
     <string name="settings_pip_summary">Keep playing in a small window when you leave the app</string>
     <string name="settings_pause_headphones">Pause when headphones disconnect</string>
     <string name="settings_pause_calls">Pause during calls</string>
-    <string name="settings_resume_after_call">Resume after a call</string>
+    <string name="settings_pinch_zoom_summary">Pinch the video to zoom in or fill the screen</string>
+    <string name="settings_swipe_down_close_summary">Drag the video down to leave the player</string>
+    <string name="settings_pause_headphones_summary">Wired or Bluetooth, so sound never switches to the speaker</string>
+    <string name="settings_resume_after_call_summary">Only when the call paused the video</string>
+    <string name="settings_resume_after_call">Resume after the call ends</string>
 
     <!-- Subtitles -->
     <string name="settings_section_subtitles">Subtitles</string>
     <string name="settings_subs_autoload">Load subtitle files automatically</string>
-    <string name="settings_subs_autoload_summary">Same-name .srt, .ass, .ssa or .vtt next to the video</string>
-    <string name="settings_subs_text_size">Text size</string>
-    <string name="settings_subs_background">Background box</string>
+    <string name="settings_subs_autoload_summary">Picks up .srt, .ass, .ssa or .vtt files with the same name as the video</string>
+    <string name="settings_subs_text_size">Subtitle text size</string>
+    <string name="settings_subs_background">Subtitle background</string>
     <string name="settings_subs_background_summary">Draw a dark box behind the text</string>
 
     <!-- Storage -->
-    <string name="settings_section_storage">Storage</string>
+    <string name="settings_section_storage">Storage &amp; history</string>
     <string name="settings_clear_cache">Clear thumbnail cache</string>
     <string name="settings_cache_calculating">Calculating…</string>
-    <!-- %1$s: size, e.g. "4.2 MB" -->
-    <string name="settings_cache_summary">Thumbnails and seek previews · %1$s</string>
-    <string name="settings_clear_history">Clear history</string>
-    <string name="settings_clear_history_summary">Resume positions are kept</string>
-    <string name="settings_clear_history_title">Clear history?</string>
-    <string name="settings_clear_history_body">Every video is removed from History. Resume positions and watched marks are kept.</string>
+    <!-- %1$s: cache size, e.g. "4.2 MB" -->
+    <string name="settings_cache_summary">Frees %1$s. Thumbnails are regenerated when needed</string>
+    <string name="settings_clear_history">Clear watch history</string>
+    <string name="settings_clear_history_summary">Forget which videos you\'ve played. Resume positions are kept</string>
+    <string name="settings_clear_history_title">Clear watch history?</string>
+    <string name="settings_clear_history_body">The record of played videos is erased. Resume positions and watched marks are kept.</string>
 
     <!-- About -->
     <string name="settings_section_about">About</string>

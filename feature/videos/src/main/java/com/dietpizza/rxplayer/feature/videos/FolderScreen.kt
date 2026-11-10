@@ -501,11 +501,11 @@ private fun VideoListItem(
         },
         supportingContent = { VideoMeta(video, fields) },
     ) {
-        Text(
+        TitleWithNewDot(
             text = video.title,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            isNew = video.isNew,
             color = if (video.watched) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
         )
     }
 }
@@ -524,15 +524,15 @@ private fun SelectedMark(modifier: Modifier = Modifier) {
     )
 }
 
-/** NEW dot · favourite · then whichever of size · date · resolution tag are switched on. */
+/** Favourite · then a chip for each switched-on field (duration sits on the thumbnail). */
 @Composable
 private fun VideoMeta(video: VideoRow, fields: Set<VideoField>, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        if (video.isNew) NewDot()
+    val chips = listOfNotNull(
+        video.size.takeIf { VideoField.SIZE in fields },
+        video.resolution.takeIf { VideoField.RESOLUTION in fields },
+        video.date.takeIf { VideoField.DATE in fields && it.isNotEmpty() },
+    )
+    FieldChips(chips, modifier) {
         if (video.isFavourite) {
             Icon(
                 RxIcons.Favorite,
@@ -541,21 +541,6 @@ private fun VideoMeta(video: VideoRow, fields: Set<VideoField>, modifier: Modifi
                 modifier = Modifier.size(14.dp),
             )
         }
-        val text = listOfNotNull(
-            video.size.takeIf { VideoField.SIZE in fields },
-            video.date.takeIf { VideoField.DATE in fields && it.isNotEmpty() },
-        ).joinToString(" · ")
-        if (text.isNotEmpty()) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-        }
-        if (VideoField.RESOLUTION in fields && video.resolution != null) ResolutionTag(video.resolution)
     }
 }
 
@@ -626,13 +611,12 @@ private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Bo
                 if (selected) SelectedMark(Modifier.align(Alignment.TopStart).padding(8.dp))
             }
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                Text(
+                TitleWithNewDot(
                     text = video.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    isNew = video.isNew,
                     color = if (video.watched) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     minLines = 2,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 VideoMeta(video, fields, Modifier.padding(top = 4.dp))
             }

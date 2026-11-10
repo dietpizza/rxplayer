@@ -210,8 +210,7 @@ private val LongPressSpeeds = listOf(1.5f, 2f, 3f)
 @Composable
 internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
     val edit = actions.onPlayer
-    SectionHeader(stringResource(R.string.settings_section_player))
-    // Gestures
+    SectionHeader(stringResource(R.string.settings_section_gestures))
     SettingsGroup {
         val count = 7
         SegmentedListItem(
@@ -283,7 +282,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             count = count,
             icon = RxIcons.ZoomIn,
             title = stringResource(R.string.settings_pinch_zoom),
-            supporting = null,
+            supporting = stringResource(R.string.settings_pinch_zoom_summary),
             checked = player.pinchToZoom,
             onChange = { v -> edit { it.copy(pinchToZoom = v) } },
         )
@@ -293,15 +292,13 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             count = count,
             icon = RxIcons.SwipeDown,
             title = stringResource(R.string.settings_swipe_down_close),
-            supporting = null,
+            supporting = stringResource(R.string.settings_swipe_down_close_summary),
             checked = player.swipeDownToClose,
             onChange = { v -> edit { it.copy(swipeDownToClose = v) } },
         )
     }
 
-    Spacer16()
-
-    // Playback
+    SectionHeader(stringResource(R.string.settings_section_playback))
     SettingsGroup {
         val count = 4
         SegmentedListItem(
@@ -358,9 +355,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         )
     }
 
-    Spacer16()
-
-    // Interruptions
+    SectionHeader(stringResource(R.string.settings_section_interruptions))
     SettingsGroup {
         val count = 3
         SwitchRow(
@@ -368,7 +363,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             count = count,
             icon = RxIcons.Headphones,
             title = stringResource(R.string.settings_pause_headphones),
-            supporting = null,
+            supporting = stringResource(R.string.settings_pause_headphones_summary),
             checked = player.pauseOnHeadphonesUnplugged,
             onChange = { v -> edit { it.copy(pauseOnHeadphonesUnplugged = v) } },
         )
@@ -386,7 +381,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
             count = count,
             icon = RxIcons.PhoneCallback,
             title = stringResource(R.string.settings_resume_after_call),
-            supporting = null,
+            supporting = stringResource(R.string.settings_resume_after_call_summary),
             checked = player.resumeAfterCall,
             enabled = player.pauseDuringCalls,
             onChange = { v -> edit { it.copy(resumeAfterCall = v) } },
@@ -505,11 +500,6 @@ internal fun formatBytes(bytes: Long): String {
 }
 
 // ---- Building blocks ---------------------------------------------------------------------------
-
-@Composable
-private fun Spacer16() {
-    androidx.compose.foundation.layout.Spacer(Modifier.size(12.dp))
-}
 
 /**
  * A toggle row. `onClick` (not `checked`), so the row never takes a selected highlight; the Switch

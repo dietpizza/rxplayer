@@ -32,12 +32,10 @@ data class FolderRow(
     val path: String,
     val name: String,
     val coverUri: String?,
-    /** The switched-on details, e.g. "12 videos · 4.2 GB"; empty when none are. */
-    val summary: String,
+    /** The switched-on details, one chip each: "12 videos", "4.2 GB"…; the path comes last. */
+    val details: List<String>,
     /** Unplayed count ("3"), or null when nothing is new. */
     val newBadge: String?,
-    /** Shown on its own line when the Path field is on. */
-    val showPath: Boolean = false,
 )
 
 @Immutable
@@ -115,11 +113,11 @@ internal fun VideoFolder.toRow(fields: Set<FolderField> = LibrarySettings.DEFAUL
     path = path,
     name = name,
     coverUri = coverContentUri,
-    summary = listOfNotNull(
+    details = listOfNotNull(
         VideoFormat.videoCount(videoCount).takeIf { FolderField.COUNT in fields },
         VideoFormat.bytes(totalSizeBytes).takeIf { FolderField.SIZE in fields },
         VideoFormat.date(lastModifiedMs).takeIf { FolderField.DATE in fields && it.isNotEmpty() },
-    ).joinToString(" · "),
+        path.takeIf { FolderField.PATH in fields },
+    ),
     newBadge = if (newCount > 0) "$newCount" else null,
-    showPath = FolderField.PATH in fields,
 )

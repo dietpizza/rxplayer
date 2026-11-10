@@ -1,6 +1,11 @@
 package com.dietpizza.rxplayer.feature.videos
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
@@ -104,14 +109,15 @@ internal fun VideoThumbnail(
 
 private val WatchedScrim = Color.Black.copy(alpha = 0.35f)
 
-/** "1080p" as a small outlined-looking tonal tag. */
+/** One detail ("1080p", "1.4 GB", "12 videos"…) as a small tonal chip. */
 @Composable
-internal fun ResolutionTag(text: String, modifier: Modifier = Modifier) {
+internal fun FieldChip(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSecondaryContainer,
         maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .background(MaterialTheme.colorScheme.secondaryContainer, ChipShape)
             .padding(horizontal = 5.dp, vertical = 1.dp),
@@ -128,6 +134,53 @@ internal fun NewDot(modifier: Modifier = Modifier) {
             .size(8.dp)
             .background(MaterialTheme.colorScheme.primary, CircleShape),
     )
+}
+
+/**
+ * A card/row title (the grid's titleSmall everywhere) with the NEW dot right after it, centred
+ * on the first line.
+ */
+@Composable
+internal fun TitleWithNewDot(
+    text: String,
+    isNew: Boolean,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    maxLines: Int = 1,
+    minLines: Int = 1,
+) {
+    Row(modifier, verticalAlignment = Alignment.Top) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            color = color,
+            minLines = minLines,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        // titleSmall's line is 20 sp: 6 dp down centres the 8 dp dot on it.
+        if (isNew) NewDot(Modifier.padding(start = 6.dp, top = 6.dp))
+    }
+}
+
+/** Field chips that wrap onto further lines when they don't fit, after any [leading] markers. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun FieldChips(
+    chips: List<String>,
+    modifier: Modifier = Modifier,
+    leading: @Composable () -> Unit = {},
+) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading()
+        chips.forEach { FieldChip(it) }
+    }
 }
 
 /**

@@ -1,6 +1,5 @@
 package com.dietpizza.rxplayer.feature.videos
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +18,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -227,16 +225,10 @@ private fun FolderCard(folder: FolderRow, onClick: () -> Unit) {
                     .aspectRatio(1f)
                     .clip(MaterialTheme.shapes.largeIncreased),
             )
-            if (folder.newBadge != null) CoverNewDot(Modifier.align(Alignment.TopEnd).padding(10.dp))
         }
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
-            Text(
-                text = folder.name,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            FolderDetails(folder)
+            TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
+            FolderDetails(folder, Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -268,49 +260,21 @@ private fun FolderList(
                                 .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
                                 .clip(MaterialTheme.shapes.extraSmall),
                         )
-                        if (folder.newBadge != null) CoverNewDot(Modifier.align(Alignment.TopEnd).padding(4.dp))
                     }
                 },
-                supportingContent = { FolderDetails(folder) },
+                supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
                 modifier = Modifier.testTag("videos_folder"),
             ) {
-                Text(folder.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
             }
         }
     }
 }
 
-/** The switched-on details line, then the path on its own line when that field is on. */
+/** A chip for each switched-on field. */
 @Composable
-private fun FolderDetails(folder: FolderRow) {
-    if (folder.summary.isNotEmpty()) {
-        Text(
-            text = folder.summary,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-    if (folder.showPath) {
-        Text(
-            text = folder.path,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.StartEllipsis,
-        )
-    }
-}
-
-/** Something unplayed from the last 7 days, ringed in the surface colour so it reads on any image. */
-@Composable
-private fun CoverNewDot(modifier: Modifier = Modifier) {
-    NewDot(
-        modifier
-            .background(MaterialTheme.colorScheme.surface, CircleShape)
-            .padding(2.dp),
-    )
+private fun FolderDetails(folder: FolderRow, modifier: Modifier = Modifier) {
+    if (folder.details.isNotEmpty()) FieldChips(folder.details, modifier)
 }
 
 /** Same as the Gallery album grid. */
@@ -321,10 +285,10 @@ private val CardInset = 6.dp
 internal val FolderThumbWidth = 112.dp
 
 private val previewFolders = listOf(
-    FolderRow("/storage/emulated/0/DCIM/Camera", "Camera", null, "214 videos · 38 GB", "3"),
-    FolderRow("/storage/emulated/0/Download", "Download", null, "12 videos · 4.2 GB", null),
-    FolderRow("/storage/emulated/0/Movies/Series", "Series – Season 1 with a long folder name", null, "10 videos · 7.9 GB", "10", showPath = true),
-    FolderRow("/storage/emulated/0/WhatsApp/Video", "WhatsApp Video", null, "1 video · 4.1 MB", null),
+    FolderRow("/storage/emulated/0/DCIM/Camera", "Camera", null, listOf("214 videos", "38 GB"), "3"),
+    FolderRow("/storage/emulated/0/Download", "Download", null, listOf("12 videos", "4.2 GB"), null),
+    FolderRow("/storage/emulated/0/Movies/Series", "Series – Season 1 with a long folder name", null, listOf("10 videos", "7.9 GB", "/storage/emulated/0/Movies/Series"), "10"),
+    FolderRow("/storage/emulated/0/WhatsApp/Video", "WhatsApp Video", null, listOf("1 video", "4.1 MB"), null),
 )
 
 @Composable
