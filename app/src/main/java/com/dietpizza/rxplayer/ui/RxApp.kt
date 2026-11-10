@@ -12,7 +12,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuite
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldLayout
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarDefaults
+import androidx.compose.material3.WideNavigationRailDefaults
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.ui.draw.clip
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -85,33 +98,64 @@ private fun RxShell(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
         currentTab = TopLevelDestination.Start
     }
 
-    NavigationSuiteScaffold(
-        modifier = modifier,
-        navigationSuiteType = suiteType,
-        navigationItems = {
-            TopLevelDestination.entries.forEach { tab ->
-                val selected = tab == currentTab
-                NavigationSuiteItem(
-                    selected = selected,
-                    onClick = { currentTab = tab },
-                    icon = {
-                        Icon(
-                            imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                            contentDescription = null,
-                        )
-                    },
-                    label = { Text(stringResource(tab.label)) },
-                    navigationSuiteType = suiteType,
-                    modifier = Modifier.testTag(tab.testTag),
-                )
+    val items: @Composable () -> Unit = {
+        TopLevelDestination.entries.forEach { tab ->
+            val selected = tab == currentTab
+            NavigationSuiteItem(
+                selected = selected,
+                onClick = { currentTab = tab },
+                icon = {
+                    Icon(
+                        imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,
+                        contentDescription = null,
+                    )
+                },
+                label = { Text(stringResource(tab.label)) },
+                navigationSuiteType = suiteType,
+                modifier = Modifier.testTag(tab.testTag),
+            )
+        }
+    }
+    val bottomBar = suiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+        suiteType == NavigationSuiteType.ShortNavigationBarMedium
+
+    // NavigationSuiteScaffold, but with our own bottom bar: rounded top corners, extra vertical
+    // padding, one tone above the pages. The rail (wide windows) stays stock.
+    Surface(modifier = modifier, color = RxBars.pageColor) {
+        NavigationSuiteScaffoldLayout(
+            navigationSuite = {
+                if (bottomBar) {
+                    ShortNavigationBar(
+                        modifier = Modifier.clip(RxBars.BottomBarShape),
+                        containerColor = RxBars.containerColor,
+                        // Padding inside the bar's colour: above the items, and below them on top
+                        // of the gesture/navigation bar inset.
+                        windowInsets = ShortNavigationBarDefaults.windowInsets.add(
+                            WindowInsets(top = RxBars.BottomBarVerticalPadding, bottom = RxBars.BottomBarVerticalPadding),
+                        ),
+                        content = items,
+                    )
+                } else {
+                    NavigationSuite(navigationSuiteType = suiteType, content = items)
+                }
+            },
+            navigationSuiteType = suiteType,
+        ) {
+            // The content sits beside/above the navigation, so that side's system inset is
+            // already taken care of: consume it so the pages' Scaffolds don't pad for it again.
+            val consumed = if (bottomBar) {
+                WindowInsets.navigationBars.only(WindowInsetsSides.Bottom)
+            } else {
+                WideNavigationRailDefaults.windowInsets.only(WindowInsetsSides.Start)
             }
-        },
-    ) {
-        tabStates.SaveableStateProvider(currentTab.name) {
-            when (currentTab) {
-                TopLevelDestination.Gallery -> GalleryScreen(onOpenSettings = onOpenSettings)
-                TopLevelDestination.Videos -> VideosScreen(onOpenSettings = onOpenSettings)
-                TopLevelDestination.Network -> NetworkScreen(onOpenSettings = onOpenSettings)
+            Box(Modifier.consumeWindowInsets(consumed)) {
+                tabStates.SaveableStateProvider(currentTab.name) {
+                    when (currentTab) {
+                        TopLevelDestination.Gallery -> GalleryScreen(onOpenSettings = onOpenSettings)
+                        TopLevelDestination.Videos -> VideosScreen(onOpenSettings = onOpenSettings)
+                        TopLevelDestination.Network -> NetworkScreen(onOpenSettings = onOpenSettings)
+                    }
+                }
             }
         }
     }

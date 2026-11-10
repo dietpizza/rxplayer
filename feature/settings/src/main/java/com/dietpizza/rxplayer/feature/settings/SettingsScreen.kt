@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.settings
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
@@ -99,7 +101,7 @@ internal fun SettingsContent(
 ) {
     Scaffold(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = RxBars.pageColor,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
@@ -109,10 +111,8 @@ internal fun SettingsContent(
                         Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.settings_back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                ),
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
     ) { innerPadding ->

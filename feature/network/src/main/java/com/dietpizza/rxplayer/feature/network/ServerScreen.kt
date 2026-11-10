@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -80,6 +82,7 @@ internal fun ServerContent(
     onSave: () -> Unit,
 ) {
     Scaffold(
+        containerColor = RxBars.pageColor,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(if (state.isNew) R.string.server_add_title else R.string.server_edit_title)) },
@@ -88,6 +91,8 @@ internal fun ServerContent(
                         Icon(RxIcons.ArrowBack, contentDescription = stringResource(R.string.server_back))
                     }
                 },
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
         bottomBar = {

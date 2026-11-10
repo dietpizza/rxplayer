@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -129,7 +131,7 @@ private fun VideosScaffold(
     sortAction: @Composable () -> Unit = {},
     content: @Composable (listPadding: PaddingValues) -> Unit,
 ) {
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     Scaffold(
         modifier = modifier,
         containerColor = background,
@@ -146,10 +148,8 @@ private fun VideosScaffold(
                         Icon(RxIcons.Settings, contentDescription = stringResource(R.string.videos_settings))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = background,
-                    scrolledContainerColor = background,
-                ),
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
     ) { innerPadding ->

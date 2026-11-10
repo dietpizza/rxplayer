@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -328,7 +330,7 @@ internal fun AlbumContent(
     albumMenu: AlbumMenu? = null,
     @StringRes emptyBody: Int = R.string.album_empty_body,
 ) {
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     val content = uiState as? AlbumUiState.Content
     BackHandler(enabled = selection.isActive) { selection.clear() }
 
@@ -370,10 +372,8 @@ internal fun AlbumContent(
                         if (albumMenu != null) AlbumOverflow(albumMenu)
                     },
                     expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = background,
-                        scrolledContainerColor = background,
-                    ),
+                    colors = RxBars.headerColors(),
+                    modifier = Modifier.rxHeader(),
                 )
             }
         },
@@ -704,9 +704,8 @@ private fun SelectionTopBar(
             }
         },
         expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        ),
+        colors = RxBars.headerColors(MaterialTheme.colorScheme.surfaceContainerHighest),
+        modifier = Modifier.rxHeader(),
     )
 }
 

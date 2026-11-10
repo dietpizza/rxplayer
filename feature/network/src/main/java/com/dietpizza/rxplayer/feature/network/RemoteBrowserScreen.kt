@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -140,7 +142,7 @@ internal fun BrowserContent(
 ) {
     var renaming by remember { mutableStateOf<RemoteEntry?>(null) }
     var deleting by remember { mutableStateOf<RemoteEntry?>(null) }
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     // One scroll position per folder, so going back up lands where you were.
     val listStates = remember { HashMap<String, LazyListState>() }
 
@@ -157,7 +159,8 @@ internal fun BrowserContent(
                         }
                     },
                     actions = { OverflowMenu(state.showAll, onShowAll, onRefresh) },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = background, scrolledContainerColor = background),
+                    colors = RxBars.headerColors(),
+                    modifier = Modifier.rxHeader(),
                 )
                 Breadcrumbs(state.crumbs, onOpenFolder)
             }

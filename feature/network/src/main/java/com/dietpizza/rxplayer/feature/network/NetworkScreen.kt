@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.network
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -85,7 +87,7 @@ internal fun NetworkContent(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
 ) {
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     var pendingDelete by rememberSaveable { mutableStateOf<Long?>(null) }
 
     Scaffold(
@@ -106,10 +108,8 @@ internal fun NetworkContent(
                         Icon(RxIcons.Settings, contentDescription = stringResource(R.string.network_settings))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = background,
-                    scrolledContainerColor = background,
-                ),
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
     ) { innerPadding ->

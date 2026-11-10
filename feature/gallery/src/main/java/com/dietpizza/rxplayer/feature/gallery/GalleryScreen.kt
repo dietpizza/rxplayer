@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -125,7 +127,7 @@ internal fun GalleryContent(
     onOpenSearch: () -> Unit = {},
     onNewAlbum: () -> Unit = {},
 ) {
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     Scaffold(
         modifier = modifier,
         containerColor = background,
@@ -147,10 +149,8 @@ internal fun GalleryContent(
                         Icon(RxIcons.Settings, contentDescription = stringResource(R.string.gallery_settings))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = background,
-                    scrolledContainerColor = background,
-                ),
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
     ) { innerPadding ->

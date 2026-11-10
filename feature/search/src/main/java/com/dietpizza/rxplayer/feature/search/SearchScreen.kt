@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.search
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxChoice
 import com.dietpizza.rxplayer.core.designsystem.component.RxChoiceSheet
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -98,7 +100,7 @@ internal fun SearchContent(
     onBack: () -> Unit,
     onOpen: (keys: List<MediaKey>, index: Int, allVideos: Boolean) -> Unit,
 ) {
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     // Focus once per screen (not again after rotation / returning from the viewer).
@@ -152,7 +154,8 @@ internal fun SearchContent(
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = background),
+                    colors = RxBars.headerColors(),
+                    modifier = Modifier.rxHeader(),
                 )
                 FilterRow(filters, onFiltersChange, onPickDates = { pickDates = true })
             }

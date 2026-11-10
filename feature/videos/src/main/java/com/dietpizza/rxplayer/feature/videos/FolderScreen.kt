@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
+import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
 import com.dietpizza.rxplayer.core.designsystem.component.RxFieldToggle
 import com.dietpizza.rxplayer.core.designsystem.component.RxFieldsChoice
@@ -257,7 +259,7 @@ internal fun FolderContent(
     val selecting = selection.isNotEmpty()
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
-    val background = MaterialTheme.colorScheme.surfaceContainer
+    val background = RxBars.pageColor
 
     BackHandler(enabled = selecting, onBack = actions.onClearSelection)
 
@@ -314,10 +316,8 @@ internal fun FolderContent(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = background,
-                    scrolledContainerColor = background,
-                ),
+                colors = RxBars.headerColors(),
+                modifier = Modifier.rxHeader(),
             )
         },
     ) { innerPadding ->
