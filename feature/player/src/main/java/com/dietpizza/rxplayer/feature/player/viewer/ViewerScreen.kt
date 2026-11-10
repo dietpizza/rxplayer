@@ -307,9 +307,10 @@ private fun ViewerContent(
         }
     }
 
-    // System bars follow the viewer chrome while at the pager (FullPlayer drives them when full).
-    LaunchedEffect(chromeVisible, morph.isInline) {
-        if (morph.isInline) playerHost.setSystemBarsVisible(chromeVisible)
+    // At the pager the system bars always stay (transparent): hiding the chrome only fades the
+    // app's bars, so edge back gestures keep working. FullPlayer drives them when full.
+    LaunchedEffect(morph.isInline) {
+        if (morph.isInline) playerHost.setSystemBarsVisible(true)
     }
 
     // Ultra HDR: window colour mode follows the settled photo.
