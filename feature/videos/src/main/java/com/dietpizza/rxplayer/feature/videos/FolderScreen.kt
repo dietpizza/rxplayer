@@ -406,13 +406,23 @@ private fun SelectionActions(count: Int, allFavourite: Boolean, actions: FolderA
 @Composable
 private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
     RxSortButton(
-        options = VideoSortField.entries.map { RxSortOption(it, stringResource(it.label()), it.icon()) },
+        options = VideoSortField.entries.map {
+            val (asc, desc) = it.directions()
+            RxSortOption(it, stringResource(it.label()), it.icon(), stringResource(asc), stringResource(desc))
+        },
         current = sort.field,
         descending = sort.descending,
         labels = sortLabels(),
         naturalDescending = { VideoSort.defaultFor(it).descending },
         onSortChange = { field, desc -> onSort(VideoSort(field, desc)) },
     )
+}
+
+private fun VideoSortField.directions(): Pair<Int, Int> = when (this) {
+    VideoSortField.NAME -> R.string.sort_dir_az to R.string.sort_dir_za
+    VideoSortField.DATE_MODIFIED -> R.string.sort_dir_oldest to R.string.sort_dir_newest
+    VideoSortField.SIZE -> R.string.sort_dir_smallest to R.string.sort_dir_largest
+    VideoSortField.DURATION -> R.string.sort_dir_shortest to R.string.sort_dir_longest
 }
 
 private fun VideoSortField.icon() = when (this) {

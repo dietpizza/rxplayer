@@ -17,7 +17,7 @@
 
     <string name="gallery_sort_date_modified">Date modified</string>
     <string name="gallery_sort_name">Name</string>
-    <string name="gallery_sort_count">Number of items</string>
+    <string name="gallery_sort_count">Items</string>
     <string name="gallery_sort_folder_size">Size</string>
     <string name="gallery_sort_date_taken">Date taken</string>
     <string name="gallery_sort_size">Size</string>
@@ -124,4 +124,14 @@
     <string name="error_name_invalid">That name isn\'t allowed</string>
     <string name="error_not_found">The file no longer exists</string>
     <string name="error_generic">Something went wrong</string>
+    <string name="sort_dir_az">A–Z</string>
+    <string name="sort_dir_za">Z–A</string>
+    <string name="sort_dir_oldest">Oldest</string>
+    <string name="sort_dir_newest">Newest</string>
+    <string name="sort_dir_smallest">Smallest</string>
+    <string name="sort_dir_largest">Largest</string>
+    <string name="sort_dir_fewest">Fewest</string>
+    <string name="sort_dir_most">Most</string>
+    <string name="sort_dir_shortest">Shortest</string>
+    <string name="sort_dir_longest">Longest</string>
 </resources>

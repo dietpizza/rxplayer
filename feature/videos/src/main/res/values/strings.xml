@@ -23,7 +23,7 @@
 
     <string name="sort">Sort</string>
     <string name="sort_title">Sort by</string>
-    <string name="sort_count">Number of videos</string>
+    <string name="sort_count">Videos</string>
     <string name="sort_name">Name</string>
     <string name="sort_date">Date modified</string>
     <string name="sort_size">Size</string>
@@ -117,4 +117,14 @@
     <string name="history_clear_body">Resume positions are kept.</string>
     <string name="history_empty_title">Nothing played yet</string>
     <string name="history_empty_body">Videos you play on this device show up here.</string>
+    <string name="sort_dir_az">A–Z</string>
+    <string name="sort_dir_za">Z–A</string>
+    <string name="sort_dir_oldest">Oldest</string>
+    <string name="sort_dir_newest">Newest</string>
+    <string name="sort_dir_smallest">Smallest</string>
+    <string name="sort_dir_largest">Largest</string>
+    <string name="sort_dir_fewest">Fewest</string>
+    <string name="sort_dir_most">Most</string>
+    <string name="sort_dir_shortest">Shortest</string>
+    <string name="sort_dir_longest">Longest</string>
 </resources>

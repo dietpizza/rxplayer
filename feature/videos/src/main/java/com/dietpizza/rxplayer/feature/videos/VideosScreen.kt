@@ -1,5 +1,13 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.clip
+import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.onSizeChanged
@@ -106,10 +114,10 @@ fun VideosScreen(
         sortAction = {
             RxSortButton(
                 options = listOf(
-                    RxSortOption(AlbumSortField.NAME, stringResource(R.string.sort_name), RxIcons.SortByAlpha),
-                    RxSortOption(AlbumSortField.DATE_MODIFIED, stringResource(R.string.sort_date), RxIcons.CalendarToday),
-                    RxSortOption(AlbumSortField.COUNT, stringResource(R.string.sort_count), RxIcons.FormatListNumbered),
-                    RxSortOption(AlbumSortField.SIZE, stringResource(R.string.sort_size), RxIcons.Storage),
+                    RxSortOption(AlbumSortField.NAME, stringResource(R.string.sort_name), RxIcons.SortByAlpha, stringResource(R.string.sort_dir_az), stringResource(R.string.sort_dir_za)),
+                    RxSortOption(AlbumSortField.DATE_MODIFIED, stringResource(R.string.sort_date), RxIcons.CalendarToday, stringResource(R.string.sort_dir_oldest), stringResource(R.string.sort_dir_newest)),
+                    RxSortOption(AlbumSortField.COUNT, stringResource(R.string.sort_count), RxIcons.FormatListNumbered, stringResource(R.string.sort_dir_fewest), stringResource(R.string.sort_dir_most)),
+                    RxSortOption(AlbumSortField.SIZE, stringResource(R.string.sort_size), RxIcons.Storage, stringResource(R.string.sort_dir_smallest), stringResource(R.string.sort_dir_largest)),
                 ),
                 current = folderSort.field,
                 descending = folderSort.descending,
@@ -273,64 +281,86 @@ internal fun FoldersSection(
     }
 }
 
+/** Folders as a card grid, styled exactly like the Gallery tab's album grid. */
 @Composable
 private fun FolderList(
     folders: List<FolderRow>,
     onOpenFolder: (FolderRow) -> Unit,
     contentPadding: PaddingValues,
 ) {
-    val count = folders.size
-    LazyColumn(
-        state = rememberLazyListState(),
-        contentPadding = contentPadding,
+    val dir = LocalLayoutDirection.current
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(FolderMinCellWidth),
+        state = rememberLazyGridState(),
+        // Small outer margin; each card's inner padding (CardInset) makes the gaps.
+        contentPadding = PaddingValues(
+            start = contentPadding.calculateStartPadding(dir) + 8.dp,
+            end = contentPadding.calculateEndPadding(dir) + 8.dp,
+            top = contentPadding.calculateTopPadding(),
+            bottom = contentPadding.calculateBottomPadding(),
+        ),
         modifier = Modifier
             .fillMaxSize()
             .testTag("videos_folders"),
     ) {
-        itemsIndexed(folders, key = { _, f -> f.path }, contentType = { _, _ -> "folder" }) { index, folder ->
-            FolderListItem(
-                folder = folder,
-                index = index,
-                count = count,
-                onClick = { onOpenFolder(folder) },
-            )
+        items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
+            FolderCard(folder, onClick = { onOpenFolder(folder) })
         }
     }
 }
 
 @Composable
-private fun FolderListItem(folder: FolderRow, index: Int, count: Int, onClick: () -> Unit) {
-    ListItem(
-        onClick = onClick,
-        modifier = Modifier.testTag("videos_folder"),
-        leadingContent = {
-            Box {
-                VideoThumbnail(
-                    contentUri = folder.coverUri,
-                    duration = null,
-                    resumeFraction = 0f,
-                    shape = MaterialTheme.shapes.extraSmall,
-                    requestWidth = FolderThumbWidth,
-                    modifier = Modifier.size(FolderThumbWidth, FolderThumbWidth * 9 / 16),
-                )
-                // Something unplayed from the last 7 days: a dot on the thumbnail's top-right,
-                // ringed in the surface colour so it reads on any cover.
-                if (folder.newBadge != null) {
-                    NewDot(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(5.dp)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .padding(2.dp),
-                    )
-                }
-            }
-        },
-        supportingContent = { Text(folder.summary, maxLines = 1) },
+private fun FolderCard(folder: FolderRow, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .clip(MaterialTheme.shapes.largeIncreased)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(CardInset)
+            .testTag("videos_folder"),
     ) {
-        Text(folder.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box {
+            MediaThumbnail(
+                contentUri = folder.coverUri,
+                requestWidth = FolderThumbRequestWidth,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(MaterialTheme.shapes.largeIncreased),
+            )
+            // Something unplayed from the last 7 days: a dot on the cover's top-right corner,
+            // ringed in the surface colour so it reads on any image.
+            if (folder.newBadge != null) {
+                NewDot(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .padding(2.dp),
+                )
+            }
+        }
+        Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = folder.summary,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
+
+/** Same as the Gallery album grid. */
+private val FolderMinCellWidth = 152.dp
+private val FolderThumbRequestWidth = 240.dp
+private val CardInset = 6.dp
 
 internal val FolderThumbWidth = 112.dp
 

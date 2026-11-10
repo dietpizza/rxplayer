@@ -69,7 +69,13 @@ internal fun gridPadding(
 }
 
 /** One sort field in a [SortMenuButton]. */
-internal class SortOption<F>(val field: F, @param:StringRes val label: Int, val icon: ImageVector)
+internal class SortOption<F>(
+    val field: F,
+    @param:StringRes val label: Int,
+    val icon: ImageVector,
+    @param:StringRes val ascending: Int,
+    @param:StringRes val descending: Int,
+)
 
 /** Top-bar sort action: opens the shared expressive sort sheet ([RxSortButton]). */
 @Composable
@@ -81,7 +87,9 @@ internal fun <F> SortMenuButton(
     onSortChange: (field: F, descending: Boolean) -> Unit,
 ) {
     RxSortButton(
-        options = options.map { RxSortOption(it.field, stringResource(it.label), it.icon) },
+        options = options.map {
+            RxSortOption(it.field, stringResource(it.label), it.icon, stringResource(it.ascending), stringResource(it.descending))
+        },
         current = current,
         descending = descending,
         labels = RxSortLabels(

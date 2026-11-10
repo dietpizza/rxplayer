@@ -108,10 +108,10 @@ fun GalleryScreen(
 }
 
 private val AlbumSortOptions = listOf(
-    SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified, RxIcons.CalendarToday),
-    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha),
-    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count, RxIcons.FormatListNumbered),
-    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size, RxIcons.Storage),
+    SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified, RxIcons.CalendarToday, R.string.sort_dir_oldest, R.string.sort_dir_newest),
+    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha, R.string.sort_dir_az, R.string.sort_dir_za),
+    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count, RxIcons.FormatListNumbered, R.string.sort_dir_fewest, R.string.sort_dir_most),
+    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size, RxIcons.Storage, R.string.sort_dir_smallest, R.string.sort_dir_largest),
 )
 
 @Composable
