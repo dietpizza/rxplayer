@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import com.dietpizza.rxplayer.core.datastore.SlideshowSettingsRepository
+import com.dietpizza.rxplayer.core.model.SlideshowOptions
+
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,6 +31,8 @@ internal data class ViewerRequest(
     val external: Boolean = false,
     /** MIME type from the intent, for single external items. */
     val mimeHint: String? = null,
+    /** Non-null: open as a slideshow (auto-advance) with these options; keys are already in play order. */
+    val slideshow: SlideshowOptions? = null,
 )
 
 /** Items of the viewer pager plus the actions on them (favourite, delete). */
@@ -37,7 +42,16 @@ internal class ViewerViewModel @Inject constructor(
     private val favouritesRepository: FavouritesRepository,
     private val files: MediaFileService,
     val images: ViewerImages,
+    private val slideshowSettings: SlideshowSettingsRepository,
 ) : ViewModel() {
+
+    /** Last-used slideshow options, for the overflow menu's slideshow sheet. */
+    val slideshowOptions: StateFlow<SlideshowOptions> = slideshowSettings.options
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SlideshowOptions.DEFAULT)
+
+    fun saveSlideshowOptions(options: SlideshowOptions) {
+        viewModelScope.launch { slideshowSettings.setOptions(options) }
+    }
 
     private val _items = MutableStateFlow<List<ViewerItem>>(emptyList())
     val items: StateFlow<List<ViewerItem>> = _items.asStateFlow()

@@ -63,6 +63,9 @@ import com.dietpizza.rxplayer.feature.player.ui.formatTime
 /** Height of the slim inline controls row under the card. */
 internal val InlineControlsHeight: Dp = 56.dp
 
+/** Gap between the inline controls and the navigation bar (no action row below them). */
+internal val InlineControlsBottomGap: Dp = 8.dp
+
 /**
  * A video page (plan §4 #4, §4.1). Neighbours show the poster only. The settled page whose item
  * the controller has loaded ([active]) hosts the window's single video surface, which morphs to
@@ -138,7 +141,7 @@ internal fun VideoPage(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
-                    .padding(bottom = ActionRowHeight),
+                    .padding(bottom = InlineControlsBottomGap),
             )
         }
     }

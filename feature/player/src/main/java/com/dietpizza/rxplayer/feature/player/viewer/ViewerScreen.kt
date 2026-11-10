@@ -1,5 +1,32 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
+import com.dietpizza.rxplayer.feature.player.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+
+import com.dietpizza.rxplayer.core.model.SlideshowCounts
+import com.dietpizza.rxplayer.core.model.SlideshowMediaType
+import com.dietpizza.rxplayer.core.model.filterForSlideshow
+import com.dietpizza.rxplayer.core.ui.RxIntents
+import com.dietpizza.rxplayer.core.ui.slideshow.SlideshowOptionsSheet
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -75,6 +102,9 @@ internal interface ViewerHost {
  * into. One pager over photos and videos; the settled video page hosts the window's single
  * surface and inline playback; expand / rotate-to-landscape / fling-up morph that surface into
  * [FullPlayer] (drawn as chrome over it, `externalSurface = true`), swipe-down morphs it back.
+ *
+ * The overflow menu's Slideshow opens the options sheet; Start plays this pager's items
+ * (filtered by type), beginning with the page on screen.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -86,13 +116,16 @@ internal fun ViewerScreen(
     host: ViewerHost,
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
+    var slideshowFrom by remember { mutableStateOf<ViewerItem?>(null) }
+    slideshowFrom?.let { from -> ViewerSlideshowSheet(viewModel, items, from, onDismiss = { slideshowFrom = null }) }
+    val onSlideshow: (ViewerItem) -> Unit = { slideshowFrom = it }
     if (items.isEmpty()) {
         Box(Modifier.fillMaxSize().background(Color.Black))
         return
     }
     // A new request (onNewIntent) starts a fresh pager at its start index.
     key(request) {
-        ViewerContent(viewModel, items, request, controller, playerHost, host)
+        ViewerContent(viewModel, items, request, controller, playerHost, host, onSlideshow)
     }
 }
 
@@ -105,6 +138,7 @@ private fun ViewerContent(
     controller: PlaybackController,
     playerHost: FullPlayerHost,
     host: ViewerHost,
+    onSlideshow: (ViewerItem) -> Unit,
 ) {
     val pager = rememberPagerState(initialPage = request.startIndex.coerceIn(0, items.lastIndex)) { items.size }
     val scope = rememberCoroutineScope()
@@ -114,7 +148,7 @@ private fun ViewerContent(
     val density = LocalDensity.current
     val windowSize by rememberUpdatedState(LocalWindowInfo.current.containerSize)
 
-    // Card geometry: under the top bar, above the slim controls + action row; stable insets.
+    // Card geometry: under the top bar, above the slim controls; stable insets.
     val geo = remember { ViewerGeometry() }
     val statusTop = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
     val navBottom = WindowInsets.navigationBarsIgnoringVisibility.getBottom(density)
@@ -122,7 +156,7 @@ private fun ViewerContent(
     remember(statusTop, navBottom, density) {
         with(density) {
             geo.top = statusTop + TopBarHeight.toPx()
-            geo.bottom = navBottom + ActionRowHeight.toPx() + InlineControlsHeight.toPx()
+            geo.bottom = navBottom + InlineControlsBottomGap.toPx() + InlineControlsHeight.toPx()
             geo.side = CARD_SIDE.toPx()
             geo.radius = CARD_RADIUS.toPx()
         }
@@ -142,11 +176,18 @@ private fun ViewerContent(
     val settledItem = items[settledIndex]
     val activeKey = settledItem.key.takeIf { settledItem.isVideo && nowPlaying?.key == it }
 
+    // Slideshow: the same pager, auto-advancing. [slideshowOn] until stopped; [slideshowPlaying]
+    // is pause/resume. Videos play once inline (their normal controls still work), then advance.
+    val slideshow = request.slideshow
+    var slideshowOn by remember { mutableStateOf(slideshow != null) }
+    var slideshowPlaying by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { if (slideshow != null) chromeVisible = false }
+
     // Inline playback follows the settled page (plan §4.1); anything else releases the player.
     LaunchedEffect(settledItem.key, settledItem.kind) {
         zoomed = false // a photo page that settles reports its own zoom right after
         if (settledItem.isVideo) {
-            if (controller.nowPlaying.value?.key != settledItem.key) controller.playInline(settledItem.key)
+            if (controller.nowPlaying.value?.key != settledItem.key) controller.playInline(settledItem.key, loop = !slideshowOn)
         } else {
             controller.stop()
         }
@@ -251,6 +292,33 @@ private fun ViewerContent(
 
     val userScroll by remember { derivedStateOf { morph.isInline && !zoomed } }
 
+    // Slideshow advance: photos after N seconds, videos when they end (or fail). Restarts on any
+    // page change (a manual swipe too); holds while paused, zoomed or in the full player.
+    if (slideshow != null) {
+        val view = LocalView.current
+        DisposableEffect(slideshowOn, slideshowPlaying) {
+            view.keepScreenOn = slideshowOn && slideshowPlaying
+            onDispose { view.keepScreenOn = false }
+        }
+        LaunchedEffect(settledIndex, slideshowOn, slideshowPlaying, zoomed, morph.isInline) {
+            if (!slideshowOn || !slideshowPlaying || zoomed || !morph.isInline) return@LaunchedEffect
+            if (settledItem.isVideo) {
+                val key = settledItem.key
+                combine(controller.nowPlaying, controller.isEnded, controller.error) { np, ended, err ->
+                    (np?.key == key && ended) || err?.fatal == true
+                }.first { it }
+            } else {
+                delay(slideshow.secondsPerPhoto * 1_000L)
+            }
+            val next = settledIndex + 1
+            when {
+                next <= items.lastIndex -> pager.animateScrollToPage(next)
+                slideshow.loop -> pager.scrollToPage(0)
+                else -> slideshowOn = false
+            }
+        }
+    }
+
     // The single video surface (see ViewerVideoSurface): which page it belongs to, and its aspect.
     val surfaceIndex = nowPlaying?.key?.let { k -> items.indexOfFirst { it.isVideo && it.key == k } } ?: -1
     val surfaceIndexState = rememberUpdatedState(surfaceIndex)
@@ -292,6 +360,8 @@ private fun ViewerContent(
                     images = viewModel.images,
                     settled = settled,
                     onTap = { chromeVisible = !chromeVisible },
+                    onFavourite = if (item.canFavourite) ({ viewModel.toggleFavourite(item.key) }) else null,
+                    isFavourite = { item.key in favourites },
                     onSwipeUp = { showInfo = true },
                     onZoomedChange = { zoomed = it },
                     onDecoded = { metas[item.key] = it.meta() },
@@ -345,6 +415,7 @@ private fun ViewerContent(
             morph = morph,
             onBack = host::close,
             onFavourite = viewModel::toggleFavourite,
+            onSlideshow = onSlideshow,
             onShare = host::share,
             onInfo = { showInfo = true },
             onDelete = { confirmDelete = it },
@@ -364,6 +435,22 @@ private fun ViewerContent(
                 state = fullState,
                 animateExit = false,
                 externalSurface = true,
+            )
+        }
+
+        if (slideshowOn && morph.isInline) {
+            SlideshowPill(
+                visible = chromeVisible,
+                playing = slideshowPlaying,
+                onPlayPause = {
+                    slideshowPlaying = !slideshowPlaying
+                    // Pausing the slideshow pauses the video on screen too, and vice versa.
+                    if (settledItem.isVideo) {
+                        if (slideshowPlaying) controller.play() else controller.pause()
+                    }
+                },
+                onStop = { slideshowOn = false },
+                modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
 
@@ -411,6 +498,7 @@ private fun CurrentPageChrome(
     morph: MorphState,
     onBack: () -> Unit,
     onFavourite: (MediaKey) -> Unit,
+    onSlideshow: (ViewerItem) -> Unit,
     onShare: (ViewerItem) -> Unit,
     onInfo: () -> Unit,
     onDelete: (ViewerItem) -> Unit,
@@ -425,6 +513,7 @@ private fun CurrentPageChrome(
         morphAlpha = { MorphMath.inlineChromeAlpha(morph.progress.value) },
         onBack = onBack,
         onFavourite = { onFavourite(item.key) },
+        onSlideshow = { onSlideshow(item) },
         onShare = { onShare(item) },
         onInfo = onInfo,
         onDelete = { onDelete(item) },
@@ -439,3 +528,67 @@ private const val DEFAULT_ASPECT = 16f / 9f
 private val CARD_SIDE = 12.dp
 private val CARD_RADIUS = 12.dp
 private val PAGE_SPACING = 16.dp
+
+/** The slideshow options sheet over the viewer's own items; Start saves the options and launches. */
+@Composable
+private fun ViewerSlideshowSheet(viewModel: ViewerViewModel, items: List<ViewerItem>, from: ViewerItem, onDismiss: () -> Unit) {
+    val options by viewModel.slideshowOptions.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val typeOf: (ViewerItem) -> SlideshowMediaType = { SlideshowMediaType.of(it.mimeType, it.kind == PageKind.Video) }
+    val counts = remember(items) { SlideshowCounts.of(items, typeOf) }
+    SlideshowOptionsSheet(
+        initial = options,
+        counts = counts,
+        onStart = { chosen ->
+            onDismiss()
+            viewModel.saveSlideshowOptions(chosen)
+            val kept = items.filterForSlideshow(chosen, typeOf)
+            if (kept.isNotEmpty()) {
+                // Start on the page on screen when it's included; otherwise anywhere.
+                val start = kept.indexOfFirst { it.key == from.key }
+                context.startActivity(RxIntents.slideshow(context, kept.map { it.key }, start, chosen))
+            }
+        },
+        onDismissRequest = onDismiss,
+    )
+}
+
+/**
+ * The slideshow's only control: a small pill on the right edge with pause/resume and stop. It
+ * shows and hides with the viewer chrome (tap the photo), so the slideshow itself stays clean.
+ */
+@Composable
+private fun SlideshowPill(
+    visible: Boolean,
+    playing: Boolean,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val motion = MaterialTheme.motionScheme
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(motion.defaultEffectsSpec()),
+        exit = fadeOut(motion.defaultEffectsSpec()),
+        modifier = modifier.padding(end = 12.dp),
+    ) {
+        Column(
+            Modifier
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f))
+                .padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            IconButton(onClick = onPlayPause) {
+                Icon(
+                    if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                    contentDescription = stringResource(if (playing) R.string.viewer_slideshow_pause else R.string.viewer_slideshow_resume),
+                    tint = Color.White,
+                )
+            }
+            IconButton(onClick = onStop) {
+                Icon(RxIcons.Close, contentDescription = stringResource(R.string.viewer_slideshow_stop), tint = Color.White)
+            }
+        }
+    }
+}

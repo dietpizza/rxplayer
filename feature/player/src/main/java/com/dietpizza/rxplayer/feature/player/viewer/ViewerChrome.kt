@@ -37,6 +37,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,12 +47,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.player.PlaybackController
-
-/** Height of the bottom action row (above the navigation bar). */
-internal val ActionRowHeight = 72.dp
+import com.dietpizza.rxplayer.feature.player.R
 
 /** Top bar height (below the status bar). */
 internal val TopBarHeight = 64.dp
@@ -63,8 +67,11 @@ private fun Modifier.chromeInsets(): Modifier =
     windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
 
 /**
- * Viewer chrome (plan §4 #4): top bar (back, title, date) and the bottom action row. Fades in
- * and out with a tap, and out with the morph (alpha in a layer, read per frame in draw only).
+ * Viewer chrome (plan §4 #4): one top bar with back, title and date, a favourite heart, and an
+ * overflow menu holding the rest (slideshow, share, details, delete). There's no bottom action
+ * row; the bottom scrim only keeps the navigation bar (and a video's inline controls) legible.
+ * Fades in and out with a tap, and out with the morph (alpha in a layer, read per frame in draw
+ * only).
  */
 @Composable
 internal fun ViewerChrome(
@@ -75,6 +82,7 @@ internal fun ViewerChrome(
     morphAlpha: () -> Float,
     onBack: () -> Unit,
     onFavourite: () -> Unit,
+    onSlideshow: () -> Unit,
     onShare: () -> Unit,
     onInfo: () -> Unit,
     onDelete: () -> Unit,
@@ -103,7 +111,7 @@ internal fun ViewerChrome(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(160.dp)
+                    .height(120.dp)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
             )
             Row(
@@ -135,37 +143,55 @@ internal fun ViewerChrome(
                         )
                     }
                 }
-            }
-            if (item != null) {
-                Row(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .chromeInsets()
-                        .fillMaxWidth()
-                        .height(ActionRowHeight),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                if (item != null) {
                     if (item.canFavourite) {
-                        ActionButton(
-                            if (isFavourite) RxIcons.Favorite else RxIcons.FavoriteBorder,
-                            if (isFavourite) "Remove from favourites" else "Add to favourites",
-                            onFavourite,
-                        )
+                        IconButton(onClick = onFavourite, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+                            Icon(
+                                if (isFavourite) RxIcons.Favorite else RxIcons.FavoriteBorder,
+                                contentDescription = stringResource(
+                                    if (isFavourite) R.string.viewer_unfavourite else R.string.viewer_favourite,
+                                ),
+                                tint = Color.White,
+                            )
+                        }
                     }
-                    if (item.shareUri != null) ActionButton(RxIcons.Share, "Share", onShare)
-                    ActionButton(RxIcons.Info, "Details", onInfo)
-                    if (item.canDelete) ActionButton(RxIcons.Delete, "Delete", onDelete)
+                    ViewerOverflowMenu(item, onSlideshow, onShare, onInfo, onDelete)
                 }
             }
         }
     }
 }
 
+/** The top bar's three-dot button and its menu: slideshow, share, details; delete on its own. */
 @Composable
-private fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
-        Icon(icon, contentDescription = description, tint = Color.White)
+private fun ViewerOverflowMenu(
+    item: ViewerItem,
+    onSlideshow: () -> Unit,
+    onShare: () -> Unit,
+    onInfo: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val slideshow = stringResource(R.string.viewer_slideshow)
+    val share = stringResource(R.string.viewer_share)
+    val details = stringResource(R.string.viewer_details)
+    val delete = stringResource(R.string.viewer_delete)
+    Box {
+        IconButton(onClick = { expanded = true }, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.viewer_more_options), tint = Color.White)
+        }
+        RxMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            groups = listOf(
+                buildList {
+                    add(RxMenuItem(slideshow, onSlideshow, RxIcons.Slideshow))
+                    if (item.shareUri != null) add(RxMenuItem(share, onShare, RxIcons.Share))
+                    add(RxMenuItem(details, onInfo, RxIcons.Info))
+                },
+                if (item.canDelete) listOf(RxMenuItem(delete, onDelete, RxIcons.Delete, destructive = true)) else emptyList(),
+            ),
+        )
     }
 }
 

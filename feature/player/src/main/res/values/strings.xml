@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Gallery viewer top bar and overflow menu -->
+    <string name="viewer_favourite">Add to favourites</string>
+    <string name="viewer_unfavourite">Remove from favourites</string>
+    <string name="viewer_more_options">More options</string>
+    <string name="viewer_slideshow">Slideshow</string>
+    <string name="viewer_share">Share</string>
+    <string name="viewer_details">Details</string>
+    <string name="viewer_delete">Delete</string>
+    <string name="viewer_slideshow_pause">Pause slideshow</string>
+    <string name="viewer_slideshow_resume">Resume slideshow</string>
+    <string name="viewer_slideshow_stop">Stop slideshow</string>
+</resources>

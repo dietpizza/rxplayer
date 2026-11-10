@@ -6,6 +6,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
+import com.dietpizza.rxplayer.core.datastore.SlideshowSettingsRepository
+import com.dietpizza.rxplayer.core.model.MediaKey
+import com.dietpizza.rxplayer.core.model.SlideshowCounts
+import com.dietpizza.rxplayer.core.model.SlideshowOptions
+import com.dietpizza.rxplayer.core.model.filterForSlideshow
+import com.dietpizza.rxplayer.core.model.slideshowType
 import com.dietpizza.rxplayer.core.data.AlbumsRepository
 import com.dietpizza.rxplayer.core.data.FavouritesRepository
 import com.dietpizza.rxplayer.core.data.FileOpException
@@ -81,6 +87,7 @@ class GalleryViewModel @Inject constructor(
     private val librarySettings: LibrarySettingsRepository,
     private val repository: GalleryRepository,
     private val files: MediaFileService,
+    private val slideshowSettings: SlideshowSettingsRepository,
 ) : ViewModel() {
 
     /** One-off results ("Deleted 12 items") for a toast. */
@@ -237,6 +244,22 @@ class GalleryViewModel @Inject constructor(
                     context.resources.getQuantityString(R.plurals.msg_failed, total, failed, total)
                 },
             )
+        }
+    }
+
+    /** The Gallery tab's slideshow: every gallery item, newest first. */
+    internal val slideshow: SlideshowSource = object : SlideshowSource {
+        override val options: StateFlow<SlideshowOptions> = slideshowSettings.options
+            .stateIn(viewModelScope, SharingStarted.Eagerly, SlideshowOptions.DEFAULT)
+
+        override val counts: StateFlow<SlideshowCounts?> = repository.allItems()
+            .map { items -> SlideshowCounts.of(items) { it.slideshowType } }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1_000), null)
+
+        override suspend fun prepare(options: SlideshowOptions): List<MediaKey> {
+            viewModelScope.launch { slideshowSettings.setOptions(options) }
+            return repository.allItems().first().filterForSlideshow(options) { it.slideshowType }.map { it.key }
         }
     }
 

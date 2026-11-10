@@ -237,6 +237,9 @@ class PlaybackController @Inject constructor(
 
     /** Loaded by [playInline] and not yet [promoteInline]d: no resume, no progress/history, loops. */
     private var inlinePreview = false
+
+    /** Whether the [inlinePreview] item repeats ([playInline]'s `loop`). */
+    private var inlineLoop = true
     private var loadJob: Job? = null
     private var tickerJob: Job? = null
     private var session: ItemSession? = null
@@ -360,9 +363,13 @@ class PlaybackController @Inject constructor(
      * Gallery viewer inline playback (plan §4.1): [key] alone, from the start, with no resume
      * prompt, looping, and no progress or history saved until [promoteInline]. Plays (at the
      * global mute state) once the host is visible.
+     *
+     * [loop] false plays it once instead, so [isEnded] turns true at its end (the slideshow
+     * advances on that).
      */
-    fun playInline(key: MediaKey) {
+    fun playInline(key: MediaKey, loop: Boolean = true) {
         saveProgress()
+        inlineLoop = loop
         playlist = listOf(key)
         history.clear()
         played.clear()
@@ -435,7 +442,7 @@ class PlaybackController @Inject constructor(
         loaded = !inline
         inlinePreview = inline
         if (!inline) played += newIndex
-        player.repeatMode = if (inline) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        player.repeatMode = if (inline && inlineLoop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         _isHdrVideo.value = false
         index = newIndex
         val key = playlist[newIndex]

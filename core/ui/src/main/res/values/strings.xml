@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Slideshow options sheet (Gallery FAB, photo viewer overflow) -->
+    <string name="slideshow_sheet_title">Slideshow</string>
+    <string name="slideshow_sheet_include">Include</string>
+    <string name="slideshow_sheet_photos">Photos</string>
+    <string name="slideshow_sheet_videos">Videos</string>
+    <string name="slideshow_sheet_gifs">GIFs</string>
+    <string name="slideshow_sheet_playback">Playback</string>
+    <string name="slideshow_sheet_shuffle">Shuffle</string>
+    <string name="slideshow_sheet_shuffle_on">Random order</string>
+    <string name="slideshow_sheet_shuffle_off">In album order</string>
+    <string name="slideshow_sheet_loop">Loop</string>
+    <string name="slideshow_sheet_loop_on">Start over at the end</string>
+    <string name="slideshow_sheet_loop_off">Close when finished</string>
+    <string name="slideshow_sheet_seconds_per_photo">Seconds per photo</string>
+    <string name="slideshow_sheet_seconds">%1$ds</string>
+    <string name="slideshow_sheet_start">Start</string>
+    <string name="slideshow_sheet_nothing_to_show">Nothing to show with these choices</string>
+    <plurals name="slideshow_sheet_item_count">
+        <item quantity="one">%1$s item</item>
+        <item quantity="other">%1$s items</item>
+    </plurals>
+</resources>

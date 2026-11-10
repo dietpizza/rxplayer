@@ -9,6 +9,9 @@ import com.dietpizza.rxplayer.core.data.FileOpException
 import com.dietpizza.rxplayer.core.data.MediaFileService
 import com.dietpizza.rxplayer.core.data.sortItems
 import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
+import com.dietpizza.rxplayer.core.datastore.SlideshowSettingsRepository
+import com.dietpizza.rxplayer.core.model.SlideshowCounts
+import com.dietpizza.rxplayer.core.model.SlideshowOptions
 import com.dietpizza.rxplayer.core.model.AlbumSort
 import com.dietpizza.rxplayer.core.model.AlbumSortField
 import com.dietpizza.rxplayer.core.model.FileOpError
@@ -77,6 +80,7 @@ class AlbumViewModel @Inject constructor(
     private val albums: AlbumsRepository,
     private val files: MediaFileService,
     private val librarySettings: LibrarySettingsRepository,
+    private val slideshowSettings: SlideshowSettingsRepository,
 ) : ViewModel() {
 
     val source: AlbumSource = parseSource(savedStateHandle)
@@ -148,6 +152,24 @@ class AlbumViewModel @Inject constructor(
     fun setSort(sort: MediaSort) {
         sortOverride.value = sort
         viewModelScope.launch { librarySettings.setMediaSort(sort) }
+    }
+
+    /** This album's slideshow: the items the grid shows, in its current sort order. */
+    internal val slideshow: SlideshowSource = object : SlideshowSource {
+        override val options: StateFlow<SlideshowOptions> = slideshowSettings.options
+            .stateIn(viewModelScope, SharingStarted.Eagerly, SlideshowOptions.DEFAULT)
+
+        override val counts: StateFlow<SlideshowCounts?> = uiState
+            .map { (it as? AlbumUiState.Content)?.grid?.slideshowCounts() }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1_000), null)
+
+        override suspend fun prepare(options: SlideshowOptions): List<MediaKey> {
+            viewModelScope.launch { slideshowSettings.setOptions(options) }
+            val content = uiState.value as? AlbumUiState.Content ?: return emptyList()
+            return content.grid.slideshowKeys(options)
+        }
     }
 
     // ---- Selection actions -------------------------------------------------------------------

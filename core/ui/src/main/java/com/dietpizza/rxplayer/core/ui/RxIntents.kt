@@ -3,6 +3,8 @@ package com.dietpizza.rxplayer.core.ui
 import android.content.Context
 import android.content.Intent
 import com.dietpizza.rxplayer.core.model.MediaKey
+import com.dietpizza.rxplayer.core.model.SlideshowOptions
+import com.dietpizza.rxplayer.core.model.slideshowOrder
 import java.util.UUID
 
 /**
@@ -28,6 +30,20 @@ object RxIntents {
     const val EXTRA_MODE = "rx.extra.MODE"
     const val MODE_PLAYER = "player"
     const val MODE_VIEWER = "viewer"
+
+    /** [MODE_SLIDESHOW]: a full-screen slideshow over the playlist (see [slideshow]). */
+    const val MODE_SLIDESHOW = "slideshow"
+
+    /** [SlideshowOptions] of a [slideshow] intent (see [slideshowOptionsOf]). */
+    const val EXTRA_SLIDESHOW_PHOTOS = "rx.extra.SLIDESHOW_PHOTOS"
+    const val EXTRA_SLIDESHOW_VIDEOS = "rx.extra.SLIDESHOW_VIDEOS"
+    const val EXTRA_SLIDESHOW_GIFS = "rx.extra.SLIDESHOW_GIFS"
+    const val EXTRA_SLIDESHOW_SHUFFLE = "rx.extra.SLIDESHOW_SHUFFLE"
+    const val EXTRA_SLIDESHOW_LOOP = "rx.extra.SLIDESHOW_LOOP"
+    const val EXTRA_SLIDESHOW_SECONDS = "rx.extra.SLIDESHOW_SECONDS"
+
+    /** [slideshow] start index meaning "no particular item": the first, or any one when shuffled. */
+    const val SLIDESHOW_ANY_START = -1
 
     /** Opens the full player on [playlist] at [startIndex]. */
     fun player(context: Context, playlist: List<MediaKey>, startIndex: Int): Intent {
@@ -67,6 +83,41 @@ object RxIntents {
      */
     fun viewer(context: Context, items: List<MediaKey>, startIndex: Int): Intent =
         player(context, items, startIndex).putExtra(EXTRA_MODE, MODE_VIEWER)
+
+    /**
+     * Opens a full-screen slideshow (hosted by PlayerActivity) over [items], which the caller
+     * has already filtered to the types [options] includes (see
+     * [com.dietpizza.rxplayer.core.model.filterForSlideshow]), in display order.
+     *
+     * [startIndex] is the item to show first, or [SLIDESHOW_ANY_START]. With
+     * [SlideshowOptions.shuffle] the order is shuffled here, keeping that item first, so the
+     * intent (and a recreated activity) carries the final play order. Big lists use the same
+     * in-memory handoff as [player].
+     */
+    fun slideshow(context: Context, items: List<MediaKey>, startIndex: Int, options: SlideshowOptions): Intent {
+        val (order, start) = slideshowOrder(items, startIndex, options.shuffle)
+        return player(context, order, start)
+            .putExtra(EXTRA_MODE, MODE_SLIDESHOW)
+            .putExtra(EXTRA_SLIDESHOW_PHOTOS, options.includePhotos)
+            .putExtra(EXTRA_SLIDESHOW_VIDEOS, options.includeVideos)
+            .putExtra(EXTRA_SLIDESHOW_GIFS, options.includeGifs)
+            .putExtra(EXTRA_SLIDESHOW_SHUFFLE, options.shuffle)
+            .putExtra(EXTRA_SLIDESHOW_LOOP, options.loop)
+            .putExtra(EXTRA_SLIDESHOW_SECONDS, options.secondsPerPhoto)
+    }
+
+    /** The options a [slideshow] intent carries (defaults for missing extras). */
+    fun slideshowOptionsOf(intent: Intent): SlideshowOptions {
+        val d = SlideshowOptions.DEFAULT
+        return SlideshowOptions(
+            includePhotos = intent.getBooleanExtra(EXTRA_SLIDESHOW_PHOTOS, d.includePhotos),
+            includeVideos = intent.getBooleanExtra(EXTRA_SLIDESHOW_VIDEOS, d.includeVideos),
+            includeGifs = intent.getBooleanExtra(EXTRA_SLIDESHOW_GIFS, d.includeGifs),
+            shuffle = intent.getBooleanExtra(EXTRA_SLIDESHOW_SHUFFLE, d.shuffle),
+            loop = intent.getBooleanExtra(EXTRA_SLIDESHOW_LOOP, d.loop),
+            secondsPerPhoto = intent.getIntExtra(EXTRA_SLIDESHOW_SECONDS, d.secondsPerPhoto),
+        ).sanitized()
+    }
 
     private const val INLINE_PLAYLIST_BYTES = 128 * 1024L
 

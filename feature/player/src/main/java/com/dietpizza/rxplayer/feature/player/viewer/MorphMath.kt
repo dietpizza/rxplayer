@@ -10,7 +10,7 @@ import com.dietpizza.rxplayer.feature.player.ui.DISMISS_SHRINK
  * past either end; everything here tolerates that (rects extrapolate, alphas/radii clamp).
  */
 internal object MorphMath {
-    /** Viewer chrome (top bar, actions, slim controls) is gone by this progress. */
+    /** Viewer chrome (top bar, slim controls) is gone by this progress. */
     const val INLINE_CHROME_END = 0.35f
 
     /** Full player chrome starts fading in from this progress. */

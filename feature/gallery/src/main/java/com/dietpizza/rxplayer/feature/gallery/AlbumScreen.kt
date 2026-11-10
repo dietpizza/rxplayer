@@ -109,6 +109,7 @@ internal fun AlbumScreen(
         dialog = d
     }
     val currentOnBack by rememberUpdatedState(onBack)
+    var slideshowSheet by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
         viewModel.messages.collect { message ->
@@ -160,7 +161,11 @@ internal fun AlbumScreen(
             is AlbumSource.Custom -> R.string.album_custom_empty_body
             else -> R.string.album_empty_body
         },
+        onSlideshow = { slideshowSheet = true },
     )
+    if (slideshowSheet) {
+        SlideshowSheetHost(viewModel.slideshow, onDismiss = { slideshowSheet = false })
+    }
 
     val close = { dialog = AlbumDialog.NONE }
     when (dialog) {
@@ -329,6 +334,7 @@ internal fun AlbumContent(
     @StringRes removeLabel: Int = R.string.selection_remove_from_album,
     albumMenu: AlbumMenu? = null,
     @StringRes emptyBody: Int = R.string.album_empty_body,
+    onSlideshow: () -> Unit = {},
 ) {
     val background = RxBars.pageColor
     val content = uiState as? AlbumUiState.Content
@@ -338,6 +344,13 @@ internal fun AlbumContent(
         modifier = modifier,
         containerColor = background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // This album's items in its sort order; hidden while selecting or when empty.
+        floatingActionButton = {
+            SlideshowFab(
+                visible = content != null && content.grid.mediaCount > 0 && !selection.isActive,
+                onClick = onSlideshow,
+            )
+        },
         topBar = {
             // Both bars are fixed-height small bars, so swapping them never re-lays out the grid.
             if (selection.isActive && content != null) {
@@ -466,7 +479,7 @@ private fun MediaGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             state = gridState,
-            contentPadding = PaddingValues(bottom = bottom),
+            contentPadding = PaddingValues(bottom = bottom + SlideshowFabClearance),
             horizontalArrangement = Arrangement.spacedBy(TileGap),
             verticalArrangement = Arrangement.spacedBy(TileGap),
             modifier = Modifier

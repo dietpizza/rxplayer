@@ -6,7 +6,9 @@ import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -139,8 +141,10 @@ internal class ZoomState {
 }
 
 /**
- * A photo page (plan §4 #4): Fit-centred, pinch/pan/double-tap zoom, swipe-up for info, the
- * pager only swipes at fit (the gestures consume moves while zoomed in).
+ * A photo page (plan §4 #4): Fit-centred, pinch/pan zoom, swipe-up for info, the pager only
+ * swipes at fit (the gestures consume moves while zoomed in). Double-tap toggles favourite
+ * ([onFavourite]) with a heart pop over the photo; items that can't be favourited (null) keep
+ * double-tap zoom instead. [isFavourite] is read at tap time, to pick the heart.
  *
  * Decodes at screen size off the main thread; once zoomed past ~1.6× it asks once for a sharper
  * decode (up to [DETAIL_MAX_LONG_EDGE]) and swaps it in. Animated images run only while
@@ -152,6 +156,8 @@ internal fun PhotoPage(
     images: ViewerImages,
     settled: Boolean,
     onTap: () -> Unit,
+    onFavourite: (() -> Unit)?,
+    isFavourite: () -> Boolean,
     onSwipeUp: () -> Unit,
     onZoomedChange: (Boolean) -> Unit,
     onDecoded: (DecodedImage) -> Unit,
@@ -201,6 +207,9 @@ internal fun PhotoPage(
     val spec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnSwipeUp by rememberUpdatedState(onSwipeUp)
+    val currentOnFavourite by rememberUpdatedState(onFavourite)
+    val currentIsFavourite by rememberUpdatedState(isFavourite)
+    val heart = remember(item.key) { HeartPop() }
 
     Box(
         Modifier
@@ -213,6 +222,13 @@ internal fun PhotoPage(
                 detectTapGestures(
                     onTap = { currentOnTap() },
                     onDoubleTap = { p ->
+                        val favourite = currentOnFavourite
+                        if (favourite != null) {
+                            heart.filled = !currentIsFavourite()
+                            favourite()
+                            heart.play(scope)
+                            return@detectTapGestures
+                        }
                         zoom.animateTo(
                             scope,
                             ZoomMath.doubleTapScale(zoom.scale),
@@ -267,7 +283,59 @@ internal fun PhotoPage(
         } else if (painter != null) {
             Image(painter = painter, contentDescription = item.title, contentScale = ContentScale.Fit, modifier = layer)
         }
+        HeartPopIcon(heart)
     }
+}
+
+/** The double-tap heart: [progress] runs 0 → 1 once per pop; idle at 0. */
+@Stable
+private class HeartPop {
+    val progress = androidx.compose.animation.core.Animatable(0f)
+
+    /** Filled heart (just favourited) or outline (just removed). */
+    var filled by mutableStateOf(true)
+
+    private var job: Job? = null
+
+    fun play(scope: CoroutineScope) {
+        job?.cancel()
+        job = scope.launch {
+            progress.snapTo(0f)
+            progress.animateTo(1f, tween(HEART_POP_MS, easing = LinearEasing))
+            progress.snapTo(0f)
+        }
+    }
+}
+
+/**
+ * Heart centred on the photo: springs up past full size, settles, then fades. Scale and alpha
+ * are read in the layer only, so the pop never recomposes.
+ */
+@Composable
+private fun HeartPopIcon(pop: HeartPop) {
+    Icon(
+        if (pop.filled) RxIcons.Favorite else RxIcons.FavoriteBorder,
+        contentDescription = null,
+        tint = Color.White,
+        modifier = Modifier
+            .size(96.dp)
+            .graphicsLayer {
+                val t = pop.progress.value
+                val s = when {
+                    t < 0.3f -> MorphMath.lerp(0.4f, 1.15f, t / 0.3f)
+                    t < 0.5f -> MorphMath.lerp(1.15f, 1f, (t - 0.3f) / 0.2f)
+                    else -> 1f
+                }
+                scaleX = s
+                scaleY = s
+                alpha = when {
+                    t <= 0f || t >= 1f -> 0f
+                    t < 0.15f -> t / 0.15f
+                    t < 0.6f -> 1f
+                    else -> 1f - (t - 0.6f) / 0.4f
+                }
+            },
+    )
 }
 
 @Composable
@@ -396,3 +464,4 @@ private const val DETAIL_ZOOM = 1.6f
 private const val DETAIL_MAX_LONG_EDGE = 4096
 private const val PLACEHOLDER_PX = 512
 private const val SWIPE_UP_DP = 72
+private const val HEART_POP_MS = 600

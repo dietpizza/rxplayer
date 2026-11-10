@@ -2,6 +2,7 @@
 <resources>
     <string name="gallery_title">Gallery</string>
     <string name="gallery_search">Search</string>
+    <string name="gallery_slideshow">Slideshow</string>
     <string name="gallery_settings">Settings</string>
     <string name="gallery_sort">Sort</string>
     <string name="gallery_sort_title">Sort by</string>

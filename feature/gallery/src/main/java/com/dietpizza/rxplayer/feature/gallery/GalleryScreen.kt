@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -91,6 +93,7 @@ fun GalleryScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var newAlbum by rememberSaveable { mutableStateOf(false) }
+    var slideshowSheet by rememberSaveable { mutableStateOf(false) }
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     var renaming by remember { mutableStateOf<AlbumTile?>(null) }
     var renameError by remember { mutableStateOf<String?>(null) }
@@ -113,6 +116,7 @@ fun GalleryScreen(
             context.startActivity(intent)
         },
         onNewAlbum = { newAlbum = true },
+        onSlideshow = { slideshowSheet = true },
         selection = selection,
         albumActions = AlbumActions(
             onToggle = viewModel::toggleSelected,
@@ -127,6 +131,9 @@ fun GalleryScreen(
         modifier = modifier,
         contentPadding = contentPadding,
     )
+    if (slideshowSheet) {
+        SlideshowSheetHost(viewModel.slideshow, onDismiss = { slideshowSheet = false })
+    }
     renaming?.let { album ->
         NameDialog(
             title = stringResource(R.string.gallery_rename_folder),
@@ -195,15 +202,29 @@ internal fun GalleryContent(
     contentPadding: PaddingValues = PaddingValues(),
     onOpenSearch: () -> Unit = {},
     onNewAlbum: () -> Unit = {},
+    onSlideshow: () -> Unit = {},
     selection: Set<String> = emptySet(),
     albumActions: AlbumActions = AlbumActions(),
 ) {
     val background = RxBars.pageColor
     val selecting = selection.isNotEmpty()
     BackHandler(enabled = selecting, onBack = albumActions.onClear)
+    val dir = LocalLayoutDirection.current
     Scaffold(
         modifier = modifier,
         containerColor = background,
+        // Every gallery item; hidden while selecting. The Scaffold keeps it above the insets the
+        // navigation suite leaves unconsumed; contentPadding is the shell's extra.
+        floatingActionButton = {
+            SlideshowFab(
+                visible = uiState is GalleryUiState.Content && !selecting,
+                onClick = onSlideshow,
+                modifier = Modifier.padding(
+                    end = contentPadding.calculateEndPadding(dir),
+                    bottom = contentPadding.calculateBottomPadding(),
+                ),
+            )
+        },
         topBar = {
             if (selecting) {
                 val content = uiState as? GalleryUiState.Content
@@ -259,7 +280,7 @@ internal fun GalleryContent(
                 selection = selection,
                 actions = albumActions,
                 // Small outer margin; the cards' inner padding adds the rest (8 + 6 ≈ the old 16).
-                contentPadding = gridPadding(innerPadding, contentPadding, gutter = 8.dp, top = 4.dp),
+                contentPadding = gridPadding(innerPadding, contentPadding, gutter = 8.dp, top = 4.dp, bottom = SlideshowFabClearance),
             )
         }
     }

@@ -68,6 +68,7 @@ import kotlinx.coroutines.withContext
  * - [RxIntents.MODE_VIEWER] and `ACTION_VIEW` of an image: [ViewerScreen], whose video pages morph
  *   into the full player and back. Orientation, auto-PiP and HDR video only apply while the
  *   full player is shown ([fullPlayerShown]).
+ * - [RxIntents.MODE_SLIDESHOW]: the same [ViewerScreen], auto-advancing through the playlist.
  *
  * Leaving it pauses playback (decision 28) unless auto-PiP takes over (decision 10); coming
  * back resumes if it was playing when you left (plan §6.4). Closing it saves progress and
@@ -266,9 +267,15 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
         val playlist = RxIntents.playlistOf(intent)
         if (playlist != null) {
             val (keys, start) = playlist
-            if (intent.getStringExtra(RxIntents.EXTRA_MODE) == RxIntents.MODE_VIEWER) {
-                showViewer(ViewerRequest(keys, start))
-                return
+            when (intent.getStringExtra(RxIntents.EXTRA_MODE)) {
+                RxIntents.MODE_VIEWER -> {
+                    showViewer(ViewerRequest(keys, start))
+                    return
+                }
+                RxIntents.MODE_SLIDESHOW -> {
+                    showViewer(ViewerRequest(keys, start, slideshow = RxIntents.slideshowOptionsOf(intent)))
+                    return
+                }
             }
             showPlayer()
             if (!(restoring && controller.isShowing(keys, start))) controller.setPlaylist(keys, start)

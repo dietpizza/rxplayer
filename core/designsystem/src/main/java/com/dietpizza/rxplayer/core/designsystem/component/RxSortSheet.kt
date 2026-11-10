@@ -298,10 +298,10 @@ fun <T> RxChoiceSheet(
     }
 }
 
-/** The shared sheet frame: full-height modal sheet, headline title, scrollable body. */
+/** The shared sheet frame: full-height modal sheet, headline title, scrollable body (sort, choice and slideshow sheets). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RxSheet(title: String, onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun RxSheet(title: String, onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
