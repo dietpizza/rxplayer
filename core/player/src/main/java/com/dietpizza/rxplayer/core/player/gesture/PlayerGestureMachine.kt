@@ -16,6 +16,12 @@ interface PlayerGestureSink {
      */
     fun onDoubleTap(x: Float, y: Float) {}
 
+    /**
+     * Whether a double tap at [x]/[y] may chain: a further quick tap there fires another
+     * [onDoubleTap] (e.g. tap-tap-tap keeps seeking). False makes the next tap a fresh one.
+     */
+    fun canChainDoubleTap(x: Float, y: Float): Boolean = false
+
     fun onLongPressStart(x: Float, y: Float) {}
     fun onLongPressEnd() {}
 
@@ -48,7 +54,8 @@ interface PlayerGestureSink {
  * - Touch slop locks the axis: |dx| > |dy| → horizontal seek; downward → swipe-down; upward →
  *   ignored. A second finger before the lock → pinch. Once locked, nothing else can take over.
  * - A tap emits [PlayerGestureSink.onSingleTap] on up, immediately. A second down within
- *   [doubleTapTimeoutMs] of that up (and within [doubleTapSlopPx]) emits a double tap.
+ *   [doubleTapTimeoutMs] of that up (and within [doubleTapSlopPx]) emits a double tap; when the
+ *   sink allows it ([PlayerGestureSink.canChainDoubleTap]) each further quick tap emits another.
  * - Holding still for [longPressTimeoutMs] emits a long press (until up).
  * - There are no brightness or volume gestures.
  */
@@ -80,6 +87,9 @@ class PlayerGestureMachine(
     private var lastTapX = 0f
     private var lastTapY = 0f
 
+    /** The current [Mode.Swallow] sequence is a double tap (not a swallowed drag/pinch). */
+    private var swallowingDoubleTap = false
+
     /** Uptime at which [onTick] has work to do, or [NO_TIME]. */
     val nextDeadlineMs: Long
         get() = if (mode == Mode.Pending && longPressEnabled) downTime + longPressTimeoutMs else NO_TIME
@@ -93,9 +103,13 @@ class PlayerGestureMachine(
             withinSlop(x - lastTapX, y - lastTapY, doubleTapSlopPx)
         ) {
             mode = Mode.Swallow
+            swallowingDoubleTap = true
+            downX = x
+            downY = y
             sink.onDoubleTap(x, y)
             return
         }
+        swallowingDoubleTap = false
         mode = Mode.Pending
         downX = x
         downY = y
@@ -154,9 +168,15 @@ class PlayerGestureMachine(
             Mode.Seek -> sink.onHorizontalSeekEnd(cancelled = false)
             Mode.SwipeDown -> sink.onVerticalDownEnd(cancelled = false)
             Mode.Pinch -> sink.onPinchEnd(cancelled = false)
-            Mode.Idle, Mode.Swallow -> Unit
+            Mode.Swallow -> if (swallowingDoubleTap && sink.canChainDoubleTap(downX, downY)) {
+                lastTapUpTime = timeMs
+                lastTapX = downX
+                lastTapY = downY
+            }
+            Mode.Idle -> Unit
         }
         mode = Mode.Idle
+        swallowingDoubleTap = false
     }
 
     /** The sequence was taken away (e.g. a child consumed it, or the surface left composition). */

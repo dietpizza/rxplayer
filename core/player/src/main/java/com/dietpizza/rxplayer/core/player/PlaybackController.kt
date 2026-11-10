@@ -285,16 +285,17 @@ class PlaybackController @Inject constructor(
         onCallStateChanged = ::onCallStateChanged,
     )
 
+    private val deviceLanguages: Array<String> = android.os.LocaleList.getDefault().let { list ->
+        Array(list.size()) { list[it].toLanguageTag() }
+    }
+
     init {
         player.addListener(PlayerListener())
         player.addAnalyticsListener(DecoderNameListener())
         player.volume = if (_isMuted.value) 0f else 1f
         // Embedded subtitles: prefer the device's languages, and accept undetermined ones.
-        val languages = android.os.LocaleList.getDefault().let { list ->
-            Array(list.size()) { list[it].toLanguageTag() }
-        }
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
-            .setPreferredTextLanguages(*languages)
+            .setPreferredTextLanguages(*deviceLanguages)
             .setSelectUndeterminedTextLanguage(true)
             .build()
         scope.launch {
@@ -954,10 +955,19 @@ class PlaybackController @Inject constructor(
         val groups = player.currentTracks.groups
         val group = groups.getOrNull(option.groupIndex) ?: return
         if (group.type != type || option.trackIndex !in 0 until group.length) return
-        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+        val builder = player.trackSelectionParameters.buildUpon()
             .setTrackTypeDisabled(type, false)
             .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
-            .build()
+        // Overrides are per item (cleared on load); the picked language carries over, so the
+        // next episode starts with the same audio and subtitles.
+        val language = group.getTrackFormat(option.trackIndex).language?.takeUnless { it == C.LANGUAGE_UNDETERMINED }
+        if (language != null) {
+            when (type) {
+                C.TRACK_TYPE_AUDIO -> builder.setPreferredAudioLanguages(language)
+                C.TRACK_TYPE_TEXT -> builder.setPreferredTextLanguages(language, *deviceLanguages)
+            }
+        }
+        player.trackSelectionParameters = builder.build()
     }
 
     private fun applyTextEnabled(enabled: Boolean) {

@@ -1,21 +1,20 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -142,9 +141,9 @@ internal class ZoomState {
 
 /**
  * A photo page (plan §4 #4): Fit-centred, pinch/pan zoom, swipe-up for info, the pager only
- * swipes at fit (the gestures consume moves while zoomed in). Double-tap toggles favourite
- * ([onFavourite]) with a heart pop over the photo; items that can't be favourited (null) keep
- * double-tap zoom instead. [isFavourite] is read at tap time, to pick the heart.
+ * swipes at fit (the gestures consume moves while zoomed in). A single tap toggles the
+ * chrome straight away (no double-tap wait); a quick second tap undoes that toggle and zooms in
+ * on the tapped point (or back out). Favourite is the top bar's heart.
  *
  * Decodes at screen size off the main thread; once zoomed past ~1.6× it asks once for a sharper
  * decode (up to [DETAIL_MAX_LONG_EDGE]) and swaps it in. Animated images run only while
@@ -156,8 +155,6 @@ internal fun PhotoPage(
     images: ViewerImages,
     settled: Boolean,
     onTap: () -> Unit,
-    onFavourite: (() -> Unit)?,
-    isFavourite: () -> Boolean,
     onSwipeUp: () -> Unit,
     onZoomedChange: (Boolean) -> Unit,
     onDecoded: (DecodedImage) -> Unit,
@@ -207,9 +204,6 @@ internal fun PhotoPage(
     val spec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnSwipeUp by rememberUpdatedState(onSwipeUp)
-    val currentOnFavourite by rememberUpdatedState(onFavourite)
-    val currentIsFavourite by rememberUpdatedState(isFavourite)
-    val heart = remember(item.key) { HeartPop() }
 
     Box(
         Modifier
@@ -219,25 +213,33 @@ internal fun PhotoPage(
                 zoom.containerH = it.height.toFloat()
             }
             .pointerInput(zoom) {
-                detectTapGestures(
-                    onTap = { currentOnTap() },
-                    onDoubleTap = { p ->
-                        val favourite = currentOnFavourite
-                        if (favourite != null) {
-                            heart.filled = !currentIsFavourite()
-                            favourite()
-                            heart.play(scope)
-                            return@detectTapGestures
-                        }
+                val slop = DOUBLE_TAP_SLOP.toPx()
+                var lastUpMs = 0L
+                var lastPos = Offset.Zero
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    // Null once a pan or pinch consumed the moves: not a tap.
+                    val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+                    if (up.uptimeMillis - down.uptimeMillis > viewConfiguration.longPressTimeoutMillis) return@awaitEachGesture
+                    val quick = down.uptimeMillis - lastUpMs < viewConfiguration.doubleTapTimeoutMillis &&
+                        (up.position - lastPos).getDistance() < slop
+                    // Instant: on a double tap this second toggle puts the chrome back.
+                    currentOnTap()
+                    if (quick) {
+                        up.consume()
                         zoom.animateTo(
                             scope,
                             ZoomMath.doubleTapScale(zoom.scale),
-                            p.x - size.width / 2f,
-                            p.y - size.height / 2f,
+                            up.position.x - size.width / 2f,
+                            up.position.y - size.height / 2f,
                             spec,
                         )
-                    },
-                )
+                        lastUpMs = 0L
+                    } else {
+                        lastUpMs = up.uptimeMillis
+                        lastPos = up.position
+                    }
+                }
             }
             .zoomGestures(zoom, scope, spec) { currentOnSwipeUp() },
         contentAlignment = Alignment.Center,
@@ -283,59 +285,7 @@ internal fun PhotoPage(
         } else if (painter != null) {
             Image(painter = painter, contentDescription = item.title, contentScale = ContentScale.Fit, modifier = layer)
         }
-        HeartPopIcon(heart)
     }
-}
-
-/** The double-tap heart: [progress] runs 0 → 1 once per pop; idle at 0. */
-@Stable
-private class HeartPop {
-    val progress = androidx.compose.animation.core.Animatable(0f)
-
-    /** Filled heart (just favourited) or outline (just removed). */
-    var filled by mutableStateOf(true)
-
-    private var job: Job? = null
-
-    fun play(scope: CoroutineScope) {
-        job?.cancel()
-        job = scope.launch {
-            progress.snapTo(0f)
-            progress.animateTo(1f, tween(HEART_POP_MS, easing = LinearEasing))
-            progress.snapTo(0f)
-        }
-    }
-}
-
-/**
- * Heart centred on the photo: springs up past full size, settles, then fades. Scale and alpha
- * are read in the layer only, so the pop never recomposes.
- */
-@Composable
-private fun HeartPopIcon(pop: HeartPop) {
-    Icon(
-        if (pop.filled) RxIcons.Favorite else RxIcons.FavoriteBorder,
-        contentDescription = null,
-        tint = Color.White,
-        modifier = Modifier
-            .size(96.dp)
-            .graphicsLayer {
-                val t = pop.progress.value
-                val s = when {
-                    t < 0.3f -> MorphMath.lerp(0.4f, 1.15f, t / 0.3f)
-                    t < 0.5f -> MorphMath.lerp(1.15f, 1f, (t - 0.3f) / 0.2f)
-                    else -> 1f
-                }
-                scaleX = s
-                scaleY = s
-                alpha = when {
-                    t <= 0f || t >= 1f -> 0f
-                    t < 0.15f -> t / 0.15f
-                    t < 0.6f -> 1f
-                    else -> 1f - (t - 0.6f) / 0.4f
-                }
-            },
-    )
 }
 
 @Composable
@@ -464,4 +414,5 @@ private const val DETAIL_ZOOM = 1.6f
 private const val DETAIL_MAX_LONG_EDGE = 4096
 private const val PLACEHOLDER_PX = 512
 private const val SWIPE_UP_DP = 72
-private const val HEART_POP_MS = 600
+
+private val DOUBLE_TAP_SLOP = 100.dp

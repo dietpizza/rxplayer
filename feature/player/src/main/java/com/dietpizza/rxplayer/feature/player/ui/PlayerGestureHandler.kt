@@ -66,6 +66,10 @@ internal class PlayerGestureHandler(
         }
     }
 
+    /** Side seeks chain (tap-tap-tap keeps seeking); a middle play/pause doesn't. */
+    override fun canChainDoubleTap(x: Float, y: Float): Boolean =
+        !ui.locked && DoubleTapZone.of(x, widthPx) != DoubleTapZone.Middle
+
     override fun onLongPressStart(x: Float, y: Float) {
         if (ui.locked || !settings.longPressSpeedEnabled || !controller.player.isPlaying) return
         boosting = true

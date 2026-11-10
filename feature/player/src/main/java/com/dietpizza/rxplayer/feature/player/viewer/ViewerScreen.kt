@@ -396,8 +396,6 @@ private fun ViewerContent(
                     images = viewModel.images,
                     settled = settled,
                     onTap = { chromeVisible = !chromeVisible },
-                    onFavourite = if (item.canFavourite) ({ viewModel.toggleFavourite(item.key) }) else null,
-                    isFavourite = { item.key in favourites },
                     onSwipeUp = { showInfo = true },
                     onZoomedChange = { zoomed = it },
                     onDecoded = { metas[item.key] = it.meta() },

@@ -23,6 +23,8 @@ class PlayerGestureMachineTest {
         override fun onPinchStart() { events += "pinch+" }
         override fun onPinch(scale: Float) { events += "pinch:$scale" }
         override fun onPinchEnd(cancelled: Boolean) { events += "pinch-" }
+        var chain = false
+        override fun canChainDoubleTap(x: Float, y: Float) = chain
     }
 
     private lateinit var sink: Recorder
@@ -208,5 +210,32 @@ class PlayerGestureMachineTest {
         tap(1100)
         tap(1200)
         assertTrue(sink.events.takeLast(2) == listOf("tap", "double"))
+    }
+
+    @Test
+    fun thirdTapChainsWhenSinkAllows() {
+        sink.chain = true
+        tap(0)
+        tap(200)
+        tap(400)
+        tap(600)
+        assertEquals(listOf("tap", "double", "double", "double"), sink.events)
+    }
+
+    @Test
+    fun thirdTapIsSingleWhenSinkDoesNotChain() {
+        tap(0)
+        tap(200)
+        tap(400)
+        assertEquals(listOf("tap", "double", "tap"), sink.events)
+    }
+
+    @Test
+    fun chainEndsAfterTheWindow() {
+        sink.chain = true
+        tap(0)
+        tap(200)
+        tap(700)
+        assertEquals(listOf("tap", "double", "tap"), sink.events)
     }
 }
