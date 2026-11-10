@@ -3,6 +3,9 @@ package com.dietpizza.rxplayer.feature.player.viewer
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -113,6 +116,12 @@ internal fun VideoPage(
         // no blank frame) and only fades once this page's own first video frame is on screen.
         val firstFrameKey by controller.firstFrameKey.collectAsStateWithLifecycle()
         val posterUp = !active || firstFrameKey != item.key
+        // Quick fade out once the video's first frame is up; snaps back at once (it hides the surface).
+        val posterAlpha by animateFloatAsState(
+            targetValue = if (posterUp) 1f else 0f,
+            animationSpec = if (posterUp) snap() else tween(POSTER_FADE_MS),
+            label = "poster",
+        )
         val radius = with(LocalDensity.current) { geo.radius.toDp() }
         Box(
             if (active) {
@@ -128,7 +137,7 @@ internal fun VideoPage(
         ) {
             // The video itself is ViewerVideoSurface, one persistent surface under the pager that
             // lines up with this box; the poster covers it until this item's first frame.
-            Poster(item, Modifier.fillMaxSize().graphicsLayer { alpha = if (posterUp) 1f else 0f })
+            Poster(item, Modifier.fillMaxSize().graphicsLayer { alpha = posterAlpha })
         }
         if (active) InlineError(controller, geo, morph, aspect)
         if (active && morph.isInline) DoubleTapPop(pop.key, pop.kind, pop.seconds)
@@ -295,6 +304,7 @@ private fun InlineScrubBar(controller: PlaybackController, live: Boolean, modifi
 }
 
 private const val POSTER_PX = 512
+private const val POSTER_FADE_MS = 200
 
 /**
  * The viewer's only video surface. It lives under the pager for the screen's whole life, so
