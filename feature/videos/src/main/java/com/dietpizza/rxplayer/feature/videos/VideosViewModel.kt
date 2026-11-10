@@ -8,8 +8,10 @@ import com.dietpizza.rxplayer.core.data.VideoRepository
 import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
 import com.dietpizza.rxplayer.core.model.AlbumSort
 import com.dietpizza.rxplayer.core.model.AlbumSortField
+import com.dietpizza.rxplayer.core.model.FolderField
 import com.dietpizza.rxplayer.core.model.LibrarySettings
 import com.dietpizza.rxplayer.core.model.VideoFolder
+import com.dietpizza.rxplayer.core.model.VideoViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -30,17 +32,19 @@ data class FolderRow(
     val path: String,
     val name: String,
     val coverUri: String?,
-    /** "12 videos · 4.2 GB" */
+    /** The switched-on details, e.g. "12 videos · 4.2 GB"; empty when none are. */
     val summary: String,
     /** Unplayed count ("3"), or null when nothing is new. */
     val newBadge: String?,
+    /** Shown on its own line when the Path field is on. */
+    val showPath: Boolean = false,
 )
 
 @Immutable
 sealed interface VideosUiState {
     data object Loading : VideosUiState
     data object Empty : VideosUiState
-    data class Content(val folders: List<FolderRow>) : VideosUiState
+    data class Content(val folders: List<FolderRow>, val grid: Boolean = true) : VideosUiState
 }
 
 @HiltViewModel
@@ -56,11 +60,23 @@ class VideosViewModel @Inject constructor(
             .distinctUntilChanged()
     val sort: StateFlow<AlbumSort> = sortFlow.stateIn(viewModelScope, SharingStarted.Eagerly, LibrarySettings().videoFolderSort)
 
-    val uiState: StateFlow<VideosUiState> = combine(repository.folders(), sortFlow) { folders, sort ->
+    // Same instant-apply pattern for the layout and the shown fields.
+    private val gridOverride = MutableStateFlow<Boolean?>(null)
+    private val fieldsOverride = MutableStateFlow<Set<FolderField>?>(null)
+    val grid: StateFlow<Boolean> =
+        combine(librarySettings.settings.map { it.folderViewMode == VideoViewMode.GRID }, gridOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, LibrarySettings().folderViewMode == VideoViewMode.GRID)
+    val fields: StateFlow<Set<FolderField>> =
+        combine(librarySettings.settings.map { it.folderFields }, fieldsOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, LibrarySettings().folderFields)
+
+    val uiState: StateFlow<VideosUiState> = combine(repository.folders(), sortFlow, grid, fields) { folders, sort, grid, fields ->
         if (folders.isEmpty()) {
             VideosUiState.Empty
         } else {
-            VideosUiState.Content(folders.sortedWith(folderComparator(sort)).map { it.toRow() })
+            VideosUiState.Content(folders.sortedWith(folderComparator(sort)).map { it.toRow(fields) }, grid)
         }
     }
         .flowOn(Dispatchers.Default)
@@ -69,6 +85,16 @@ class VideosViewModel @Inject constructor(
     fun setSort(sort: AlbumSort) {
         sortOverride.value = sort
         viewModelScope.launch { librarySettings.setVideoFolderSort(sort) }
+    }
+
+    fun setGrid(grid: Boolean) {
+        gridOverride.value = grid
+        viewModelScope.launch { librarySettings.setFolderViewMode(if (grid) VideoViewMode.GRID else VideoViewMode.LIST) }
+    }
+
+    fun setFields(fields: Set<FolderField>) {
+        fieldsOverride.value = fields
+        viewModelScope.launch { librarySettings.setFolderFields(fields) }
     }
 }
 
@@ -85,10 +111,15 @@ internal fun folderComparator(sort: AlbumSort): Comparator<VideoFolder> {
     return directed.then(byName).thenBy { it.path }
 }
 
-internal fun VideoFolder.toRow() = FolderRow(
+internal fun VideoFolder.toRow(fields: Set<FolderField> = LibrarySettings.DEFAULT_FOLDER_FIELDS) = FolderRow(
     path = path,
     name = name,
     coverUri = coverContentUri,
-    summary = VideoFormat.videoCount(videoCount) + " · " + VideoFormat.bytes(totalSizeBytes),
+    summary = listOfNotNull(
+        VideoFormat.videoCount(videoCount).takeIf { FolderField.COUNT in fields },
+        VideoFormat.bytes(totalSizeBytes).takeIf { FolderField.SIZE in fields },
+        VideoFormat.date(lastModifiedMs).takeIf { FolderField.DATE in fields && it.isNotEmpty() },
+    ).joinToString(" · "),
     newBadge = if (newCount > 0) "$newCount" else null,
+    showPath = FolderField.PATH in fields,
 )

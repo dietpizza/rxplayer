@@ -1,13 +1,5 @@
 package com.dietpizza.rxplayer.feature.videos
 
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.Saver
-import androidx.compose.animation.core.animate
-import androidx.compose.runtime.Stable
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaThumbnail
 import kotlinx.coroutines.delay
+import com.dietpizza.rxplayer.core.designsystem.component.RxLayoutChoice
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.contentDescription
@@ -182,42 +175,12 @@ internal fun sortLabels() = com.dietpizza.rxplayer.core.designsystem.component.R
     button = stringResource(R.string.sort),
 )
 
-/**
- * Quick-return bar: scrolling the content down slides the bar away; any scroll back up
- * brings it straight back (even mid-list). A half-hidden header snaps open/closed after a
- * fling. The offset is applied in the draw phase, so scrolling never re-lays out the list.
- */
-@Stable
-internal class QuickReturnState {
-    /** How far the bar can hide, px (its height). */
-    var rangePx by mutableFloatStateOf(0f)
-
-    /** 0 = fully shown, -[rangePx] = fully hidden. */
-    var offsetPx by mutableFloatStateOf(0f)
-
-    val connection = object : NestedScrollConnection {
-        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            // Observe only: the list (and the title bar) scroll exactly as before; the bar just
-            // tracks the scroll distance alongside.
-            if (rangePx > 0f) offsetPx = (offsetPx + available.y).coerceIn(-rangePx, 0f)
-            return Offset.Zero
-        }
-
-        override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-            if (offsetPx == 0f || offsetPx == -rangePx) return Velocity.Zero
-            val target = if (offsetPx > -rangePx / 2f) 0f else -rangePx
-            animate(offsetPx, target) { value, _ -> offsetPx = value }
-            return Velocity.Zero
-        }
-    }
-
-    fun show() {
-        offsetPx = 0f
-    }
-}
-
-/** Survives leaving composition (tab switches) and recreation: the bar stays where it was. */
+/** The list/grid section of the sort & view dialog. */
 @Composable
-internal fun rememberQuickReturnState(): QuickReturnState = rememberSaveable(
-    saver = Saver(save = { it.offsetPx }, restore = { QuickReturnState().apply { offsetPx = it } }),
-) { QuickReturnState() }
+internal fun layoutChoice(grid: Boolean, onGridChange: (Boolean) -> Unit) = RxLayoutChoice(
+    title = stringResource(R.string.view_layout),
+    listLabel = stringResource(R.string.view_list),
+    gridLabel = stringResource(R.string.view_grid),
+    grid = grid,
+    onGridChange = onGridChange,
+)

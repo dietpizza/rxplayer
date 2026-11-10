@@ -8,7 +8,6 @@ enum class FileOp { MOVE, COPY, DELETE }
 /** One-off snackbar messages from the library ViewModels. Resolved to text in the UI. */
 internal sealed interface LibraryMessage {
     data class FileOpDone(val op: FileOp, val succeeded: Int, val failed: Int) : LibraryMessage
-    data class AddedToPlaylist(val count: Int, val playlist: String) : LibraryMessage
     data class Favourited(val count: Int, val favourite: Boolean) : LibraryMessage
 }
 
@@ -24,11 +23,6 @@ internal fun LibraryMessage.resolve(res: Resources): String = when (this) {
             failed == 0 -> res.getQuantityString(done, succeeded, succeeded)
             else -> res.getQuantityString(R.plurals.msg_failed, total, failed, total)
         }
-    }
-    is LibraryMessage.AddedToPlaylist -> if (count == 0) {
-        res.getString(R.string.msg_already_in_playlist, playlist)
-    } else {
-        res.getQuantityString(R.plurals.msg_added_to_playlist, count, count, playlist)
     }
     is LibraryMessage.Favourited -> res.getQuantityString(
         if (favourite) R.plurals.msg_favourited else R.plurals.msg_unfavourited,

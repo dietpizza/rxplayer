@@ -1,33 +1,37 @@
 package com.dietpizza.rxplayer.core.designsystem.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -40,14 +44,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 
 /**
- * One field in an [RxSortButton] dialog. [ascending]/[descending] name the two directions for
+ * One field in an [RxSortButton] sheet. [ascending]/[descending] name the two directions for
  * this field ("A–Z"/"Z–A", "Oldest"/"Newest"…); null falls back to [RxSortLabels].
  */
 @Immutable
@@ -68,12 +70,29 @@ class RxSortLabels(
     val button: String,
 )
 
+/** Optional **Layout** section of an [RxSortButton] sheet: list or grid. */
+class RxLayoutChoice(
+    val title: String,
+    val listLabel: String,
+    val gridLabel: String,
+    val grid: Boolean,
+    val onGridChange: (grid: Boolean) -> Unit,
+)
+
+/** One chip in the [RxFieldsChoice] section. */
+class RxFieldToggle(val label: String, val shown: Boolean, val onShownChange: (Boolean) -> Unit)
+
+/** Optional collapsible **Fields** section of an [RxSortButton] sheet: which details to show. */
+class RxFieldsChoice(val title: String, val fields: List<RxFieldToggle>)
+
 /**
- * Top-bar sort action. Opens a centred M3 Expressive dialog: the fields as rounded icon tiles
- * (the current one filled), then the direction as a two-part segmented button named for that
- * field. Choices apply immediately (the caller persists them); tap outside or back to close.
- * Picking a new field applies [naturalDescending] for it.
+ * Top-bar sort action. Opens a full-height M3 Expressive modal sheet: the fields as a
+ * segmented, single-select list, the direction as a connected button group named for the
+ * current field, then (optionally) the list/grid [layout] and a collapsible [fields] section.
+ * Choices apply immediately (the caller persists them); swipe down or tap outside to close.
+ * Picking a new field applies [naturalDescending] for it, like the rest of the app.
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun <F> RxSortButton(
     options: List<RxSortOption<F>>,
@@ -82,115 +101,101 @@ fun <F> RxSortButton(
     labels: RxSortLabels,
     naturalDescending: (F) -> Boolean,
     onSortChange: (field: F, descending: Boolean) -> Unit,
+    layout: RxLayoutChoice? = null,
+    fields: RxFieldsChoice? = null,
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
+    // Kept while the screen lives, so the section reopens the way it was left.
+    var fieldsExpanded by rememberSaveable { mutableStateOf(false) }
     IconButton(onClick = { open = true }) {
         Icon(RxIcons.Sort, contentDescription = labels.button)
     }
     if (!open) return
 
     val currentOption = options.firstOrNull { it.field == current }
-    RxDialog(title = labels.button, onDismissRequest = { open = false }) {
-        SectionLabel(labels.title)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .selectableGroup(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+    RxSheet(title = labels.title, onDismissRequest = { open = false }) {
+        Column(
+            Modifier.selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
         ) {
-            options.forEach { option ->
+            options.forEachIndexed { index, option ->
                 val selected = option.field == current
-                OptionTile(
-                    icon = option.icon,
-                    label = option.label,
-                    selected = selected,
-                    onClick = { if (!selected) onSortChange(option.field, naturalDescending(option.field)) },
-                )
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = !descending,
-                onClick = { if (descending) onSortChange(current, false) },
-                shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                icon = { Icon(RxIcons.KeyboardArrowUp, contentDescription = null, Modifier.size(18.dp)) },
-            ) { Text(currentOption?.ascending ?: labels.ascending, maxLines = 1) }
-            SegmentedButton(
-                selected = descending,
-                onClick = { if (!descending) onSortChange(current, true) },
-                shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                icon = { Icon(RxIcons.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp)) },
-            ) { Text(currentOption?.descending ?: labels.descending, maxLines = 1) }
-        }
-    }
-}
-
-/** One value in an [RxChoiceSheet]. */
-@Immutable
-class RxChoice<T>(val value: T, val label: String)
-
-/**
- * Single-choice dialog in the same style as the sort dialog: the values as chips. Picking one
- * calls [onSelect] and closes.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun <T> RxChoiceSheet(
-    title: String,
-    choices: List<RxChoice<T>>,
-    current: T,
-    onSelect: (T) -> Unit,
-    onDismissRequest: () -> Unit,
-) {
-    RxDialog(title = title, onDismissRequest = onDismissRequest) {
-        FlowRow(
-            Modifier
-                .fillMaxWidth()
-                .selectableGroup(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            choices.forEach { choice ->
-                val selected = choice.value == current
-                FilterChip(
+                SegmentedListItem(
                     selected = selected,
                     onClick = {
-                        onDismissRequest()
-                        onSelect(choice.value)
+                        if (!selected) onSortChange(option.field, naturalDescending(option.field))
                     },
-                    label = { Text(choice.label) },
-                    modifier = Modifier.semantics {
-                        role = Role.RadioButton
-                        this.selected = selected
-                    },
-                )
+                    shapes = ListItemDefaults.segmentedShapes(index = index, count = options.size),
+                    verticalAlignment = Alignment.CenterVertically,
+                    leadingContent = { Icon(option.icon, contentDescription = null) },
+                    trailingContent = { RadioButton(selected = selected, onClick = null) },
+                    modifier = Modifier.semantics { role = Role.RadioButton },
+                ) {
+                    Text(option.label)
+                }
             }
+        }
+        Spacer(Modifier.height(24.dp))
+        ConnectedPair(
+            first = PairItem(currentOption?.ascending ?: labels.ascending, RxIcons.ArrowUpward, checked = !descending) {
+                if (descending) onSortChange(current, false)
+            },
+            second = PairItem(currentOption?.descending ?: labels.descending, RxIcons.ArrowDownward, checked = descending) {
+                if (!descending) onSortChange(current, true)
+            },
+        )
+        if (layout != null) {
+            SectionLabel(layout.title)
+            ConnectedPair(
+                first = PairItem(layout.listLabel, RxIcons.FormatListBulleted, checked = !layout.grid) {
+                    if (layout.grid) layout.onGridChange(false)
+                },
+                second = PairItem(layout.gridLabel, RxIcons.GridView, checked = layout.grid) {
+                    if (!layout.grid) layout.onGridChange(true)
+                },
+            )
+        }
+        if (fields != null) {
+            Spacer(Modifier.height(16.dp))
+            FieldsSection(fields, expanded = fieldsExpanded, onExpandedChange = { fieldsExpanded = it })
         }
     }
 }
 
-/** The shared dialog frame: large rounded surface, headline title, scrollable body. */
-@OptIn(ExperimentalMaterial3Api::class)
+private class PairItem(val label: String, val icon: ImageVector, val checked: Boolean, val onClick: () -> Unit)
+
+/** Two connected single-choice toggle buttons (M3 Expressive button group). */
 @Composable
-private fun RxDialog(title: String, onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
-    BasicAlertDialog(onDismissRequest = onDismissRequest) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 0.dp,
-            modifier = Modifier.widthIn(max = 420.dp),
-        ) {
-            Column(
-                Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
-            ) {
-                Text(title, style = MaterialTheme.typography.headlineSmall)
-                Spacer(Modifier.height(20.dp))
-                content()
-            }
-        }
+private fun ConnectedPair(first: PairItem, second: PairItem) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+    ) {
+        PairButton(first, leading = true, modifier = Modifier.weight(1f))
+        PairButton(second, leading = false, modifier = Modifier.weight(1f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun PairButton(item: PairItem, leading: Boolean, modifier: Modifier = Modifier) {
+    ToggleButton(
+        checked = item.checked,
+        onCheckedChange = { item.onClick() },
+        shapes = if (leading) {
+            ButtonGroupDefaults.connectedLeadingButtonShapes()
+        } else {
+            ButtonGroupDefaults.connectedTrailingButtonShapes()
+        },
+        modifier = modifier
+            .height(56.dp)
+            .semantics { role = Role.RadioButton },
+    ) {
+        Icon(item.icon, contentDescription = null, modifier = Modifier.size(ToggleButtonDefaults.IconSize))
+        Spacer(Modifier.size(ToggleButtonDefaults.IconSpacing))
+        Text(item.label, maxLines = 1)
     }
 }
 
@@ -200,49 +205,123 @@ private fun SectionLabel(text: String) {
         text,
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 12.dp),
+        modifier = Modifier.padding(start = 8.dp, top = 24.dp, bottom = 12.dp),
     )
 }
 
-/** Rounded-square icon tile with its label underneath; filled with primaryContainer when selected. */
+/** Header row that expands/collapses the field chips (instant, no animation). */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OptionTile(icon: ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+private fun FieldsSection(fields: RxFieldsChoice, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick)
-            .semantics {
-                role = Role.RadioButton
-                this.selected = selected
-            }
-            .padding(4.dp),
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClickLabel = fields.title) { onExpandedChange(!expanded) }
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(64.dp)
-                .background(
-                    if (selected) colors.primaryContainer else colors.surfaceContainerHighest,
-                    MaterialTheme.shapes.large,
-                ),
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = if (selected) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                modifier = Modifier.size(28.dp),
-            )
-        }
-        Spacer(Modifier.height(8.dp))
         Text(
-            label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) colors.onSurface else colors.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            modifier = Modifier.widthIn(max = 72.dp),
+            fields.title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
         )
+        Icon(
+            if (expanded) RxIcons.KeyboardArrowUp else RxIcons.KeyboardArrowDown,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    if (expanded) {
+        FlowRow(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 8.dp, top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            fields.fields.forEach { field ->
+                FilterChip(
+                    selected = field.shown,
+                    onClick = { field.onShownChange(!field.shown) },
+                    label = { Text(field.label) },
+                    leadingIcon = if (field.shown) {
+                        { Icon(RxIcons.Check, contentDescription = null, Modifier.size(FilterChipDefaults.IconSize)) }
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.semantics { role = Role.Checkbox },
+                )
+            }
+        }
+    }
+}
+
+/** One value in an [RxChoiceSheet]. */
+@Immutable
+class RxChoice<T>(val value: T, val label: String)
+
+/**
+ * Full-height M3 Expressive single-choice sheet (same look as the sort sheet). Picking a
+ * value calls [onSelect] and closes the sheet.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> RxChoiceSheet(
+    title: String,
+    choices: List<RxChoice<T>>,
+    current: T,
+    onSelect: (T) -> Unit,
+    onDismissRequest: () -> Unit,
+) {
+    RxSheet(title = title, onDismissRequest = onDismissRequest) {
+        Column(
+            Modifier.selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+        ) {
+            choices.forEachIndexed { index, choice ->
+                val selected = choice.value == current
+                SegmentedListItem(
+                    selected = selected,
+                    onClick = {
+                        onDismissRequest()
+                        onSelect(choice.value)
+                    },
+                    shapes = ListItemDefaults.segmentedShapes(index = index, count = choices.size),
+                    verticalAlignment = Alignment.CenterVertically,
+                    trailingContent = { RadioButton(selected = selected, onClick = null) },
+                    modifier = Modifier.semantics { role = Role.RadioButton },
+                ) {
+                    Text(choice.label)
+                }
+            }
+        }
+    }
+}
+
+/** The shared sheet frame: full-height modal sheet, headline title, scrollable body. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RxSheet(title: String, onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 20.dp),
+            )
+            content()
+        }
     }
 }

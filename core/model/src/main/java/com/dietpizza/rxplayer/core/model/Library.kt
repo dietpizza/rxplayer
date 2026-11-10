@@ -39,6 +39,12 @@ data class HistoryEntry(
 
 enum class VideoViewMode { LIST, GRID }
 
+/** Optional details on a video row/card (the title is always shown). */
+enum class VideoField { DURATION, SIZE, RESOLUTION, DATE }
+
+/** Optional details on a Videos-tab folder row/card (the name is always shown). */
+enum class FolderField { COUNT, SIZE, DATE, PATH }
+
 enum class VideoSortField { NAME, DATE_MODIFIED, SIZE, DURATION }
 
 data class VideoSort(val field: VideoSortField = VideoSortField.NAME, val descending: Boolean = false) {
@@ -69,11 +75,19 @@ data class LibrarySettings(
     val mediaSort: MediaSort = MediaSort.DEFAULT,
     /** Videos tab folder order (same fields as gallery albums). */
     val videoFolderSort: AlbumSort = AlbumSort(AlbumSortField.NAME, descending = false),
+    /** Videos tab folders: list or grid. */
+    val folderViewMode: VideoViewMode = VideoViewMode.GRID,
+    /** Details shown on Videos-tab folders. */
+    val folderFields: Set<FolderField> = DEFAULT_FOLDER_FIELDS,
+    /** Details shown on videos inside a folder. */
+    val videoFields: Set<VideoField> = DEFAULT_VIDEO_FIELDS,
 ) {
     companion object {
         const val GRID_COLUMNS_AUTO = 0
         const val MIN_GRID_COLUMNS = 2
         const val MAX_GRID_COLUMNS = 6
+        val DEFAULT_FOLDER_FIELDS: Set<FolderField> = setOf(FolderField.COUNT, FolderField.SIZE)
+        val DEFAULT_VIDEO_FIELDS: Set<VideoField> = setOf(VideoField.DURATION, VideoField.SIZE, VideoField.RESOLUTION)
     }
 }
 

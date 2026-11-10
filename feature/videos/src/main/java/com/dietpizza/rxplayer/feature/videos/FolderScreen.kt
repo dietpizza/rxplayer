@@ -1,6 +1,8 @@
 package com.dietpizza.rxplayer.feature.videos
 
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxFieldToggle
+import com.dietpizza.rxplayer.core.designsystem.component.RxFieldsChoice
 import com.dietpizza.rxplayer.core.designsystem.component.RxSortButton
 import com.dietpizza.rxplayer.core.designsystem.component.RxSortOption
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
@@ -34,13 +36,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -54,7 +56,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -69,6 +70,7 @@ import com.dietpizza.rxplayer.core.model.AppearanceSettings
 import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.model.MediaKey
 import com.dietpizza.rxplayer.core.model.ThemeMode
+import com.dietpizza.rxplayer.core.model.VideoField
 import com.dietpizza.rxplayer.core.model.VideoSort
 import com.dietpizza.rxplayer.core.model.VideoSortField
 import kotlinx.coroutines.delay
@@ -104,12 +106,12 @@ internal fun FolderScreen(
     val actions = remember(viewModel) {
         FolderActions(
             onToggleGrid = { grid -> viewModel.setGrid(grid) },
+            onFieldsChange = viewModel::setFields,
             onSort = viewModel::setSort,
             onToggleSelected = viewModel::toggleSelected,
             onClearSelection = viewModel::clearSelection,
             onSelectAll = viewModel::selectAll,
             onFavourite = viewModel::toggleFavouriteSelected,
-            onAddToPlaylist = { open(LibraryDialog.ADD_TO_PLAYLIST) },
             onRename = { open(LibraryDialog.RENAME) },
             onMove = { open(LibraryDialog.MOVE) },
             onCopy = { open(LibraryDialog.COPY) },
@@ -194,28 +196,6 @@ internal fun FolderScreen(
                 onDismiss = close,
             )
         }
-        LibraryDialog.ADD_TO_PLAYLIST -> {
-            val playlists by viewModel.pickerPlaylists.collectAsStateWithLifecycle()
-            PlaylistPickerDialog(
-                playlists = playlists,
-                onPick = {
-                    viewModel.addSelectedToPlaylist(it.id, it.name)
-                    close()
-                },
-                onNewPlaylist = { open(LibraryDialog.NEW_PLAYLIST) },
-                onDismiss = close,
-            )
-        }
-        LibraryDialog.NEW_PLAYLIST -> NameDialog(
-            title = stringResource(R.string.playlist_new),
-            initial = "",
-            confirmLabel = stringResource(R.string.action_create),
-            onConfirm = {
-                viewModel.addSelectedToNewPlaylist(it)
-                close()
-            },
-            onDismiss = close,
-        )
     }
 
     progress?.let { p ->
@@ -246,12 +226,12 @@ private const val PROGRESS_GRACE_MS = 400L
 @Immutable
 internal class FolderActions(
     val onToggleGrid: (grid: Boolean) -> Unit,
+    val onFieldsChange: (Set<VideoField>) -> Unit,
     val onSort: (VideoSort) -> Unit,
     val onToggleSelected: (key: String) -> Unit,
     val onClearSelection: () -> Unit,
     val onSelectAll: () -> Unit,
     val onFavourite: () -> Unit,
-    val onAddToPlaylist: () -> Unit,
     val onRename: () -> Unit,
     val onMove: () -> Unit,
     val onCopy: () -> Unit,
@@ -277,18 +257,17 @@ internal fun FolderContent(
     val selecting = selection.isNotEmpty()
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val background = MaterialTheme.colorScheme.surfaceContainer
 
     BackHandler(enabled = selecting, onBack = actions.onClearSelection)
 
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier,
         containerColor = background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             // Selection mode swaps the bar's contents, not the bar, so its height never jumps.
-            MediumFlexibleTopAppBar(
+            TopAppBar(
                 title = {
                     Text(
                         if (selecting) pluralStringResource(R.plurals.selected_count, selection.size, selection.size) else uiState.title,
@@ -298,6 +277,7 @@ internal fun FolderContent(
                 },
                 // Always present (empty while loading) so the bar's height doesn't jump when data lands.
                 subtitle = { Text(content?.summary.orEmpty(), maxLines = 1) },
+                expandedHeight = TopAppBarDefaults.TopAppBarExpandedHeight,
                 navigationIcon = {
                     if (selecting) {
                         IconButton(onClick = actions.onClearSelection) {
@@ -315,32 +295,29 @@ internal fun FolderContent(
                             content.videos.filter { it.key in selection }.let { s -> s.isNotEmpty() && s.all { it.isFavourite } }
                         SelectionActions(selection.size, allFavourite, actions)
                     } else if (content != null) {
-                        SortMenu(content.sort, actions.onSort)
-                        IconButton(
-                            onClick = {
+                        SortMenu(
+                            sort = content.sort,
+                            onSort = actions.onSort,
+                            grid = grid,
+                            onGridChange = { toGrid ->
                                 // Keep the same video at the top across the switch; applied on the
                                 // next measure, so there's no frame at the old position.
-                                if (grid) {
-                                    listState.requestScrollToItem(gridState.firstVisibleItemIndex)
-                                } else {
+                                if (toGrid) {
                                     gridState.requestScrollToItem(listState.firstVisibleItemIndex)
+                                } else {
+                                    listState.requestScrollToItem(gridState.firstVisibleItemIndex)
                                 }
-                                actions.onToggleGrid(!grid)
+                                actions.onToggleGrid(toGrid)
                             },
-                        ) {
-                            if (grid) {
-                                Icon(RxIcons.ViewList, contentDescription = stringResource(R.string.folder_list_view))
-                            } else {
-                                Icon(RxIcons.GridView, contentDescription = stringResource(R.string.folder_grid_view))
-                            }
-                        }
+                            fields = content.fields,
+                            onFieldsChange = actions.onFieldsChange,
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = background,
                     scrolledContainerColor = background,
                 ),
-                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -359,9 +336,9 @@ internal fun FolderContent(
                 }
                 val onLongClick: (VideoRow) -> Unit = { actions.onToggleSelected(it.key) }
                 if (grid) {
-                    VideoGrid(content.videos, selection, gridState, padding, onClick, onLongClick)
+                    VideoGrid(content.videos, content.fields, selection, gridState, padding, onClick, onLongClick)
                 } else {
-                    VideoList(content.videos, selection, listState, padding, onClick, onLongClick)
+                    VideoList(content.videos, content.fields, selection, listState, padding, onClick, onLongClick)
                 }
             }
         }
@@ -376,9 +353,6 @@ private fun SelectionActions(count: Int, allFavourite: Boolean, actions: FolderA
         } else {
             Icon(RxIcons.FavoriteBorder, contentDescription = stringResource(R.string.action_favourite))
         }
-    }
-    IconButton(onClick = actions.onAddToPlaylist) {
-        Icon(RxIcons.PlaylistAdd, contentDescription = stringResource(R.string.playlist_add_to))
     }
     IconButton(onClick = actions.onDelete) {
         Icon(RxIcons.Delete, contentDescription = stringResource(R.string.action_delete))
@@ -404,7 +378,14 @@ private fun SelectionActions(count: Int, allFavourite: Boolean, actions: FolderA
 }
 
 @Composable
-private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
+private fun SortMenu(
+    sort: VideoSort,
+    onSort: (VideoSort) -> Unit,
+    grid: Boolean,
+    onGridChange: (Boolean) -> Unit,
+    fields: Set<VideoField>,
+    onFieldsChange: (Set<VideoField>) -> Unit,
+) {
     RxSortButton(
         options = VideoSortField.entries.map {
             val (asc, desc) = it.directions()
@@ -415,7 +396,23 @@ private fun SortMenu(sort: VideoSort, onSort: (VideoSort) -> Unit) {
         labels = sortLabels(),
         naturalDescending = { VideoSort.defaultFor(it).descending },
         onSortChange = { field, desc -> onSort(VideoSort(field, desc)) },
+        layout = layoutChoice(grid, onGridChange),
+        fields = RxFieldsChoice(
+            title = stringResource(R.string.view_fields),
+            fields = VideoField.entries.map { f ->
+                RxFieldToggle(stringResource(f.label()), f in fields) { shown ->
+                    onFieldsChange(if (shown) fields + f else fields - f)
+                }
+            },
+        ),
     )
+}
+
+private fun VideoField.label(): Int = when (this) {
+    VideoField.DURATION -> R.string.field_duration
+    VideoField.SIZE -> R.string.field_size
+    VideoField.RESOLUTION -> R.string.field_resolution
+    VideoField.DATE -> R.string.field_date
 }
 
 private fun VideoSortField.directions(): Pair<Int, Int> = when (this) {
@@ -426,10 +423,10 @@ private fun VideoSortField.directions(): Pair<Int, Int> = when (this) {
 }
 
 private fun VideoSortField.icon() = when (this) {
-    VideoSortField.NAME -> RxIcons.SortByAlpha
+    VideoSortField.NAME -> RxIcons.TextFields
     VideoSortField.DATE_MODIFIED -> RxIcons.CalendarToday
-    VideoSortField.SIZE -> RxIcons.Storage
-    VideoSortField.DURATION -> RxIcons.Timer
+    VideoSortField.SIZE -> RxIcons.Database
+    VideoSortField.DURATION -> RxIcons.Schedule
 }
 
 private fun VideoSortField.label(): Int = when (this) {
@@ -444,6 +441,7 @@ private fun VideoSortField.label(): Int = when (this) {
 @Composable
 private fun VideoList(
     videos: List<VideoRow>,
+    fields: Set<VideoField>,
     selection: Set<String>,
     state: LazyListState,
     contentPadding: PaddingValues,
@@ -461,6 +459,7 @@ private fun VideoList(
         itemsIndexed(videos, key = { _, v -> v.key }, contentType = { _, _ -> "video" }) { index, video ->
             VideoListItem(
                 video = video,
+                fields = fields,
                 index = index,
                 count = count,
                 selected = video.key in selection,
@@ -474,6 +473,7 @@ private fun VideoList(
 @Composable
 private fun VideoListItem(
     video: VideoRow,
+    fields: Set<VideoField>,
     index: Int,
     count: Int,
     selected: Boolean,
@@ -489,7 +489,7 @@ private fun VideoListItem(
             Box {
                 VideoThumbnail(
                     contentUri = video.contentUri,
-                    duration = video.duration,
+                    duration = video.duration.takeIf { VideoField.DURATION in fields },
                     resumeFraction = video.resumeFraction,
                     shape = MaterialTheme.shapes.extraSmall,
                     requestWidth = ListThumbWidth,
@@ -499,7 +499,7 @@ private fun VideoListItem(
                 if (selected) SelectedMark(Modifier.align(Alignment.TopStart).padding(4.dp))
             }
         },
-        supportingContent = { VideoMeta(video) },
+        supportingContent = { VideoMeta(video, fields) },
     ) {
         Text(
             text = video.title,
@@ -524,9 +524,9 @@ private fun SelectedMark(modifier: Modifier = Modifier) {
     )
 }
 
-/** NEW dot · favourite · size · resolution tag. */
+/** NEW dot · favourite · then whichever of size · date · resolution tag are switched on. */
 @Composable
-private fun VideoMeta(video: VideoRow, modifier: Modifier = Modifier) {
+private fun VideoMeta(video: VideoRow, fields: Set<VideoField>, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
@@ -541,13 +541,21 @@ private fun VideoMeta(video: VideoRow, modifier: Modifier = Modifier) {
                 modifier = Modifier.size(14.dp),
             )
         }
-        Text(
-            text = video.size,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-        )
-        if (video.resolution != null) ResolutionTag(video.resolution)
+        val text = listOfNotNull(
+            video.size.takeIf { VideoField.SIZE in fields },
+            video.date.takeIf { VideoField.DATE in fields && it.isNotEmpty() },
+        ).joinToString(" · ")
+        if (text.isNotEmpty()) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        if (VideoField.RESOLUTION in fields && video.resolution != null) ResolutionTag(video.resolution)
     }
 }
 
@@ -556,6 +564,7 @@ private fun VideoMeta(video: VideoRow, modifier: Modifier = Modifier) {
 @Composable
 private fun VideoGrid(
     videos: List<VideoRow>,
+    fields: Set<VideoField>,
     selection: Set<String>,
     state: LazyGridState,
     contentPadding: PaddingValues,
@@ -575,6 +584,7 @@ private fun VideoGrid(
         itemsIndexed(videos, key = { _, v -> v.key }, contentType = { _, _ -> "video" }) { index, video ->
             VideoGridItem(
                 video = video,
+                fields = fields,
                 selected = video.key in selection,
                 onClick = { onClick(index, video) },
                 onLongClick = { onLongClick(video) },
@@ -585,7 +595,7 @@ private fun VideoGrid(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun VideoGridItem(video: VideoRow, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
@@ -604,7 +614,7 @@ private fun VideoGridItem(video: VideoRow, selected: Boolean, onClick: () -> Uni
             Box {
                 VideoThumbnail(
                     contentUri = video.contentUri,
-                    duration = video.duration,
+                    duration = video.duration.takeIf { VideoField.DURATION in fields },
                     resumeFraction = video.resumeFraction,
                     shape = RectangleShape, // the card's shape clips the top corners
                     requestWidth = GridThumbRequestWidth,
@@ -624,7 +634,7 @@ private fun VideoGridItem(video: VideoRow, selected: Boolean, onClick: () -> Uni
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                VideoMeta(video, Modifier.padding(top = 4.dp))
+                VideoMeta(video, fields, Modifier.padding(top = 4.dp))
             }
         }
     }

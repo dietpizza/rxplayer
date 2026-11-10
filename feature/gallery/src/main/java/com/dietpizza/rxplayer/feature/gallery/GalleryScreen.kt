@@ -23,9 +23,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,9 +108,9 @@ fun GalleryScreen(
 
 private val AlbumSortOptions = listOf(
     SortOption(AlbumSortField.DATE_MODIFIED, R.string.gallery_sort_date_modified, RxIcons.CalendarToday, R.string.sort_dir_oldest, R.string.sort_dir_newest),
-    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha, R.string.sort_dir_az, R.string.sort_dir_za),
-    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count, RxIcons.FormatListNumbered, R.string.sort_dir_fewest, R.string.sort_dir_most),
-    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size, RxIcons.Storage, R.string.sort_dir_smallest, R.string.sort_dir_largest),
+    SortOption(AlbumSortField.NAME, R.string.gallery_sort_name, RxIcons.TextFields, R.string.sort_dir_az, R.string.sort_dir_za),
+    SortOption(AlbumSortField.COUNT, R.string.gallery_sort_count, RxIcons.Tag, R.string.sort_dir_fewest, R.string.sort_dir_most),
+    SortOption(AlbumSortField.SIZE, R.string.gallery_sort_folder_size, RxIcons.Database, R.string.sort_dir_smallest, R.string.sort_dir_largest),
 )
 
 @Composable
@@ -126,13 +125,12 @@ internal fun GalleryContent(
     onOpenSearch: () -> Unit = {},
     onNewAlbum: () -> Unit = {},
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val background = MaterialTheme.colorScheme.surfaceContainer
     Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier,
         containerColor = background,
         topBar = {
-            MediumFlexibleTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.gallery_title)) },
                 actions = {
                     IconButton(onClick = onOpenSearch) {
@@ -153,7 +151,6 @@ internal fun GalleryContent(
                     containerColor = background,
                     scrolledContainerColor = background,
                 ),
-                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->

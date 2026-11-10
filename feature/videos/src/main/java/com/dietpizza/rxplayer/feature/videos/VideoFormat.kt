@@ -1,5 +1,7 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -60,6 +62,13 @@ internal object VideoFormat {
             else -> "${short}p"
         }
     }
+
+    /** Medium date in the user's locale ("12 Mar 2026"); empty when unknown. */
+    fun date(ms: Long): String =
+        if (ms <= 0) "" else dateFormat.get()!!.format(Date(ms))
+
+    /** DateFormat isn't thread-safe and is costly to create: one per mapping thread. */
+    private val dateFormat = ThreadLocal.withInitial { DateFormat.getDateInstance(DateFormat.MEDIUM) }
 
     private val UNITS = arrayOf("KB", "MB", "GB", "TB")
 }

@@ -1,6 +1,8 @@
 package com.dietpizza.rxplayer.core.datastore
 
 import com.dietpizza.rxplayer.core.model.AlbumSort
+import com.dietpizza.rxplayer.core.model.FolderField
+import com.dietpizza.rxplayer.core.model.VideoField
 import com.dietpizza.rxplayer.core.model.LibrarySettings
 import com.dietpizza.rxplayer.core.model.MediaSort
 import com.dietpizza.rxplayer.core.model.VideoSort
@@ -25,4 +27,10 @@ interface LibrarySettingsRepository {
     suspend fun setMediaSort(sort: MediaSort)
 
     suspend fun setVideoFolderSort(sort: AlbumSort)
+
+    suspend fun setFolderViewMode(mode: VideoViewMode)
+
+    suspend fun setFolderFields(fields: Set<FolderField>)
+
+    suspend fun setVideoFields(fields: Set<VideoField>)
 }

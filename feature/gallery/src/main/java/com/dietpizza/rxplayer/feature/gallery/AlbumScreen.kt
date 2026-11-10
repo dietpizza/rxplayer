@@ -308,8 +308,8 @@ internal class AlbumMenu(val onRename: () -> Unit, val onDelete: () -> Unit)
 
 private val MediaSortOptions = listOf(
     SortOption(MediaSortField.DATE_TAKEN, R.string.gallery_sort_date_taken, RxIcons.Event, R.string.sort_dir_oldest, R.string.sort_dir_newest),
-    SortOption(MediaSortField.NAME, R.string.gallery_sort_name, RxIcons.SortByAlpha, R.string.sort_dir_az, R.string.sort_dir_za),
-    SortOption(MediaSortField.SIZE, R.string.gallery_sort_size, RxIcons.Storage, R.string.sort_dir_smallest, R.string.sort_dir_largest),
+    SortOption(MediaSortField.NAME, R.string.gallery_sort_name, RxIcons.TextFields, R.string.sort_dir_az, R.string.sort_dir_za),
+    SortOption(MediaSortField.SIZE, R.string.gallery_sort_size, RxIcons.Database, R.string.sort_dir_smallest, R.string.sort_dir_largest),
 )
 
 @Composable

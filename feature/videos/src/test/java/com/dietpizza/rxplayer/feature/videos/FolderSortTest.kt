@@ -32,21 +32,4 @@ class FolderSortTest {
         assertEquals(listOf("ep 1", "Ep 2", "Ep 10"), order(VideoSort.defaultFor(VideoSortField.DURATION)))
     }
 
-    @Test
-    fun playableIndexSkipsMissingItems() {
-        val row = VideoRow("k", "", "t", null, "1 B", null, false, 0f, false)
-        val state = PlaylistUiState.Content(
-            title = "p",
-            summary = "",
-            items = listOf(
-                PlaylistItemRow("a", row, "a"),
-                PlaylistItemRow("gone", null, "gone"),
-                PlaylistItemRow("c", row, "c"),
-            ),
-        )
-        assertEquals(listOf(MediaKey("a"), MediaKey("c")), state.playable)
-        assertEquals(0, state.playableIndex(0))
-        assertEquals(-1, state.playableIndex(1))
-        assertEquals(1, state.playableIndex(2))
-    }
 }

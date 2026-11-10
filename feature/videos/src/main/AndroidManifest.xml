@@ -4,8 +4,5 @@
         <activity
             android:name=".FolderActivity"
             android:exported="false" />
-        <activity
-            android:name=".PlaylistActivity"
-            android:exported="false" />
     </application>
 </manifest>

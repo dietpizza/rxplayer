@@ -7,8 +7,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.dietpizza.rxplayer.core.model.AlbumSort
 import com.dietpizza.rxplayer.core.model.AlbumSortField
+import com.dietpizza.rxplayer.core.model.FolderField
+import com.dietpizza.rxplayer.core.model.VideoField
 import com.dietpizza.rxplayer.core.model.LibrarySettings
 import com.dietpizza.rxplayer.core.model.MediaSort
 import com.dietpizza.rxplayer.core.model.MediaSortField
@@ -79,6 +82,21 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         }
     }
 
+    override suspend fun setFolderViewMode(mode: VideoViewMode) {
+        dataStore.edit { it[Keys.FOLDER_VIEW_MODE] = mode.name }
+    }
+
+    override suspend fun setFolderFields(fields: Set<FolderField>) {
+        dataStore.edit { it[Keys.FOLDER_FIELDS] = fields.mapTo(HashSet()) { f -> f.name } }
+    }
+
+    override suspend fun setVideoFields(fields: Set<VideoField>) {
+        dataStore.edit { it[Keys.VIDEO_FIELDS] = fields.mapTo(HashSet()) { f -> f.name } }
+    }
+
+    private inline fun <reified E : Enum<E>> enumSet(names: Set<String>?, fallback: Set<E>): Set<E> =
+        names?.mapNotNullTo(LinkedHashSet()) { n -> enumValues<E>().firstOrNull { it.name == n } } ?: fallback
+
     private fun albumSort(prefs: Preferences, field: Preferences.Key<String>, desc: Preferences.Key<Boolean>, fallback: AlbumSort): AlbumSort {
         val f = prefs[field]?.let { n -> AlbumSortField.entries.firstOrNull { it.name == n } } ?: return fallback
         return AlbumSort(f, prefs[desc] ?: AlbumSort.defaultFor(f).descending)
@@ -104,6 +122,11 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
                 ?.let { f -> MediaSort(f, prefs[Keys.MEDIA_SORT_DESC] ?: MediaSort.defaultFor(f).descending) }
                 ?: d.mediaSort,
             videoFolderSort = albumSort(prefs, Keys.FOLDER_SORT_FIELD, Keys.FOLDER_SORT_DESC, d.videoFolderSort),
+            folderViewMode = prefs[Keys.FOLDER_VIEW_MODE]
+                ?.let { n -> VideoViewMode.entries.firstOrNull { it.name == n } }
+                ?: d.folderViewMode,
+            folderFields = enumSet(prefs[Keys.FOLDER_FIELDS], d.folderFields),
+            videoFields = enumSet(prefs[Keys.VIDEO_FIELDS], d.videoFields),
         )
     }
 
@@ -119,5 +142,8 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         val MEDIA_SORT_DESC = booleanPreferencesKey("library.media_sort_descending")
         val FOLDER_SORT_FIELD = stringPreferencesKey("library.video_folder_sort_field")
         val FOLDER_SORT_DESC = booleanPreferencesKey("library.video_folder_sort_descending")
+        val FOLDER_VIEW_MODE = stringPreferencesKey("library.video_folder_view_mode")
+        val FOLDER_FIELDS = stringSetPreferencesKey("library.video_folder_fields")
+        val VIDEO_FIELDS = stringSetPreferencesKey("library.video_fields")
     }
 }

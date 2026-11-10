@@ -194,26 +194,6 @@ internal fun FolderPickerDialog(
     onDismiss = onDismiss,
 )
 
-@Composable
-internal fun PlaylistPickerDialog(
-    playlists: List<PlaylistRow>,
-    onPick: (PlaylistRow) -> Unit,
-    onNewPlaylist: () -> Unit,
-    onDismiss: () -> Unit,
-) = PickerDialog(
-    title = stringResource(R.string.playlist_add_to),
-    newLabel = stringResource(R.string.playlist_new),
-    newIcon = RxIcons.Add,
-    itemIcon = RxIcons.PlaylistPlay,
-    items = playlists,
-    key = { it.id },
-    label = { it.name },
-    supporting = { it.summary },
-    onNew = onNewPlaylist,
-    onPick = onPick,
-    onDismiss = onDismiss,
-)
-
 /** Copy/move progress. Not dismissable by tapping outside; [onCancel] null hides Cancel. */
 @Composable
 internal fun ProgressDialog(title: String, fraction: Float, onCancel: (() -> Unit)?) {
@@ -228,7 +208,7 @@ internal fun ProgressDialog(title: String, fraction: Float, onCancel: (() -> Uni
 }
 
 /** Which dialog a screen is showing; saved across rotation. */
-internal enum class LibraryDialog { NONE, RENAME, DELETE, MOVE, COPY, NEW_FOLDER_MOVE, NEW_FOLDER_COPY, ADD_TO_PLAYLIST, NEW_PLAYLIST }
+internal enum class LibraryDialog { NONE, RENAME, DELETE, MOVE, COPY, NEW_FOLDER_MOVE, NEW_FOLDER_COPY }
 
 @Composable
 internal fun rememberDialogState() = rememberSaveable { mutableStateOf(LibraryDialog.NONE) }

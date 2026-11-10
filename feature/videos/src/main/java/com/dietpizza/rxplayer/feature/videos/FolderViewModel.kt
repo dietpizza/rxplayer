@@ -8,12 +8,13 @@ import com.dietpizza.rxplayer.core.data.FavouritesRepository
 import com.dietpizza.rxplayer.core.data.FileOpException
 import com.dietpizza.rxplayer.core.data.MediaFileService
 import com.dietpizza.rxplayer.core.data.NaturalOrderComparator
-import com.dietpizza.rxplayer.core.data.PlaylistsRepository
 import com.dietpizza.rxplayer.core.data.VideoRepository
 import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
 import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.model.MediaKey
 import com.dietpizza.rxplayer.core.model.VideoItem
+import com.dietpizza.rxplayer.core.model.VideoField
+import com.dietpizza.rxplayer.core.model.LibrarySettings
 import com.dietpizza.rxplayer.core.model.VideoSort
 import com.dietpizza.rxplayer.core.model.VideoSortField
 import com.dietpizza.rxplayer.core.model.VideoViewMode
@@ -55,6 +56,8 @@ data class VideoRow(
     /** Played to the end: de-emphasised. */
     val watched: Boolean,
     val isFavourite: Boolean = false,
+    /** Date modified, "12 Mar 2026". */
+    val date: String = "",
 )
 
 @Immutable
@@ -72,6 +75,7 @@ sealed interface FolderUiState {
         val playlist: List<MediaKey>,
         val grid: Boolean = false,
         val sort: VideoSort = VideoSort.DEFAULT,
+        val fields: Set<VideoField> = LibrarySettings.DEFAULT_VIDEO_FIELDS,
     ) : FolderUiState
 }
 
@@ -85,7 +89,6 @@ class FolderViewModel @Inject constructor(
     private val repository: VideoRepository,
     private val settings: LibrarySettingsRepository,
     private val favourites: FavouritesRepository,
-    private val playlists: PlaylistsRepository,
     private val files: MediaFileService,
 ) : ViewModel() {
 
@@ -98,13 +101,14 @@ class FolderViewModel @Inject constructor(
     /** Applied immediately on toggle so the switch never waits for a DataStore round trip. */
     private val viewModeOverride = MutableStateFlow<VideoViewMode?>(null)
     private val sortOverride = MutableStateFlow<VideoSort?>(null)
+    private val fieldsOverride = MutableStateFlow<Set<VideoField>?>(null)
 
-    private val librarySettings = combine(settings.settings, viewModeOverride, sortOverride) { s, mode, sort ->
-        (mode ?: s.videoViewMode) to (sort ?: s.videoSort)
+    private val librarySettings = combine(settings.settings, viewModeOverride, sortOverride, fieldsOverride) { s, mode, sort, fields ->
+        ViewPrefs(mode ?: s.videoViewMode, sort ?: s.videoSort, fields ?: s.videoFields)
     }
 
     val uiState: StateFlow<FolderUiState> =
-        combine(repository.videosIn(folderPath), librarySettings, favourites.favourites) { videos, (mode, sort), favs ->
+        combine(repository.videosIn(folderPath), librarySettings, favourites.favourites) { videos, (mode, sort, fields), favs ->
             val sorted = videos.sortedWith(comparatorFor(sort))
             FolderUiState.Content(
                 title = title,
@@ -113,6 +117,7 @@ class FolderViewModel @Inject constructor(
                 playlist = sorted.map { it.key },
                 grid = mode == VideoViewMode.GRID,
                 sort = sort,
+                fields = fields,
             )
         }
             .flowOn(Dispatchers.Default)
@@ -154,6 +159,11 @@ class FolderViewModel @Inject constructor(
         viewModelScope.launch { settings.setVideoViewMode(mode) }
     }
 
+    fun setFields(fields: Set<VideoField>) {
+        fieldsOverride.value = fields
+        viewModelScope.launch { settings.setVideoFields(fields) }
+    }
+
     fun setSort(sort: VideoSort) {
         sortOverride.value = sort
         viewModelScope.launch { settings.setVideoSort(sort) }
@@ -186,28 +196,6 @@ class FolderViewModel @Inject constructor(
         .map { folders -> folders.filter { it.path != folderPath }.map { it.toRow() } }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1_000), emptyList())
-
-    val pickerPlaylists: StateFlow<List<PlaylistRow>> = playlists.playlists()
-        .map { list -> list.map { it.toRow(coverUri = null) } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1_000), emptyList())
-
-    fun addSelectedToPlaylist(playlistId: Long, playlistName: String) {
-        val keys = selectedKeys()
-        viewModelScope.launch {
-            val added = playlists.add(playlistId, keys)
-            clearSelection()
-            _messages.send(LibraryMessage.AddedToPlaylist(added, playlistName))
-        }
-    }
-
-    fun addSelectedToNewPlaylist(name: String) {
-        val keys = selectedKeys()
-        viewModelScope.launch {
-            playlists.create(name, keys)
-            clearSelection()
-            _messages.send(LibraryMessage.AddedToPlaylist(keys.size, name))
-        }
-    }
 
     /** The single selected video's file name, for the rename dialog. */
     fun renameCandidate(): String? =
@@ -303,5 +291,8 @@ internal fun VideoItem.toRow(isFavourite: Boolean = false): VideoRow {
         resumeFraction = if (playback == null || watched) 0f else playback.fraction,
         watched = watched,
         isFavourite = isFavourite,
+        date = VideoFormat.date(dateModifiedMs),
     )
 }
+
+private data class ViewPrefs(val mode: VideoViewMode, val sort: VideoSort, val fields: Set<VideoField>)
