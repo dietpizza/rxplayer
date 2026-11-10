@@ -475,7 +475,7 @@ private fun FolderListRow(folder: FolderRow, selected: Boolean, selecting: Boole
         selected = selected,
         onClick = onClick,
         onLongClick = onLongClick,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         leadingContent = {
             Box {
                 MediaThumbnail(

@@ -485,7 +485,7 @@ private fun VideoListItem(
         selected = selected,
         onClick = onClick,
         onLongClick = onLongClick,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
         leadingContent = {
             Box {
                 VideoThumbnail(
