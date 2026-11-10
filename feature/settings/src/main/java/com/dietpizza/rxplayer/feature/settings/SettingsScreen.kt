@@ -174,6 +174,7 @@ private fun AppearanceSection(
     SectionHeader(stringResource(R.string.settings_section_appearance))
     SettingsGroup {
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
             leadingContent = { Icon(RxIcons.Contrast, contentDescription = null) },
             supportingContent = {
@@ -186,6 +187,7 @@ private fun AppearanceSection(
         ) { Text(stringResource(R.string.settings_theme)) }
 
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             // onClick (not checked/onCheckedChange) so the row itself never takes a "selected" highlight;
             // the Switch alone shows state.
             onClick = { onDynamicColorChange(!appearance.dynamicColor) },
@@ -198,6 +200,7 @@ private fun AppearanceSection(
 
         val canBeDark = appearance.themeMode != ThemeMode.LIGHT
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = { onPureBlackChange(!appearance.pureBlack) },
             modifier = Modifier.switchSemantics(appearance.pureBlack),
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
@@ -228,21 +231,18 @@ private fun ThemeModeButtonGroup(
         modifier = modifier
             .fillMaxWidth()
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        horizontalArrangement = Arrangement.spacedBy(RxBars.ButtonGroupGap),
     ) {
         options.forEachIndexed { index, mode ->
             val checked = mode == selected
             ToggleButton(
+                colors = RxBars.toggleButtonColors(),
                 checked = checked,
                 onCheckedChange = { onSelect(mode) },
                 modifier = Modifier
                     .weight(1f)
                     .semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
+                shapes = RxBars.connectedShapes(index, options.lastIndex),
             ) {
                 Icon(
                     imageVector = if (checked) RxIcons.Check else mode.icon,
@@ -282,11 +282,13 @@ private fun AboutSection(appInfo: AppInfo) {
     SectionHeader(stringResource(R.string.settings_section_about))
     SettingsGroup {
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
             leadingContent = { Icon(RxIcons.PlayCircle, contentDescription = null) },
             supportingContent = { Text(stringResource(R.string.settings_about_summary)) },
         ) { Text(appInfo.appName) }
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
             leadingContent = { Icon(RxIcons.Info, contentDescription = null) },
             supportingContent = { Text(appInfo.versionName) },

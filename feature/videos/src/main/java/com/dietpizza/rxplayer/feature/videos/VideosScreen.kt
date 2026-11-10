@@ -249,6 +249,7 @@ private fun FolderList(
     ) {
         items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
             ListItem(
+                colors = RxBars.flatListItemColors(),
                 onClick = { onOpenFolder(folder) },
                 verticalAlignment = Alignment.CenterVertically,
                 leadingContent = {

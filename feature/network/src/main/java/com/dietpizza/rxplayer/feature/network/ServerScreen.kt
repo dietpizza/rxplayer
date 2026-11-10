@@ -195,20 +195,17 @@ private fun FormFields(form: ServerForm, errors: Set<FieldError>, onUpdate: ((Se
 private fun ProtocolGroup(selected: NetProtocol, onSelect: (NetProtocol) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        horizontalArrangement = Arrangement.spacedBy(RxBars.ButtonGroupGap),
     ) {
         FormProtocols.forEachIndexed { index, protocol ->
             ToggleButton(
+                colors = RxBars.toggleButtonColors(),
                 checked = protocol == selected,
                 onCheckedChange = { onSelect(protocol) },
                 modifier = Modifier
                     .weight(1f)
                     .semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    FormProtocols.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
+                shapes = RxBars.connectedShapes(index, FormProtocols.lastIndex),
             ) {
                 Text(protocol.label, maxLines = 1)
             }

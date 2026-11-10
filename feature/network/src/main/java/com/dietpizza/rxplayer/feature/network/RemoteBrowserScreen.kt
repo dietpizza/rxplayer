@@ -361,6 +361,7 @@ private fun EntryItem(
     val deleteLabel = stringResource(R.string.browser_delete)
     Box {
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = onClick,
             onLongClick = { menu = true },
             // The rename/delete menu is long-press only; expose it as TalkBack actions too.

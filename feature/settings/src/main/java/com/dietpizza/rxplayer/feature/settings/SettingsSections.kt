@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.settings
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -79,6 +80,7 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
     SectionHeader(stringResource(R.string.settings_section_library))
     SettingsGroup {
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
             leadingContent = { Icon(RxIcons.ViewList, contentDescription = null) },
             supportingContent = {
@@ -94,6 +96,7 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
         ) { Text(stringResource(R.string.settings_video_view)) }
 
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = { sortDialog = true },
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
             leadingContent = { Icon(RxIcons.Sort, contentDescription = null) },
@@ -102,6 +105,7 @@ internal fun LibrarySection(library: LibrarySettings, actions: SettingsActions) 
         ) { Text(stringResource(R.string.settings_default_sort)) }
 
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = { columnsDialog = true },
             shapes = ListItemDefaults.segmentedShapes(index = 2, count = count),
             leadingContent = { Icon(RxIcons.GridView, contentDescription = null) },
@@ -214,6 +218,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
     SettingsGroup {
         val count = 7
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
             leadingContent = { Icon(RxIcons.FastForward, contentDescription = null) },
             supportingContent = {
@@ -261,6 +266,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
         )
 
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 4, count = count),
             enabled = player.longPressSpeedEnabled,
             leadingContent = { Icon(RxIcons.Speed, contentDescription = null) },
@@ -302,6 +308,7 @@ internal fun PlayerSection(player: PlayerSettings, actions: SettingsActions) {
     SettingsGroup {
         val count = 4
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
             leadingContent = { Icon(RxIcons.Restore, contentDescription = null) },
             supportingContent = {
@@ -441,6 +448,7 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
     SectionHeader(stringResource(R.string.settings_section_storage))
     SettingsGroup {
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = actions.onClearCache,
             enabled = cacheBytes != null && cacheBytes > 0,
             shapes = ListItemDefaults.segmentedShapes(index = 0, count = count),
@@ -456,6 +464,7 @@ internal fun StorageSection(cacheBytes: Long?, actions: SettingsActions) {
             },
         ) { Text(stringResource(R.string.settings_clear_cache)) }
         SegmentedListItem(
+            colors = RxBars.cardListItemColors(),
             onClick = { confirmHistory = true },
             shapes = ListItemDefaults.segmentedShapes(index = 1, count = count),
             leadingContent = { Icon(RxIcons.History, contentDescription = null) },
@@ -517,6 +526,7 @@ internal fun SwitchRow(
     enabled: Boolean = true,
 ) {
     SegmentedListItem(
+        colors = RxBars.cardListItemColors(),
         onClick = { onChange(!checked) },
         modifier = Modifier.switchSemantics(checked),
         enabled = enabled,
@@ -545,6 +555,7 @@ private fun SliderRow(
     val shown = if (dragging) local else value
     val shownLabel = valueLabel(shown)
     SegmentedListItem(
+        colors = RxBars.cardListItemColors(),
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         leadingContent = { Icon(icon, contentDescription = null) },
         trailingContent = { Text(shownLabel, style = MaterialTheme.typography.labelLarge) },
@@ -587,22 +598,19 @@ private fun <T> ConnectedChoices(
         modifier = modifier
             .fillMaxWidth()
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        horizontalArrangement = Arrangement.spacedBy(RxBars.ButtonGroupGap),
     ) {
         options.forEachIndexed { index, option ->
             val checked = option == selected
             ToggleButton(
+                colors = RxBars.toggleButtonColors(),
                 checked = checked,
                 onCheckedChange = { onSelect(option) },
                 enabled = enabled,
                 modifier = Modifier
                     .weight(1f)
                     .semantics { role = Role.RadioButton },
-                shapes = when (index) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
+                shapes = RxBars.connectedShapes(index, options.lastIndex),
             ) {
                 if (icon != null) {
                     Icon(

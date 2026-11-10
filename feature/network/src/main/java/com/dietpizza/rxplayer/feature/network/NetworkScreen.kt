@@ -180,6 +180,7 @@ private fun ServerListItem(
 ) {
     var menu by remember { mutableStateOf(false) }
     SegmentedListItem(
+        colors = RxBars.cardListItemColors(),
         onClick = onClick,
         onLongClick = { menu = true },
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),

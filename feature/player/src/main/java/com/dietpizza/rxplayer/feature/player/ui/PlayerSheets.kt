@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -187,17 +188,13 @@ private fun ConnectedChoice(labels: List<String>, selected: Int, onSelect: (Int)
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        horizontalArrangement = Arrangement.spacedBy(RxBars.ButtonGroupGap),
     ) {
         labels.forEachIndexed { i, label ->
             ToggleButton(
                 checked = i == selected,
                 onCheckedChange = { onSelect(i) },
-                shapes = when (i) {
-                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                    labels.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                },
+                shapes = RxBars.connectedShapes(i, labels.lastIndex),
                 modifier = Modifier.weight(1f),
             ) {
                 Text(label, maxLines = 1)

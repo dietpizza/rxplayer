@@ -481,6 +481,7 @@ private fun VideoListItem(
     onLongClick: () -> Unit,
 ) {
     ListItem(
+        colors = RxBars.flatListItemColors(),
         selected = selected,
         onClick = onClick,
         onLongClick = onLongClick,
@@ -583,7 +584,7 @@ private fun VideoGrid(
 private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else RxBars.cardColor,
         border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
         Column(

@@ -121,6 +121,7 @@ fun <F> RxSortButton(
             options.forEachIndexed { index, option ->
                 val selected = option.field == current
                 SegmentedListItem(
+                    colors = RxBars.sheetListItemColors(),
                     selected = selected,
                     onClick = {
                         if (!selected) onSortChange(option.field, naturalDescending(option.field))
@@ -171,7 +172,7 @@ private fun ConnectedPair(first: PairItem, second: PairItem) {
         Modifier
             .fillMaxWidth()
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        horizontalArrangement = Arrangement.spacedBy(RxBars.ButtonGroupGap),
     ) {
         PairButton(first, leading = true, modifier = Modifier.weight(1f))
         PairButton(second, leading = false, modifier = Modifier.weight(1f))
@@ -182,13 +183,10 @@ private fun ConnectedPair(first: PairItem, second: PairItem) {
 @Composable
 private fun PairButton(item: PairItem, leading: Boolean, modifier: Modifier = Modifier) {
     ToggleButton(
+        colors = RxBars.toggleButtonColors(),
         checked = item.checked,
         onCheckedChange = { item.onClick() },
-        shapes = if (leading) {
-            ButtonGroupDefaults.connectedLeadingButtonShapes()
-        } else {
-            ButtonGroupDefaults.connectedTrailingButtonShapes()
-        },
+        shapes = RxBars.connectedShapes(if (leading) 0 else 1, lastIndex = 1),
         modifier = modifier
             .height(56.dp)
             .semantics { role = Role.RadioButton },
@@ -282,6 +280,7 @@ fun <T> RxChoiceSheet(
             choices.forEachIndexed { index, choice ->
                 val selected = choice.value == current
                 SegmentedListItem(
+                    colors = RxBars.sheetListItemColors(),
                     selected = selected,
                     onClick = {
                         onDismissRequest()
