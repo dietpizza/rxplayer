@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import com.dietpizza.rxplayer.feature.player.AppThemed
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -64,6 +65,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dietpizza.rxplayer.core.model.MediaKey
 import com.dietpizza.rxplayer.core.player.PlaybackController
@@ -117,7 +127,7 @@ internal fun ViewerScreen(
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     var slideshowFrom by remember { mutableStateOf<ViewerItem?>(null) }
-    slideshowFrom?.let { from -> ViewerSlideshowSheet(viewModel, items, from, onDismiss = { slideshowFrom = null }) }
+    slideshowFrom?.let { from -> AppThemed { ViewerSlideshowSheet(viewModel, items, from, onDismiss = { slideshowFrom = null }) } }
     val onSlideshow: (ViewerItem) -> Unit = { slideshowFrom = it }
     if (items.isEmpty()) {
         Box(Modifier.fillMaxSize().background(Color.Black))
@@ -183,11 +193,29 @@ private fun ViewerContent(
     var slideshowPlaying by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) { if (slideshow != null) chromeVisible = false }
 
-    // Inline playback follows the settled page (plan §4.1); anything else releases the player.
-    LaunchedEffect(settledItem.key, settledItem.kind) {
+    LaunchedEffect(settledItem.key) {
         zoomed = false // a photo page that settles reports its own zoom right after
-        if (settledItem.isVideo) {
-            if (controller.nowPlaying.value?.key != settledItem.key) controller.playInline(settledItem.key, loop = !slideshowOn)
+    }
+
+    // Inline playback follows the page the pager is landing on (plan §4.1). There's one video
+    // surface, so the next video may only load once the outgoing page has fully left the screen
+    // (else it would vanish mid-slide); that's still ahead of the settle, so its first frame
+    // decodes during the animation's tail. Anything else releases the player.
+    val dragged by pager.interactionSource.collectIsDraggedAsState()
+    val landingIndex by remember {
+        derivedStateOf {
+            val target = pager.targetPage
+            if (dragged || target == pager.settledPage) return@derivedStateOf pager.settledPage
+            val info = pager.layoutInfo
+            val stride = (info.pageSize + info.pageSpacing).toFloat()
+            val offsetPx = abs(target - (pager.currentPage + pager.currentPageOffsetFraction)) * stride
+            if (stride > 0f && offsetPx <= info.pageSpacing) target else pager.settledPage
+        }
+    }
+    val landingItem = items[landingIndex.coerceIn(0, items.lastIndex)]
+    LaunchedEffect(landingItem.key, landingItem.kind) {
+        if (landingItem.isVideo) {
+            if (controller.nowPlaying.value?.key != landingItem.key) controller.playInline(landingItem.key, loop = !slideshowOn)
         } else {
             controller.stop()
         }
@@ -330,6 +358,11 @@ private fun ViewerContent(
         },
     )
     val pageSpacingPx = with(density) { PAGE_SPACING.toPx() }
+    // Swipes that start in the system back-gesture strips belong to back, not to paging.
+    val gestureInsets = WindowInsets.systemGestures
+    val edgeLeftPx = maxOf(gestureInsets.getLeft(density, LayoutDirection.Ltr).toFloat(), with(density) { MIN_EDGE.toPx() })
+    val edgeRightPx = maxOf(gestureInsets.getRight(density, LayoutDirection.Ltr).toFloat(), with(density) { MIN_EDGE.toPx() })
+    val currentZoomed by rememberUpdatedState(zoomed)
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (items.any { it.isVideo }) {
@@ -346,7 +379,9 @@ private fun ViewerContent(
         }
         HorizontalPager(
             state = pager,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .ignoreEdgeSwipes(edgeLeftPx, edgeRightPx, enabled = { !currentZoomed }),
             key = { items[it].key.value },
             beyondViewportPageCount = 1,
             pageSpacing = PAGE_SPACING,
@@ -457,7 +492,7 @@ private fun ViewerContent(
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp))
     }
 
-    if (showInfo && morph.isInline) {
+    if (showInfo && morph.isInline) AppThemed {
         ViewerInfoSheet(
             item = settledItem,
             meta = metas[settledItem.key],
@@ -468,7 +503,7 @@ private fun ViewerContent(
         )
     }
 
-    confirmDelete?.let { item ->
+    confirmDelete?.let { item -> AppThemed {
         DeleteDialog(
             item = item,
             onDismiss = { confirmDelete = null },
@@ -486,7 +521,7 @@ private fun ViewerContent(
                 }
             },
         )
-    }
+    } }
 }
 
 @Composable
@@ -528,6 +563,26 @@ private const val DEFAULT_ASPECT = 16f / 9f
 private val CARD_SIDE = 12.dp
 private val CARD_RADIUS = 12.dp
 private val PAGE_SPACING = 16.dp
+private val MIN_EDGE = 24.dp
+
+/**
+ * Swallows the drag of a finger that lands within [leftPx]/[rightPx] of the sides, before the
+ * pager sees it, so an edge back swipe never slides to the next item. Taps there still work.
+ */
+private fun Modifier.ignoreEdgeSwipes(leftPx: Float, rightPx: Float, enabled: () -> Boolean): Modifier =
+    pointerInput(leftPx, rightPx) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val x = down.position.x
+            if (!enabled() || (x > leftPx && x < size.width - rightPx)) return@awaitEachGesture
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (change.positionChanged()) change.consume()
+                if (!change.pressed) break
+            }
+        }
+    }
 
 /** The slideshow options sheet over the viewer's own items; Start saves the options and launches. */
 @Composable

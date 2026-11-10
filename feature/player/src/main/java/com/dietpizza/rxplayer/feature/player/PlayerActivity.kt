@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player
 
+import androidx.compose.runtime.CompositionLocalProvider
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -150,6 +151,7 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
                     pureBlack = true,
                 ),
             ) {
+              CompositionLocalProvider(LocalAppAppearance provides appearance) {
                 val request = viewerRequest
                 when {
                     mode == Mode.Viewer && request != null -> ViewerScreen(
@@ -169,6 +171,7 @@ class PlayerActivity : RxActivity(), FullPlayerHost {
                     )
                     else -> Box(Modifier.fillMaxSize().background(Color.Black))
                 }
+              }
             }
         }
 

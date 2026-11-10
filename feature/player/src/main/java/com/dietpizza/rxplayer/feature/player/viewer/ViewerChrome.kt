@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import com.dietpizza.rxplayer.feature.player.AppThemed
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -180,6 +181,7 @@ private fun ViewerOverflowMenu(
         IconButton(onClick = { expanded = true }, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
             Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.viewer_more_options), tint = Color.White)
         }
+        AppThemed {
         RxMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -192,6 +194,7 @@ private fun ViewerOverflowMenu(
                 if (item.canDelete) listOf(RxMenuItem(delete, onDelete, RxIcons.Delete, destructive = true)) else emptyList(),
             ),
         )
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.player.ui
 
+import com.dietpizza.rxplayer.feature.player.AppThemed
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -257,7 +258,7 @@ fun FullPlayer(
         }
     }
 
-    if (!inPip) {
+    if (!inPip) AppThemed {
         when (ui.sheet) {
             PlayerSheet.None -> Unit
             PlayerSheet.Audio -> AudioTrackSheet(controller, onDismiss = { ui.sheet = PlayerSheet.None; ui.bump() })

@@ -44,18 +44,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import com.dietpizza.rxplayer.core.ui.thumbnail.rememberRxImageLoader
+import com.dietpizza.rxplayer.core.ui.thumbnail.MediaStoreThumbnail
+import coil3.request.ImageRequest
+import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
 import com.dietpizza.rxplayer.core.player.PlaybackController
-import com.dietpizza.rxplayer.core.ui.thumbnail.MediaStoreThumbnail
-import com.dietpizza.rxplayer.core.ui.thumbnail.rememberRxImageLoader
 import com.dietpizza.rxplayer.feature.player.ui.DoubleTapPop
 import com.dietpizza.rxplayer.feature.player.ui.FullPlayerState
 import com.dietpizza.rxplayer.feature.player.ui.formatTime
@@ -132,18 +132,18 @@ internal fun VideoPage(
         }
         if (active) InlineError(controller, geo, morph, aspect)
         if (active && morph.isInline) DoubleTapPop(pop.key, pop.kind, pop.seconds)
-        if (active) {
-            InlineControls(
-                controller = controller,
-                visible = chromeVisible,
-                morph = morph,
-                onExpand = onExpand,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
-                    .padding(bottom = InlineControlsBottomGap),
-            )
-        }
+        // On every video page, so they're already there while swiping; live once this page plays.
+        InlineControls(
+            controller = controller,
+            live = active,
+            visible = chromeVisible,
+            morph = morph,
+            onExpand = onExpand,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
+                .padding(bottom = InlineControlsBottomGap),
+        )
     }
 }
 
@@ -196,6 +196,7 @@ private fun InlineError(controller: PlaybackController, geo: ViewerGeometry, mor
 @Composable
 private fun InlineControls(
     controller: PlaybackController,
+    live: Boolean,
     visible: Boolean,
     morph: MorphState,
     onExpand: () -> Unit,
@@ -208,12 +209,12 @@ private fun InlineControls(
         enter = fadeIn(motion.defaultEffectsSpec()),
         exit = fadeOut(motion.defaultEffectsSpec()),
     ) {
-        InlineControlsRow(controller, morph, onExpand)
+        InlineControlsRow(controller, live, morph, onExpand)
     }
 }
 
 @Composable
-private fun InlineControlsRow(controller: PlaybackController, morph: MorphState, onExpand: () -> Unit) {
+private fun InlineControlsRow(controller: PlaybackController, live: Boolean, morph: MorphState, onExpand: () -> Unit) {
     val playWhenReady by controller.playWhenReady.collectAsStateWithLifecycle()
     val ended by controller.isEnded.collectAsStateWithLifecycle()
     val muted by controller.isMuted.collectAsStateWithLifecycle()
@@ -223,20 +224,21 @@ private fun InlineControlsRow(controller: PlaybackController, morph: MorphState,
             .height(InlineControlsHeight)
             .padding(horizontal = 8.dp)
             .graphicsLayer {
-                alpha = MorphMath.inlineChromeAlpha(morph.progress.value)
+                alpha = if (live) MorphMath.inlineChromeAlpha(morph.progress.value) else 1f
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val playing = playWhenReady && !ended
-        IconButton(onClick = controller::togglePlayPause) {
+        // Not playing yet: shown as it will be once it starts (inline video autoplays).
+        val playing = !live || (playWhenReady && !ended)
+        IconButton(onClick = { if (live) controller.togglePlayPause() }) {
             Icon(
                 if (playing) RxIcons.Pause else RxIcons.PlayArrow,
                 contentDescription = if (playing) "Pause" else "Play",
                 tint = Color.White,
             )
         }
-        InlineScrubBar(controller, Modifier.weight(1f))
+        InlineScrubBar(controller, live, Modifier.weight(1f))
         IconButton(onClick = controller::toggleMute) {
             Icon(
                 if (muted) RxIcons.VolumeOff else RxIcons.VolumeUp,
@@ -244,7 +246,7 @@ private fun InlineControlsRow(controller: PlaybackController, morph: MorphState,
                 tint = Color.White,
             )
         }
-        IconButton(onClick = onExpand) {
+        IconButton(onClick = { if (live) onExpand() }) {
             Icon(RxIcons.OpenInFull, contentDescription = "Full screen", tint = Color.White)
         }
     }
@@ -253,9 +255,11 @@ private fun InlineControlsRow(controller: PlaybackController, morph: MorphState,
 /** Position text + a scrub slider using the controller's live seek (only this leaf ticks). */
 
 @Composable
-private fun InlineScrubBar(controller: PlaybackController, modifier: Modifier) {
-    val position by controller.positionMs.collectAsStateWithLifecycle()
-    val duration by controller.durationMs.collectAsStateWithLifecycle()
+private fun InlineScrubBar(controller: PlaybackController, live: Boolean, modifier: Modifier) {
+    val livePosition by controller.positionMs.collectAsStateWithLifecycle()
+    val liveDuration by controller.durationMs.collectAsStateWithLifecycle()
+    val position = if (live) livePosition else 0L
+    val duration = if (live) liveDuration else 0L
     val max = duration.coerceAtLeast(1L).toFloat()
     val state = remember(max) { SliderState(value = 0f, trackRange = 0f..max) }
     var dragging by remember { mutableStateOf(false) }
