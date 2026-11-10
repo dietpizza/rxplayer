@@ -223,7 +223,7 @@ fun FullPlayer(
         if (!inPip) {
             BufferingIndicator(controller, ui, Modifier.align(Alignment.Center))
             SwipeSeekOverlay(controller, ui, Modifier.align(Alignment.Center))
-            DoubleTapPop(ui)
+            DoubleTapPop(ui.popKey, ui.popKind, ui.popSeconds)
             SpeedBoostPill(controller, Modifier.align(Alignment.TopCenter).padding(top = 72.dp))
             ZoomIndicator(ui, Modifier.align(Alignment.TopCenter).padding(top = 72.dp))
             CenterToast(ui, Modifier.align(Alignment.Center))
@@ -414,8 +414,7 @@ private fun SwipeSeekOverlay(controller: PlaybackController, ui: FullPlayerState
 
 /** Pops after a double tap: play/pause in the centre, ⏪/⏩ with the seconds on that side. */
 @Composable
-private fun BoxScope.DoubleTapPop(ui: FullPlayerState) {
-    val key = ui.popKey
+internal fun BoxScope.DoubleTapPop(key: Int, kind: PopKind, seconds: Int) {
     if (key == 0) return
     val scale = remember { Animatable(0.6f) }
     val alpha = remember { Animatable(0f) }
@@ -429,7 +428,6 @@ private fun BoxScope.DoubleTapPop(ui: FullPlayerState) {
         delay(550)
         alpha.animateTo(0f, motion.defaultEffectsSpec())
     }
-    val kind = ui.popKind
     val alignment = when (kind) {
         PopKind.Back -> BiasAlignment(-0.6f, 0f)
         PopKind.Forward -> BiasAlignment(0.6f, 0f)
@@ -461,7 +459,7 @@ private fun BoxScope.DoubleTapPop(ui: FullPlayerState) {
             )
             if (kind.isSeek) {
                 Text(
-                    (if (kind == PopKind.Back) "-" else "+") + ui.popSeconds + "s",
+                    (if (kind == PopKind.Back) "-" else "+") + seconds + "s",
                     style = MaterialTheme.typography.labelLarge,
                 )
             }

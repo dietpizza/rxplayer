@@ -154,6 +154,18 @@ interface MediaFileService {
 
     /** Creates a folder for the move/copy picker; returns its absolute path or the error. */
     suspend fun createFolder(parentDir: String, name: String): Result<String>
+
+    /**
+     * Renames the folder [path] (to [newName], in the same parent) and carries playback state,
+     * favourites and album memberships over to the new paths. Returns the new folder path.
+     */
+    suspend fun renameFolder(path: String, newName: String): Result<String>
+
+    /**
+     * Permanently deletes [keys] (the folder's media), then the folder [path] itself if nothing
+     * else is left in it. Other files in the folder are never touched.
+     */
+    suspend fun deleteFolder(path: String, keys: List<MediaKey>): List<MediaFileResult>
 }
 
 /** Thrown in [Result.failure] by [MediaFileService.createFolder]. */

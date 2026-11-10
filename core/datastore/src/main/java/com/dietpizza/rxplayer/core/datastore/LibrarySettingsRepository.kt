@@ -33,4 +33,11 @@ interface LibrarySettingsRepository {
     suspend fun setFolderFields(fields: Set<FolderField>)
 
     suspend fun setVideoFields(fields: Set<VideoField>)
+
+    suspend fun setAlbumPinned(path: String, pinned: Boolean)
+
+    suspend fun setVideoFolderPinned(path: String, pinned: Boolean)
+
+    /** A folder was renamed: keep its pins (Gallery and Videos), and those of folders inside it. */
+    suspend fun movePins(oldPath: String, newPath: String)
 }

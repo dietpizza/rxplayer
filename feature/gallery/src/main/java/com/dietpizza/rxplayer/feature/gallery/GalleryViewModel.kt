@@ -8,7 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.dietpizza.rxplayer.core.datastore.LibrarySettingsRepository
 import com.dietpizza.rxplayer.core.data.AlbumsRepository
 import com.dietpizza.rxplayer.core.data.FavouritesRepository
+import com.dietpizza.rxplayer.core.data.FileOpException
 import com.dietpizza.rxplayer.core.data.GalleryRepository
+import com.dietpizza.rxplayer.core.data.MediaFileService
+import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.model.AlbumSort
 import com.dietpizza.rxplayer.core.model.AlbumSortField
 import com.dietpizza.rxplayer.core.model.GalleryAlbum
@@ -19,7 +22,11 @@ import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -45,6 +52,8 @@ data class AlbumTile(
     val kind: AlbumKind = if (virtual != null) AlbumKind.VIRTUAL else AlbumKind.FOLDER,
     /** Custom albums only. */
     val customAlbumId: Long = 0L,
+    /** Folder albums only: the user pinned it (it sits in the Pinned section). */
+    val pinned: Boolean = false,
 )
 
 enum class AlbumKind { FOLDER, VIRTUAL, FAVOURITES, CUSTOM }
@@ -58,6 +67,8 @@ sealed interface GalleryUiState {
         /** The pinned row (plan §4 #2): Favourites, custom albums, All videos, Camera. */
         val pinned: List<AlbumTile>,
         val albums: List<AlbumTile>,
+        /** Folder albums the user pinned, in the same sort as [albums] (which leaves them out). */
+        val pinnedAlbums: List<AlbumTile> = emptyList(),
     ) : GalleryUiState
 }
 
@@ -65,11 +76,22 @@ sealed interface GalleryUiState {
 class GalleryViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context,
-    repository: GalleryRepository,
     favourites: FavouritesRepository,
     private val customAlbums: AlbumsRepository,
     private val librarySettings: LibrarySettingsRepository,
+    private val repository: GalleryRepository,
+    private val files: MediaFileService,
 ) : ViewModel() {
+
+    /** One-off results ("Deleted 12 items") for a toast. */
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    /** Set on tap so the pin shows this frame; DataStore catches up behind it. */
+    private val pinOverride = MutableStateFlow<Set<String>?>(null)
+    private val pinnedPaths: Flow<Set<String>> =
+        combine(librarySettings.settings.map { it.pinnedAlbums }, pinOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
 
     /** Set on tap so the grid re-sorts this frame; DataStore catches up behind it. */
     private val sortOverride = MutableStateFlow<AlbumSort?>(null)
@@ -110,13 +132,16 @@ class GalleryViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<GalleryUiState> = sortFlow
         .flatMapLatest { sort ->
-            combine(keyedTiles, repository.virtualAlbums(), repository.albums(sort)) { keyed, virtual, albums ->
+            combine(keyedTiles, repository.virtualAlbums(), repository.albums(sort), pinnedPaths) { keyed, virtual, albums, pins ->
                 if (virtual.isEmpty() && albums.isEmpty()) {
                     GalleryUiState.Empty
                 } else {
+                    // Same sort for both sections: just split the sorted list.
+                    val (pinnedAlbums, rest) = albums.map { it.toTile(it.path in pins) }.partition { it.pinned }
                     GalleryUiState.Content(
                         pinned = keyed + virtual.map { it.toTile() },
-                        albums = albums.map { it.toTile() },
+                        albums = rest,
+                        pinnedAlbums = pinnedAlbums,
                     )
                 }
             }
@@ -129,6 +154,51 @@ class GalleryViewModel @Inject constructor(
         viewModelScope.launch { customAlbums.create(name) }
     }
 
+    fun setPinned(album: AlbumTile, pinned: Boolean) {
+        val current = pinOverride.value ?: currentPins()
+        pinOverride.value = if (pinned) current + album.path else current - album.path
+        viewModelScope.launch { librarySettings.setAlbumPinned(album.path, pinned) }
+    }
+
+    private fun currentPins(): Set<String> =
+        (uiState.value as? GalleryUiState.Content)?.pinnedAlbums?.mapTo(HashSet()) { it.path } ?: emptySet()
+
+    /** Renames the album's folder on disk. [onDone] gets null on success, else why it failed. */
+    fun renameAlbum(album: AlbumTile, name: String, onDone: (FileOpError?) -> Unit) {
+        viewModelScope.launch {
+            val result = files.renameFolder(album.path, name)
+            result.onSuccess { newPath ->
+                if (newPath != album.path) {
+                    pinOverride.value = null
+                    librarySettings.movePins(album.path, newPath)
+                }
+                _messages.tryEmit(context.getString(R.string.msg_renamed))
+            }
+            onDone(result.exceptionOrNull()?.let { (it as? FileOpException)?.error ?: FileOpError.IO })
+        }
+    }
+
+    /** Permanently deletes every photo and video in the album's folder, then the folder if it's empty. */
+    fun deleteAlbum(album: AlbumTile) {
+        viewModelScope.launch {
+            val keys = repository.items(album.path).first().map { it.key }
+            val results = files.deleteFolder(album.path, keys)
+            val failed = results.count { !it.isSuccess }
+            val ok = results.size - failed
+            if (album.pinned && failed == 0) {
+                pinOverride.value = null
+                librarySettings.setAlbumPinned(album.path, false)
+            }
+            _messages.tryEmit(
+                if (failed == 0) {
+                    context.resources.getQuantityString(R.plurals.msg_deleted, ok, ok)
+                } else {
+                    context.resources.getQuantityString(R.plurals.msg_failed, results.size, failed, results.size)
+                },
+            )
+        }
+    }
+
     private fun countLabel(n: Int): String =
         context.resources.getQuantityString(R.plurals.gallery_item_count, n, GalleryFormat.count(n))
 
@@ -137,7 +207,7 @@ class GalleryViewModel @Inject constructor(
         viewModelScope.launch { librarySettings.setAlbumSort(sort) }
     }
 
-    private fun GalleryAlbum.toTile() = AlbumTile(
+    private fun GalleryAlbum.toTile(pinned: Boolean = false) = AlbumTile(
         id = id,
         path = path,
         name = when (virtual) {
@@ -148,6 +218,7 @@ class GalleryViewModel @Inject constructor(
         count = countLabel(itemCount),
         coverUri = coverContentUri,
         virtual = virtual,
+        pinned = pinned,
     )
 
     private companion object {

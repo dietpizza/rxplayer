@@ -94,6 +94,33 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         dataStore.edit { it[Keys.VIDEO_FIELDS] = fields.mapTo(HashSet()) { f -> f.name } }
     }
 
+    override suspend fun setAlbumPinned(path: String, pinned: Boolean) {
+        dataStore.edit { it[Keys.PINNED_ALBUMS] = toggled(it[Keys.PINNED_ALBUMS], path, pinned) }
+    }
+
+    override suspend fun setVideoFolderPinned(path: String, pinned: Boolean) {
+        dataStore.edit { it[Keys.PINNED_VIDEO_FOLDERS] = toggled(it[Keys.PINNED_VIDEO_FOLDERS], path, pinned) }
+    }
+
+    override suspend fun movePins(oldPath: String, newPath: String) {
+        if (oldPath == newPath) return
+        dataStore.edit { prefs ->
+            for (key in listOf(Keys.PINNED_ALBUMS, Keys.PINNED_VIDEO_FOLDERS)) {
+                val current = prefs[key] ?: continue
+                prefs[key] = current.mapTo(HashSet()) { p ->
+                    when {
+                        p == oldPath -> newPath
+                        p.startsWith("$oldPath/") -> newPath + p.substring(oldPath.length)
+                        else -> p
+                    }
+                }
+            }
+        }
+    }
+
+    private fun toggled(current: Set<String>?, path: String, on: Boolean): Set<String> =
+        (current ?: emptySet()).let { if (on) it + path else it - path }
+
     private inline fun <reified E : Enum<E>> enumSet(names: Set<String>?, fallback: Set<E>): Set<E> =
         names?.mapNotNullTo(LinkedHashSet()) { n -> enumValues<E>().firstOrNull { it.name == n } } ?: fallback
 
@@ -127,6 +154,8 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
                 ?: d.folderViewMode,
             folderFields = enumSet(prefs[Keys.FOLDER_FIELDS], d.folderFields),
             videoFields = enumSet(prefs[Keys.VIDEO_FIELDS], d.videoFields),
+            pinnedAlbums = prefs[Keys.PINNED_ALBUMS] ?: d.pinnedAlbums,
+            pinnedVideoFolders = prefs[Keys.PINNED_VIDEO_FOLDERS] ?: d.pinnedVideoFolders,
         )
     }
 
@@ -145,5 +174,7 @@ class DataStoreLibrarySettingsRepository @Inject constructor(
         val FOLDER_VIEW_MODE = stringPreferencesKey("library.video_folder_view_mode")
         val FOLDER_FIELDS = stringSetPreferencesKey("library.video_folder_fields")
         val VIDEO_FIELDS = stringSetPreferencesKey("library.video_fields")
+        val PINNED_ALBUMS = stringSetPreferencesKey("library.pinned_albums")
+        val PINNED_VIDEO_FOLDERS = stringSetPreferencesKey("library.pinned_video_folders")
     }
 }

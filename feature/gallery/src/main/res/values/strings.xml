@@ -134,4 +134,14 @@
     <string name="sort_dir_most">Most</string>
     <string name="sort_dir_shortest">Shortest</string>
     <string name="sort_dir_longest">Longest</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_more">More options</string>
+    <string name="gallery_section_pinned">Pinned</string>
+    <string name="gallery_section_albums">Albums</string>
+    <string name="gallery_rename_folder">Rename folder</string>
+    <string name="gallery_delete_folder_title">Delete “%1$s”?</string>
+    <string name="gallery_delete_folder_body">All %1$s in this folder will be permanently deleted from this device. Other files in it are left alone.</string>
+    <string name="error_folder_exists">A folder with that name already exists</string>
+    <string name="error_folder_not_found">The folder no longer exists</string>
 </resources>

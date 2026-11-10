@@ -109,4 +109,14 @@
     <string name="sort_dir_most">Most</string>
     <string name="sort_dir_shortest">Shortest</string>
     <string name="sort_dir_longest">Longest</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="videos_section_pinned">Pinned</string>
+    <string name="videos_section_folders">Folders</string>
+    <string name="videos_rename_folder">Rename folder</string>
+    <string name="videos_delete_folder_title">Delete “%1$s”?</string>
+    <string name="videos_delete_folder_body">All %1$s in this folder will be permanently deleted from this device. Other files in it are left alone.</string>
+    <string name="msg_folder_renamed">Renamed</string>
+    <string name="error_folder_exists">A folder with that name already exists</string>
+    <string name="error_folder_not_found">The folder no longer exists</string>
 </resources>

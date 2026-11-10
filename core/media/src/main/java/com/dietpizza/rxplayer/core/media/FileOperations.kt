@@ -64,6 +64,19 @@ interface FileOperations {
 
     /** Creates [name] inside [parentDir] (for the "New folder" picker row). [FileOpResult.targetPath] is the new dir. */
     suspend fun createDirectory(parentDir: String, name: String): FileOpResult
+
+    /**
+     * Renames the folder [path] in place. On success [FileOpResult.targetPath] is the new folder,
+     * and [movedFiles] gets every file now under it as `old path → new path` (subfolders too).
+     */
+    suspend fun renameDirectory(
+        path: String,
+        newName: String,
+        movedFiles: (Map<String, String>) -> Unit = {},
+    ): FileOpResult
+
+    /** Removes the folder [path] if nothing at all is left inside it. True when it's gone. */
+    suspend fun removeDirectoryIfEmpty(path: String): Boolean
 }
 
 /** Tells MediaStore about changed paths. Abstracted so [FileSystemOperations] runs in JVM tests. */
@@ -263,6 +276,45 @@ class FileSystemOperations(
             dir.mkdirs() -> FileOpResult.ok(dir.path, dir.path)
             else -> FileOpResult.fail(dir.path, FileOpError.IO)
         }
+    }
+
+    override suspend fun renameDirectory(
+        path: String,
+        newName: String,
+        movedFiles: (Map<String, String>) -> Unit,
+    ): FileOpResult = withContext(io) {
+        val source = File(path)
+        val name = newName.trim()
+        val parent = source.parentFile
+        when {
+            !isValidName(name) -> return@withContext FileOpResult.fail(path, FileOpError.INVALID_NAME)
+            !source.isDirectory || parent == null -> return@withContext FileOpResult.fail(path, FileOpError.NOT_FOUND)
+            name == source.name -> return@withContext FileOpResult.ok(path, path)
+        }
+        val target = File(parent, name)
+        val caseOnly = name.equals(source.name, ignoreCase = true)
+        if (target.exists() && !caseOnly) return@withContext FileOpResult.fail(path, FileOpError.TARGET_EXISTS)
+        val result = if (caseOnly) renameViaTemp(source, target) else if (source.renameTo(target)) {
+            FileOpResult.ok(path, target.path)
+        } else {
+            FileOpResult.fail(path, FileOpError.IO)
+        }
+        if (result.isSuccess) {
+            val moved = LinkedHashMap<String, String>()
+            target.walkTopDown().filter { it.isFile }.forEach { f ->
+                moved[source.path + f.path.substring(target.path.length)] = f.path
+            }
+            movedFiles(moved)
+            // Old paths drop their MediaStore rows, new ones get rows.
+            scanner.scan((moved.keys + moved.values).toList())
+        }
+        result
+    }
+
+    override suspend fun removeDirectoryIfEmpty(path: String): Boolean = withContext(io) {
+        val dir = File(path)
+        if (!dir.exists()) return@withContext true
+        dir.isDirectory && dir.list()?.isEmpty() == true && dir.delete()
     }
 
     private fun scanResults(results: List<FileOpResult>, includeSource: Boolean = true) {

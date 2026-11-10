@@ -81,6 +81,10 @@ data class LibrarySettings(
     val folderFields: Set<FolderField> = DEFAULT_FOLDER_FIELDS,
     /** Details shown on videos inside a folder. */
     val videoFields: Set<VideoField> = DEFAULT_VIDEO_FIELDS,
+    /** Gallery tab: folder albums the user pinned (paths). Shown in their own section, same sort. */
+    val pinnedAlbums: Set<String> = emptySet(),
+    /** Videos tab: folders the user pinned (paths). Shown in their own section, same sort. */
+    val pinnedVideoFolders: Set<String> = emptySet(),
 ) {
     companion object {
         const val GRID_COLUMNS_AUTO = 0

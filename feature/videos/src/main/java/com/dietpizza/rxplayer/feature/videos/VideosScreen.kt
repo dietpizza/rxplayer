@@ -1,5 +1,17 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import android.widget.Toast
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.component.RxSectionHeader
+import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import androidx.compose.foundation.clickable
@@ -77,6 +89,12 @@ fun VideosScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val grid by viewModel.grid.collectAsStateWithLifecycle()
     val fields by viewModel.fields.collectAsStateWithLifecycle()
+    var renaming by remember { mutableStateOf<FolderRow?>(null) }
+    var renameError by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<FolderRow?>(null) }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
     VideosScaffold(
         onOpenSettings = onOpenSettings,
         modifier = modifier,
@@ -112,8 +130,79 @@ fun VideosScreen(
                 context.startActivity(FolderActivity.intent(context, folder.path, folder.name))
             },
             contentPadding = listPadding,
+            actions = FolderTileActions(
+                onPin = viewModel::setPinned,
+                onRename = {
+                    renameError = null
+                    renaming = it
+                },
+                onDelete = { deleting = it },
+            ),
         )
     }
+    renaming?.let { folder ->
+        NameDialog(
+            title = stringResource(R.string.videos_rename_folder),
+            initial = folder.name,
+            confirmLabel = stringResource(R.string.action_rename),
+            error = renameError,
+            onConfirm = { name ->
+                viewModel.renameFolder(folder, name) { error ->
+                    if (error == null) renaming = null else renameError = context.getString(error.folderNameErrorRes())
+                }
+            },
+            onDismiss = { renaming = null },
+        )
+    }
+    deleting?.let { folder ->
+        ConfirmDialog(
+            title = stringResource(R.string.videos_delete_folder_title, folder.name),
+            text = stringResource(R.string.videos_delete_folder_body, folder.countLabel),
+            confirmLabel = stringResource(R.string.action_delete),
+            destructive = true,
+            onConfirm = {
+                viewModel.deleteFolder(folder)
+                deleting = null
+            },
+            onDismiss = { deleting = null },
+        )
+    }
+}
+
+/** Long-press actions on a folder. */
+@Immutable
+internal class FolderTileActions(
+    val onPin: (FolderRow, Boolean) -> Unit = { _, _ -> },
+    val onRename: (FolderRow) -> Unit = {},
+    val onDelete: (FolderRow) -> Unit = {},
+)
+
+/** Rename errors worded for a folder rather than a file. */
+private fun FileOpError.folderNameErrorRes(): Int = when (this) {
+    FileOpError.TARGET_EXISTS -> R.string.error_folder_exists
+    FileOpError.INVALID_NAME -> R.string.error_name_invalid
+    FileOpError.NOT_FOUND -> R.string.error_folder_not_found
+    else -> R.string.error_generic
+}
+
+/** Pin / Rename, then Delete: the long-press menu of a folder. */
+@Composable
+private fun FolderMenu(folder: FolderRow, expanded: Boolean, onDismiss: () -> Unit, actions: FolderTileActions) {
+    RxMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        groups = listOf(
+            listOf(
+                RxMenuItem(
+                    stringResource(if (folder.pinned) R.string.action_unpin else R.string.action_pin),
+                    { actions.onPin(folder, !folder.pinned) },
+                    RxIcons.Keep,
+                ),
+                RxMenuItem(stringResource(R.string.action_rename), { actions.onRename(folder) }, RxIcons.Edit),
+            ),
+            listOf(RxMenuItem(stringResource(R.string.action_delete), { actions.onDelete(folder) }, RxIcons.Delete, destructive = true)),
+        ),
+    )
 }
 
 private fun FolderField.label(): Int = when (this) {
@@ -162,6 +251,7 @@ internal fun FoldersSection(
     uiState: VideosUiState,
     onOpenFolder: (FolderRow) -> Unit,
     contentPadding: PaddingValues,
+    actions: FolderTileActions = FolderTileActions(),
 ) {
     when (uiState) {
         VideosUiState.Loading -> DelayedLoadingIndicator(Modifier.padding(contentPadding))
@@ -172,9 +262,9 @@ internal fun FoldersSection(
             modifier = Modifier.padding(contentPadding),
         )
         is VideosUiState.Content -> if (uiState.grid) {
-            FolderGrid(uiState.folders, onOpenFolder, contentPadding)
+            FolderGrid(uiState.pinned, uiState.folders, onOpenFolder, actions, contentPadding)
         } else {
-            FolderList(uiState.folders, onOpenFolder, contentPadding)
+            FolderList(uiState.pinned, uiState.folders, onOpenFolder, actions, contentPadding)
         }
     }
 }
@@ -182,8 +272,10 @@ internal fun FoldersSection(
 /** Folders as a card grid, styled exactly like the Gallery tab's album grid. */
 @Composable
 private fun FolderGrid(
+    pinned: List<FolderRow>,
     folders: List<FolderRow>,
     onOpenFolder: (FolderRow) -> Unit,
+    actions: FolderTileActions,
     contentPadding: PaddingValues,
 ) {
     val dir = LocalLayoutDirection.current
@@ -201,18 +293,40 @@ private fun FolderGrid(
             .fillMaxSize()
             .testTag("videos_folders"),
     ) {
+        // The user's pinned folders get their own section, sorted like the rest.
+        if (pinned.isNotEmpty()) {
+            item(key = PINNED_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
+                RxSectionHeader(stringResource(R.string.videos_section_pinned), GridHeaderModifier)
+            }
+            items(pinned, key = { it.path }, contentType = { "folder" }) { folder ->
+                FolderCard(folder, actions, onClick = { onOpenFolder(folder) })
+            }
+            if (folders.isNotEmpty()) {
+                item(key = FOLDERS_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
+                    RxSectionHeader(stringResource(R.string.videos_section_folders), GridHeaderModifier)
+                }
+            }
+        }
         items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
-            FolderCard(folder, onClick = { onOpenFolder(folder) })
+            FolderCard(folder, actions, onClick = { onOpenFolder(folder) })
         }
     }
 }
 
 @Composable
-private fun FolderCard(folder: FolderRow, onClick: () -> Unit) {
+private fun FolderCard(folder: FolderRow, actions: FolderTileActions, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+    FolderMenu(folder, menu, { menu = false }, actions)
     Column(
         Modifier
             .clip(MaterialTheme.shapes.largeIncreased)
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = { menu = true },
+                onLongClickLabel = stringResource(R.string.action_more),
+            )
             .padding(CardInset)
             .testTag("videos_folder"),
     ) {
@@ -231,13 +345,16 @@ private fun FolderCard(folder: FolderRow, onClick: () -> Unit) {
             FolderDetails(folder, Modifier.padding(top = 4.dp), singleLine = true)
         }
     }
+    }
 }
 
 /** Folders as plain flat rows: no cards, no gaps, no side gutter. */
 @Composable
 private fun FolderList(
+    pinned: List<FolderRow>,
     folders: List<FolderRow>,
     onOpenFolder: (FolderRow) -> Unit,
+    actions: FolderTileActions,
     contentPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -247,30 +364,59 @@ private fun FolderList(
             .fillMaxSize()
             .testTag("videos_folders"),
     ) {
-        items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
-            ListItem(
-                colors = RxBars.flatListItemColors(),
-                onClick = { onOpenFolder(folder) },
-                verticalAlignment = Alignment.CenterVertically,
-                leadingContent = {
-                    Box {
-                        MediaThumbnail(
-                            contentUri = folder.coverUri,
-                            requestWidth = FolderThumbWidth,
-                            modifier = Modifier
-                                .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
-                                .clip(MaterialTheme.shapes.extraSmall),
-                        )
-                    }
-                },
-                supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
-                modifier = Modifier.testTag("videos_folder"),
-            ) {
-                TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
+        if (pinned.isNotEmpty()) {
+            item(key = PINNED_HEADER_KEY, contentType = "header") {
+                RxSectionHeader(stringResource(R.string.videos_section_pinned), ListHeaderModifier)
             }
+            items(pinned, key = { it.path }, contentType = { "folder" }) { folder ->
+                FolderListRow(folder, actions, onClick = { onOpenFolder(folder) })
+            }
+            if (folders.isNotEmpty()) {
+                item(key = FOLDERS_HEADER_KEY, contentType = "header") {
+                    RxSectionHeader(stringResource(R.string.videos_section_folders), ListHeaderModifier)
+                }
+            }
+        }
+        items(folders, key = { it.path }, contentType = { "folder" }) { folder ->
+            FolderListRow(folder, actions, onClick = { onOpenFolder(folder) })
         }
     }
 }
+
+@Composable
+private fun FolderListRow(folder: FolderRow, actions: FolderTileActions, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
+        FolderMenu(folder, menu, { menu = false }, actions)
+        ListItem(
+            colors = RxBars.flatListItemColors(),
+            selected = false,
+            onClick = onClick,
+            onLongClick = { menu = true },
+            verticalAlignment = Alignment.CenterVertically,
+            leadingContent = {
+                Box {
+                    MediaThumbnail(
+                        contentUri = folder.coverUri,
+                        requestWidth = FolderThumbWidth,
+                        modifier = Modifier
+                            .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
+                            .clip(MaterialTheme.shapes.extraSmall),
+                    )
+                }
+            },
+            supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
+            modifier = Modifier.testTag("videos_folder"),
+        ) {
+            TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
+        }
+    }
+}
+
+private const val PINNED_HEADER_KEY = "header:pinned"
+private const val FOLDERS_HEADER_KEY = "header:folders"
+private val GridHeaderModifier = Modifier.padding(start = 10.dp, top = 12.dp, bottom = 4.dp)
+private val ListHeaderModifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
 
 /** A chip for each switched-on field. */
 @Composable

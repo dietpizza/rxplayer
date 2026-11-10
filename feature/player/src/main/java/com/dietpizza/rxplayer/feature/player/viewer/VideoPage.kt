@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.pager.PagerState
@@ -44,7 +43,6 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -58,6 +56,7 @@ import coil3.request.ImageRequest
 import com.dietpizza.rxplayer.core.player.PlaybackController
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaStoreThumbnail
 import com.dietpizza.rxplayer.core.ui.thumbnail.rememberRxImageLoader
+import com.dietpizza.rxplayer.feature.player.ui.DoubleTapPop
 import com.dietpizza.rxplayer.feature.player.ui.FullPlayerState
 import com.dietpizza.rxplayer.feature.player.ui.formatTime
 
@@ -91,12 +90,14 @@ internal fun VideoPage(
 ) {
     val corner = remember { unitCornerPath() }
     val currentOnTap by rememberUpdatedState(onTap)
+    val currentActive by rememberUpdatedState(active)
+    val pop = remember { InlinePopState() }
     val dragState = rememberDraggableState { delta -> onDrag(delta) }
 
     Box(
         Modifier
             .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures(onTap = { currentOnTap() }) }
+            .inlineVideoTaps(controller, pop, enabled = { currentActive && morph.isInline }, onTap = { currentOnTap() })
             .draggable(
                 state = dragState,
                 orientation = Orientation.Vertical,
@@ -127,6 +128,7 @@ internal fun VideoPage(
             Poster(item, Modifier.fillMaxSize().graphicsLayer { alpha = if (posterUp) 1f else 0f })
         }
         if (active) InlineError(controller, geo, morph, aspect)
+        if (active && morph.isInline) DoubleTapPop(pop.key, pop.kind, pop.seconds)
         if (active) {
             InlineControls(
                 controller = controller,

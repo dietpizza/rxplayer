@@ -182,4 +182,43 @@ class FileSystemOperationsTest {
         assertEquals("noext (1)", FileSystemOperations.freeTarget(root, "noext").name)
         assertEquals("fresh.mp4", FileSystemOperations.freeTarget(root, "fresh.mp4").name)
     }
+
+    @Test
+    fun renameDirectoryMovesTreeAndReportsEveryFile() = runBlocking {
+        val a = file("Movies/Show/ep1.mp4")
+        val b = file("Movies/Show/Extras/bonus.mkv")
+        var moved: Map<String, String> = emptyMap()
+        val r = ops.renameDirectory(File(root, "Movies/Show").path, "Series") { moved = it }
+        assertTrue(r.isSuccess)
+        assertEquals(File(root, "Movies/Series").path, r.targetPath)
+        assertFalse(File(root, "Movies/Show").exists())
+        assertEquals(
+            mapOf(
+                a.path to File(root, "Movies/Series/ep1.mp4").path,
+                b.path to File(root, "Movies/Series/Extras/bonus.mkv").path,
+            ),
+            moved,
+        )
+        assertEquals((moved.keys + moved.values).toSet(), scanned.toSet())
+    }
+
+    @Test
+    fun renameDirectoryRejectsClashesAndBadNames() = runBlocking {
+        file("A/x.mp4")
+        file("B/y.mp4")
+        assertEquals(FileOpError.TARGET_EXISTS, ops.renameDirectory(File(root, "A").path, "B").error)
+        assertEquals(FileOpError.INVALID_NAME, ops.renameDirectory(File(root, "A").path, "a/b").error)
+        assertEquals(FileOpError.NOT_FOUND, ops.renameDirectory(File(root, "C").path, "D").error)
+        assertTrue(File(root, "A/x.mp4").exists())
+    }
+
+    @Test
+    fun removeDirectoryIfEmptyKeepsFoldersWithOtherFiles() = runBlocking {
+        file("Full/notes.txt")
+        File(root, "Empty").mkdirs()
+        assertFalse(ops.removeDirectoryIfEmpty(File(root, "Full").path))
+        assertTrue(File(root, "Full/notes.txt").exists())
+        assertTrue(ops.removeDirectoryIfEmpty(File(root, "Empty").path))
+        assertFalse(File(root, "Empty").exists())
+    }
 }

@@ -1,6 +1,15 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
+import com.dietpizza.rxplayer.core.data.FileOpException
+import com.dietpizza.rxplayer.core.data.MediaFileService
+import com.dietpizza.rxplayer.core.model.FileOpError
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dietpizza.rxplayer.core.data.NaturalOrderComparator
@@ -36,20 +45,41 @@ data class FolderRow(
     val details: List<String>,
     /** Unplayed count ("3"), or null when nothing is new. */
     val newBadge: String?,
+    /** "12 videos", for the delete confirmation. */
+    val countLabel: String = "",
+    /** The user pinned it: it sits in the Pinned section. */
+    val pinned: Boolean = false,
 )
 
 @Immutable
 sealed interface VideosUiState {
     data object Loading : VideosUiState
     data object Empty : VideosUiState
-    data class Content(val folders: List<FolderRow>, val grid: Boolean = true) : VideosUiState
+    data class Content(
+        val folders: List<FolderRow>,
+        val grid: Boolean = true,
+        /** Pinned folders, in the same sort as [folders] (which leaves them out). */
+        val pinned: List<FolderRow> = emptyList(),
+    ) : VideosUiState
 }
 
 @HiltViewModel
 class VideosViewModel @Inject constructor(
-    repository: VideoRepository,
+    @ApplicationContext private val context: Context,
+    private val repository: VideoRepository,
     private val librarySettings: LibrarySettingsRepository,
+    private val files: MediaFileService,
 ) : ViewModel() {
+
+    /** One-off results ("Deleted 12 videos") for a toast. */
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val messages: SharedFlow<String> = _messages.asSharedFlow()
+
+    /** Set on tap so the pin shows this frame; DataStore catches up behind it. */
+    private val pinOverride = MutableStateFlow<Set<String>?>(null)
+    private val pinnedPaths: Flow<Set<String>> =
+        combine(librarySettings.settings.map { it.pinnedVideoFolders }, pinOverride) { saved, tapped -> tapped ?: saved }
+            .distinctUntilChanged()
 
     /** Set on tap so the list re-sorts this frame; DataStore catches up behind it. */
     private val sortOverride = MutableStateFlow<AlbumSort?>(null)
@@ -70,11 +100,15 @@ class VideosViewModel @Inject constructor(
             .distinctUntilChanged()
             .stateIn(viewModelScope, SharingStarted.Eagerly, LibrarySettings().folderFields)
 
-    val uiState: StateFlow<VideosUiState> = combine(repository.folders(), sortFlow, grid, fields) { folders, sort, grid, fields ->
+    val uiState: StateFlow<VideosUiState> = combine(repository.folders(), sortFlow, grid, fields, pinnedPaths) { folders, sort, grid, fields, pins ->
         if (folders.isEmpty()) {
             VideosUiState.Empty
         } else {
-            VideosUiState.Content(folders.sortedWith(folderComparator(sort)).map { it.toRow(fields) }, grid)
+            // Same sort for both sections: just split the sorted list.
+            val (pinned, rest) = folders.sortedWith(folderComparator(sort))
+                .map { it.toRow(fields, pinned = it.path in pins) }
+                .partition { it.pinned }
+            VideosUiState.Content(rest, grid, pinned)
         }
     }
         .flowOn(Dispatchers.Default)
@@ -83,6 +117,50 @@ class VideosViewModel @Inject constructor(
     fun setSort(sort: AlbumSort) {
         sortOverride.value = sort
         viewModelScope.launch { librarySettings.setVideoFolderSort(sort) }
+    }
+
+    fun setPinned(folder: FolderRow, pinned: Boolean) {
+        val current = pinOverride.value
+            ?: (uiState.value as? VideosUiState.Content)?.pinned?.mapTo(HashSet()) { it.path }
+            ?: emptySet()
+        pinOverride.value = if (pinned) current + folder.path else current - folder.path
+        viewModelScope.launch { librarySettings.setVideoFolderPinned(folder.path, pinned) }
+    }
+
+    /** Renames the folder on disk. [onDone] gets null on success, else why it failed. */
+    fun renameFolder(folder: FolderRow, name: String, onDone: (FileOpError?) -> Unit) {
+        viewModelScope.launch {
+            val result = files.renameFolder(folder.path, name)
+            result.onSuccess { newPath ->
+                if (newPath != folder.path) {
+                    pinOverride.value = null
+                    librarySettings.movePins(folder.path, newPath)
+                }
+                _messages.tryEmit(context.getString(R.string.msg_folder_renamed))
+            }
+            onDone(result.exceptionOrNull()?.let { (it as? FileOpException)?.error ?: FileOpError.IO })
+        }
+    }
+
+    /** Permanently deletes the folder's videos, then the folder itself if nothing else is in it. */
+    fun deleteFolder(folder: FolderRow) {
+        viewModelScope.launch {
+            val keys = repository.videosIn(folder.path).first().map { it.key }
+            val results = files.deleteFolder(folder.path, keys)
+            val failed = results.count { !it.isSuccess }
+            val ok = results.size - failed
+            if (folder.pinned && failed == 0) {
+                pinOverride.value = null
+                librarySettings.setVideoFolderPinned(folder.path, false)
+            }
+            _messages.tryEmit(
+                if (failed == 0) {
+                    context.resources.getQuantityString(R.plurals.msg_deleted, ok, ok)
+                } else {
+                    context.resources.getQuantityString(R.plurals.msg_failed, results.size, failed, results.size)
+                },
+            )
+        }
     }
 
     fun setGrid(grid: Boolean) {
@@ -109,7 +187,7 @@ internal fun folderComparator(sort: AlbumSort): Comparator<VideoFolder> {
     return directed.then(byName).thenBy { it.path }
 }
 
-internal fun VideoFolder.toRow(fields: Set<FolderField> = LibrarySettings.DEFAULT_FOLDER_FIELDS) = FolderRow(
+internal fun VideoFolder.toRow(fields: Set<FolderField> = LibrarySettings.DEFAULT_FOLDER_FIELDS, pinned: Boolean = false) = FolderRow(
     path = path,
     name = name,
     coverUri = coverContentUri,
@@ -120,4 +198,6 @@ internal fun VideoFolder.toRow(fields: Set<FolderField> = LibrarySettings.DEFAUL
         path.takeIf { FolderField.PATH in fields },
     ),
     newBadge = if (newCount > 0) "$newCount" else null,
+    countLabel = VideoFormat.videoCount(videoCount),
+    pinned = pinned,
 )

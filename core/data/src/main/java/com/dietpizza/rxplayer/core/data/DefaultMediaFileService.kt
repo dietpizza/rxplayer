@@ -69,6 +69,24 @@ class DefaultMediaFileService @Inject constructor(
         return if (r.isSuccess && path != null) Result.success(path) else Result.failure(FileOpException(r.error ?: FileOpError.IO))
     }
 
+    override suspend fun renameFolder(path: String, newName: String): Result<String> = lock.withLock {
+        withContext(NonCancellable) {
+            var moved: Map<String, String> = emptyMap()
+            val r = files.renameDirectory(path, newName) { moved = it }
+            if (moved.isNotEmpty()) {
+                keys.rewrite(moved.entries.associate { (from, to) -> MediaKey.forFile(from).value to MediaKey.forFile(to).value })
+            }
+            val target = r.targetPath
+            if (r.isSuccess && target != null) Result.success(target) else Result.failure(FileOpException(r.error ?: FileOpError.IO))
+        }
+    }
+
+    override suspend fun deleteFolder(path: String, keys: List<MediaKey>): List<MediaFileResult> {
+        val results = delete(keys)
+        withContext(NonCancellable) { files.removeDirectoryIfEmpty(path) }
+        return results
+    }
+
     /** Runs [op] on the local keys' paths and merges UNSUPPORTED results back in input order. */
     private suspend fun forLocal(
         keys: List<MediaKey>,

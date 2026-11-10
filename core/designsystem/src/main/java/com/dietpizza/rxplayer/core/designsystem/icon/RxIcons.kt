@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
  */
 object RxIcons {
     /** Player transport: Sharp, filled, weight 300. */
+    val Keep: ImageVector by lazy { symbol("Keep", false, "m640-480 80 80v80H520v240l-40 40-40-40v-240H240v-80l80-80v-280h-40v-80h400v80h-40v280Zm-286 80h252l-46-46v-314H400v314l-46 46Zm126 0Z", translateY = 960f) }
     val TransportPlay: ImageVector by lazy { symbol("TransportPlay", false, "M340-236.16v-487.68L723.07-480 340-236.16Z", translateY = 960f) }
     /** Player transport: Sharp, filled, weight 300. */
     val TransportPause: ImageVector by lazy { symbol("TransportPause", false, "M560-220v-520h150v520H560Zm-310 0v-520h150v520H250Z", translateY = 960f) }

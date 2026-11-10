@@ -1,5 +1,14 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import android.widget.Toast
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
+import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
+import com.dietpizza.rxplayer.core.designsystem.component.RxSectionHeader
+import com.dietpizza.rxplayer.core.model.FileOpError
 import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
@@ -76,6 +85,12 @@ fun GalleryScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var newAlbum by rememberSaveable { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<AlbumTile?>(null) }
+    var renameError by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<AlbumTile?>(null) }
+    LaunchedEffect(viewModel) {
+        viewModel.messages.collect { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
     GalleryContent(
         uiState = uiState,
         sort = sort,
@@ -91,9 +106,44 @@ fun GalleryScreen(
             context.startActivity(intent)
         },
         onNewAlbum = { newAlbum = true },
+        albumActions = AlbumActions(
+            onPin = viewModel::setPinned,
+            onRename = {
+                renameError = null
+                renaming = it
+            },
+            onDelete = { deleting = it },
+        ),
         modifier = modifier,
         contentPadding = contentPadding,
     )
+    renaming?.let { album ->
+        NameDialog(
+            title = stringResource(R.string.gallery_rename_folder),
+            initial = album.name,
+            confirmLabel = stringResource(R.string.action_rename),
+            error = renameError,
+            onConfirm = { name ->
+                viewModel.renameAlbum(album, name) { error ->
+                    if (error == null) renaming = null else renameError = context.getString(error.folderNameErrorRes())
+                }
+            },
+            onDismiss = { renaming = null },
+        )
+    }
+    deleting?.let { album ->
+        ConfirmDialog(
+            title = stringResource(R.string.gallery_delete_folder_title, album.name),
+            text = stringResource(R.string.gallery_delete_folder_body, album.count),
+            confirmLabel = stringResource(R.string.action_delete),
+            destructive = true,
+            onConfirm = {
+                viewModel.deleteAlbum(album)
+                deleting = null
+            },
+            onDismiss = { deleting = null },
+        )
+    }
     if (newAlbum) {
         NameDialog(
             title = stringResource(R.string.gallery_new_album),
@@ -126,6 +176,7 @@ internal fun GalleryContent(
     contentPadding: PaddingValues = PaddingValues(),
     onOpenSearch: () -> Unit = {},
     onNewAlbum: () -> Unit = {},
+    albumActions: AlbumActions = AlbumActions(),
 ) {
     val background = RxBars.pageColor
     Scaffold(
@@ -169,9 +220,11 @@ internal fun GalleryContent(
             )
             is GalleryUiState.Content -> AlbumsGrid(
                 pinned = uiState.pinned,
+                pinnedAlbums = uiState.pinnedAlbums,
                 albums = uiState.albums,
                 onOpenAlbum = onOpenAlbum,
                 onNewAlbum = onNewAlbum,
+                actions = albumActions,
                 // Small outer margin; the cards' inner padding adds the rest (8 + 6 ≈ the old 16).
                 contentPadding = gridPadding(innerPadding, contentPadding, gutter = 8.dp, top = 4.dp),
             )
@@ -182,9 +235,11 @@ internal fun GalleryContent(
 @Composable
 private fun AlbumsGrid(
     pinned: List<AlbumTile>,
+    pinnedAlbums: List<AlbumTile>,
     albums: List<AlbumTile>,
     onOpenAlbum: (AlbumTile) -> Unit,
     onNewAlbum: () -> Unit,
+    actions: AlbumActions,
     contentPadding: PaddingValues,
 ) {
     // No arrangement gaps: each card's own inner padding (CardInset) makes the gap, so the tap
@@ -201,13 +256,38 @@ private fun AlbumsGrid(
                 PinnedRow(pinned, onOpenAlbum, onNewAlbum)
             }
         }
+        // The user's pinned folders get their own section, sorted like the rest.
+        if (pinnedAlbums.isNotEmpty()) {
+            item(key = PINNED_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
+                RxSectionHeader(stringResource(R.string.gallery_section_pinned), SectionHeaderModifier)
+            }
+            items(pinnedAlbums, key = { it.id }, contentType = { "album" }) { album ->
+                AlbumCard(album, actions, onClick = { onOpenAlbum(album) })
+            }
+            if (albums.isNotEmpty()) {
+                item(key = ALBUMS_HEADER_KEY, span = { GridItemSpan(maxLineSpan) }, contentType = "header") {
+                    RxSectionHeader(stringResource(R.string.gallery_section_albums), SectionHeaderModifier)
+                }
+            }
+        }
         items(albums, key = { it.id }, contentType = { "album" }) { album ->
-            AlbumCard(album, onClick = { onOpenAlbum(album) })
+            AlbumCard(album, actions, onClick = { onOpenAlbum(album) })
         }
     }
 }
 
 private const val PINNED_ROW_KEY = "pinned"
+private const val PINNED_HEADER_KEY = "header:pinned"
+private const val ALBUMS_HEADER_KEY = "header:albums"
+private val SectionHeaderModifier = Modifier.padding(start = 10.dp, top = 12.dp, bottom = 4.dp)
+
+/** Long-press actions on a folder album. */
+@Immutable
+internal class AlbumActions(
+    val onPin: (AlbumTile, Boolean) -> Unit = { _, _ -> },
+    val onRename: (AlbumTile) -> Unit = {},
+    val onDelete: (AlbumTile) -> Unit = {},
+)
 
 /** Inner padding of every album card: half the visual gap between neighbouring thumbnails. */
 private val CardInset = 6.dp
@@ -305,14 +385,29 @@ private fun pinnedIcon(album: AlbumTile): ImageVector? = when (album.kind) {
     }
 }
 
+/** Rename errors worded for a folder rather than a file. */
+private fun FileOpError.folderNameErrorRes(): Int = when (this) {
+    FileOpError.TARGET_EXISTS -> R.string.error_folder_exists
+    FileOpError.INVALID_NAME -> R.string.error_name_invalid
+    FileOpError.NOT_FOUND -> R.string.error_folder_not_found
+    else -> R.string.error_generic
+}
+
 private val BadgeScrim = Color.Black.copy(alpha = 0.5f)
 
 @Composable
-private fun AlbumCard(album: AlbumTile, onClick: () -> Unit) {
+private fun AlbumCard(album: AlbumTile, actions: AlbumActions, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    Box {
     Column(
         Modifier
             .clip(MaterialTheme.shapes.largeIncreased)
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = { menu = true },
+                onLongClickLabel = stringResource(R.string.action_more),
+            )
             .padding(CardInset)
             .testTag("gallery_album"),
     ) {
@@ -325,6 +420,22 @@ private fun AlbumCard(album: AlbumTile, onClick: () -> Unit) {
                 .clip(MaterialTheme.shapes.largeIncreased),
         )
         AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp))
+    }
+    RxMenu(
+        expanded = menu,
+        onDismissRequest = { menu = false },
+        groups = listOf(
+            listOf(
+                RxMenuItem(
+                    stringResource(if (album.pinned) R.string.action_unpin else R.string.action_pin),
+                    { actions.onPin(album, !album.pinned) },
+                    RxIcons.Keep,
+                ),
+                RxMenuItem(stringResource(R.string.action_rename), { actions.onRename(album) }, RxIcons.Edit),
+            ),
+            listOf(RxMenuItem(stringResource(R.string.action_delete), { actions.onDelete(album) }, RxIcons.Delete, destructive = true)),
+        ),
+    )
     }
 }
 
