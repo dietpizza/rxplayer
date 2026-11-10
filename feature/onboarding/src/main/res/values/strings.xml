@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="onboarding_app_name">Rx Player</string>
+    <string name="onboarding_app_name">RX Player</string>
     <string name="onboarding_tagline">Your photos and videos, one beautiful player</string>
     <string name="onboarding_files_title">All files access</string>
     <string name="onboarding_files_body">To browse, play, rename, move and delete your media.</string>

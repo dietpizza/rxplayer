@@ -49,7 +49,7 @@ internal object PlaybackErrors {
             PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
                 "The file looks damaged or incomplete."
             PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "The file no longer exists."
-            PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "Rx Player isn't allowed to read this file."
+            PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "RX Player isn't allowed to read this file."
             PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> "This format isn't supported."
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "The decoder failed to start."
             PlaybackException.ERROR_CODE_DECODING_FAILED -> "Decoding failed part-way through the file."

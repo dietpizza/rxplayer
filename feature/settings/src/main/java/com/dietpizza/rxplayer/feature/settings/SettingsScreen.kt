@@ -296,7 +296,7 @@ private fun AboutSection(appInfo: AppInfo) {
     }
 }
 
-private val previewInfo = AppInfo(appName = "Rx Player", versionName = "0.1.0")
+private val previewInfo = AppInfo(appName = "RX Player", versionName = "0.1.0")
 
 @Preview(name = "Settings – light")
 @Composable

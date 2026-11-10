@@ -72,7 +72,7 @@
     <string name="browser_cancel">Cancel</string>
     <string name="browser_rename_failed">Couldn\'t rename: %1$s</string>
     <string name="browser_delete_failed">Couldn\'t delete: %1$s</string>
-    <string name="browser_cant_open">Rx Player can\'t open this file type</string>
+    <string name="browser_cant_open">RX Player can\'t open this file type</string>
     <string name="browser_server_missing">This server no longer exists</string>
 
     <!-- Errors -->

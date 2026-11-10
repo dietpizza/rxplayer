@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Rx Player</string>
+    <string name="app_name">RX Player</string>
     <string name="tab_gallery">Gallery</string>
     <string name="tab_videos">Videos</string>
     <string name="tab_network">Network</string>
