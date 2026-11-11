@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.rx.android.application)
     alias(libs.plugins.rx.hilt)
@@ -8,20 +10,34 @@ android {
     namespace = "com.dietpizza.rxplayer"
     defaultConfig {
         applicationId = "com.dietpizza.rxplayer"
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.4"
     }
     packaging {
         // BouncyCastle (sshj/SFTP in :core:netfs) ships the same license file in three jars.
         resources { excludes += "/META-INF/LICENSE.md" }
     }
+    // Release signing comes from keystore.properties in the project root (gitignored; see
+    // keystore.properties.example). Without it, release falls back to the debug key so the
+    // optimized build still installs locally.
+    val keystoreProps = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
+        Properties().apply { file.inputStream().use(::load) }
+    }
+    signingConfigs {
+        if (keystoreProps != null) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
     buildTypes {
         release {
             optimization { enable = true }
-            // Until a real keystore is configured (plan §10b), sign release with the debug key so
-            // the optimized build can be installed locally. Debug builds run Compose unoptimized
-            // and are not representative of real smoothness.
-            signingConfig = signingConfigs.getByName("debug")
+            // Debug builds run Compose unoptimized and are not representative of real smoothness.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }
