@@ -40,8 +40,10 @@ baselineProfile {
     // Generation needs a device; never run it implicitly from assembleRelease. Regenerate with
     // ./gradlew :app:generateReleaseBaselineProfile (see BaselineProfileGenerator KDoc).
     automaticGenerationDuringBuild = false
-    // Lay out startup classes first in the primary dex (startup profile -> dex layout).
-    dexLayoutOptimization = true
+    // Off for now: with the startup profile covering every journey, R8 emitted unverifiable code
+    // for media3's MediaCodecVideoRenderer (VerifyError on opening a video). Re-enable once the
+    // startup profile is regenerated from the cold-start-only test, and check a video still opens.
+    dexLayoutOptimization = false
 }
 
 dependencies {
