@@ -386,22 +386,32 @@ private fun FolderCard(folder: FolderRow, selected: Boolean, selecting: Boolean,
             .testTag("videos_folder"),
     ) {
         Box {
-            MediaThumbnail(
-                contentUri = folder.coverUri,
-                requestWidth = FolderThumbRequestWidth,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    .clip(MaterialTheme.shapes.largeIncreased),
-            )
+            // Thumbnail and badge scale together, so the badge stays on the corner when selected.
+            Box(
+                Modifier.graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            ) {
+                MediaThumbnail(
+                    contentUri = folder.coverUri,
+                    requestWidth = FolderThumbRequestWidth,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(MaterialTheme.shapes.largeIncreased),
+                )
+                if (folder.newBadge != null) {
+                    NewBadge(
+                        cornerRadius = CardThumbCorner,
+                        ring = if (selected) MaterialTheme.colorScheme.secondaryContainer else RxBars.pageColor,
+                    )
+                }
+            }
             if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(8.dp))
         }
         Column(Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
-            TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
+            ItemTitle(folder.name)
             FolderDetails(folder, Modifier.padding(top = 4.dp), singleLine = true)
         }
     }
@@ -412,6 +422,10 @@ private const val SELECTED_SCALE = 0.9f
 /** Card shape for the tap/selected highlight: tighter than the thumbnail's own rounding. */
 private val SelectedCardShape = RoundedCornerShape(12.dp)
 private val CardGap = 6.dp
+
+/** Corner radii of the folder thumbnails (shapes.largeIncreased / shapes.extraSmall), for [NewBadge]. */
+private val CardThumbCorner = 20.dp
+private val RowThumbCorner = 4.dp
 
 /** Filled check when selected, an empty ring otherwise (selection mode only). */
 @Composable
@@ -485,13 +499,14 @@ private fun FolderListRow(folder: FolderRow, selected: Boolean, selecting: Boole
                         .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
                         .clip(MaterialTheme.shapes.extraSmall),
                 )
+                if (folder.newBadge != null) NewBadge(cornerRadius = RowThumbCorner, ring = RxBars.pageColor)
                 if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(4.dp))
             }
         },
         supportingContent = { FolderDetails(folder, Modifier.padding(top = 2.dp)) },
         modifier = Modifier.testTag("videos_folder"),
     ) {
-        TitleWithNewDot(folder.name, isNew = folder.newBadge != null)
+        ItemTitle(folder.name)
     }
 }
 

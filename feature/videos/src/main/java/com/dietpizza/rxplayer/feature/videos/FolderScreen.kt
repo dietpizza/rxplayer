@@ -497,14 +497,14 @@ private fun VideoListItem(
                     dimmed = video.watched,
                     modifier = Modifier.size(ListThumbWidth, ListThumbWidth * 9 / 16),
                 )
+                if (video.isNew) NewBadge(cornerRadius = ListThumbCorner, ring = RxBars.pageColor)
                 if (selected) SelectedMark(Modifier.align(Alignment.TopStart).padding(4.dp))
             }
         },
         supportingContent = { VideoMeta(video, fields) },
     ) {
-        TitleWithNewDot(
+        ItemTitle(
             text = video.title,
-            isNew = video.isNew,
             color = if (video.watched) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             maxLines = 2,
         )
@@ -512,6 +512,10 @@ private fun VideoListItem(
 }
 
 internal val ListThumbWidth = 128.dp
+
+/** Corner radii of the video thumbnails (shapes.extraSmall / the card's shapes.large), for [NewBadge]. */
+private val ListThumbCorner = 4.dp
+private val GridCardCorner = 16.dp
 
 @Composable
 private fun SelectedMark(modifier: Modifier = Modifier) {
@@ -582,6 +586,8 @@ private fun VideoGrid(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+    // The badge sits outside the Surface: the card clips, and its top corner is the thumbnail's.
+    Box {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else RxBars.cardColor,
@@ -612,9 +618,8 @@ private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Bo
                 if (selected) SelectedMark(Modifier.align(Alignment.TopStart).padding(8.dp))
             }
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-                TitleWithNewDot(
+                ItemTitle(
                     text = video.title,
-                    isNew = video.isNew,
                     color = if (video.watched) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                     minLines = 2,
                     maxLines = 2,
@@ -622,6 +627,8 @@ private fun VideoGridItem(video: VideoRow, fields: Set<VideoField>, selected: Bo
                 VideoMeta(video, fields, Modifier.padding(top = 4.dp), singleLine = true)
             }
         }
+    }
+    if (video.isNew) NewBadge(cornerRadius = GridCardCorner, ring = RxBars.pageColor)
     }
 }
 

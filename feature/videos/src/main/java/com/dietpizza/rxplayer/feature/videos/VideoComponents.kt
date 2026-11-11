@@ -1,5 +1,8 @@
 package com.dietpizza.rxplayer.feature.videos
 
+import kotlin.math.sqrt
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.text.style.TextOverflow
@@ -125,44 +128,51 @@ internal fun FieldChip(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Unplayed marker. */
+/**
+ * New/unplayed badge for a folder or video thumbnail, like an online-status dot: a filled dot with a
+ * [ring] in the colour behind the thumbnail so it reads as cut out. Put it in a Box with the
+ * thumbnail and pass the thumbnail's [cornerRadius]: the dot is centred on the rounded corner's
+ * curve, so about half of it hangs outside the image.
+ */
 @Composable
-internal fun NewDot(modifier: Modifier = Modifier) {
+internal fun BoxScope.NewBadge(cornerRadius: Dp, ring: Color) {
     val description = stringResource(R.string.video_new)
+    // Where the corner arc crosses the diagonal, measured in from each edge.
+    val inset = cornerRadius * (1f - 1f / sqrt(2f))
+    val shift = NewBadgeSize / 2 - inset
     Box(
-        modifier
+        Modifier
+            .align(Alignment.TopEnd)
+            .offset(x = shift, y = -shift)
             .semantics { contentDescription = description }
-            .size(8.dp)
+            .size(NewBadgeSize)
+            .background(ring, CircleShape)
+            .padding(NewBadgeRing)
             .background(MaterialTheme.colorScheme.primary, CircleShape),
     )
 }
 
-/**
- * A card/row title (the grid's titleSmall everywhere) with the NEW dot right after it, centred
- * on the first line.
- */
+private val NewBadgeSize = 15.dp
+private val NewBadgeRing = 2.5.dp
+
+/** A card/row title: the grid's titleSmall everywhere. */
 @Composable
-internal fun TitleWithNewDot(
+internal fun ItemTitle(
     text: String,
-    isNew: Boolean,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurface,
     maxLines: Int = 1,
     minLines: Int = 1,
 ) {
-    Row(modifier, verticalAlignment = Alignment.Top) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleSmall,
-            color = color,
-            minLines = minLines,
-            maxLines = maxLines,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        // titleSmall's line is 20 sp: 6 dp down centres the 8 dp dot on it.
-        if (isNew) NewDot(Modifier.padding(start = 6.dp, top = 6.dp))
-    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = color,
+        minLines = minLines,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 /** Field chips that wrap onto further lines when they don't fit, after any [leading] markers. */
