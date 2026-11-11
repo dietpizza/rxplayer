@@ -55,6 +55,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastForEach
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.dietpizza.rxplayer.core.ui.thumbnail.MediaStoreThumbnail
@@ -319,7 +320,7 @@ private fun Modifier.zoomGestures(
             var anyPressed = false
             var pressedCount = 0
             var consumedElsewhere = false
-            for (c in event.changes) {
+            event.changes.fastForEach { c ->
                 if (c.pressed) {
                     anyPressed = true
                     pressedCount++
@@ -337,7 +338,7 @@ private fun Modifier.zoomGestures(
                 if (c.isSpecified) {
                     zoom.transform(c.x - size.width / 2f, c.y - size.height / 2f, pan.x, pan.y, z)
                 }
-                for (ch in event.changes) if (ch.positionChanged()) ch.consume()
+                event.changes.fastForEach { ch -> if (ch.positionChanged()) ch.consume() }
             } else if (!swiped) {
                 val pan = event.calculatePan()
                 dx += pan.x

@@ -47,8 +47,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -372,7 +374,11 @@ private fun ResultsGrid(
     modifier: Modifier = Modifier,
 ) {
     val state = rememberLazyGridState()
-    LaunchedEffect(state.isScrollInProgress) { if (state.isScrollInProgress) onScroll() }
+    // Collect the flag in an effect so scroll start/stop doesn't recompose the grid.
+    val currentOnScroll by rememberUpdatedState(onScroll)
+    LaunchedEffect(state) {
+        snapshotFlow { state.isScrollInProgress }.collect { if (it) currentOnScroll() }
+    }
     val screenWidth = LocalConfiguration.current.screenWidthDp
     val requestWidth = (screenWidth / 3).dp
     LazyVerticalGrid(

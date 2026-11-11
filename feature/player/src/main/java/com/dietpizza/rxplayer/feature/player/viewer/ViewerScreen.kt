@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
@@ -85,6 +86,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 /** What the viewer needs from `PlayerActivity` besides the [FullPlayerHost] services. */
@@ -238,7 +240,7 @@ private fun ViewerContent(
         }
     }
 
-    fun expand(velocity: Float = 0f) {
+    fun expand(velocity: Float = 0f, from: Float? = null) {
         if (activeState.value == null) return
         controller.promoteInline()
         // Next/previous/auto-next run through this album's videos (a folder album = that folder).
@@ -247,6 +249,7 @@ private fun ViewerContent(
         fullState.showControls(true)
         morph.collapseFrom = null
         scope.launch {
+            if (from != null) morph.progress.snapTo(from)
             morph.progress.animateTo(1f, spec, initialVelocity = velocity)
             setShown(true)
         }
@@ -288,7 +291,15 @@ private fun ViewerContent(
 
     var dragStart by remember { mutableFloatStateOf(0f) }
     var dragTotal by remember { mutableFloatStateOf(0f) }
+    // Latest hand-driven progress; the settle starts from this, not from a possibly-pending snap.
+    var dragProgress by remember { mutableFloatStateOf(0f) }
     val dragDistance = { windowSize.height * MorphMath.DRAG_DISTANCE_FRACTION }
+    // One long-lived consumer applies drag progress (conflated: at most one pending value), so a
+    // drag doesn't launch a coroutine per delta.
+    val dragFeed = remember { Channel<Float>(Channel.CONFLATED) }
+    LaunchedEffect(dragFeed) {
+        for (p in dragFeed) morph.progress.snapTo(p)
+    }
 
     // endregion
 
@@ -313,8 +324,11 @@ private fun ViewerContent(
         if (morph.isInline) playerHost.setSystemBarsVisible(true)
     }
 
+    // Only the settled page's entry: a neighbour's decode writes [metas] without recomposing here.
+    val settledMeta by remember(settledItem.key) { derivedStateOf { metas[settledItem.key] } }
+
     // Ultra HDR: window colour mode follows the settled photo.
-    val settledHdr = !settledItem.isVideo && metas[settledItem.key]?.hdr == true
+    val settledHdr = !settledItem.isVideo && settledMeta?.hdr == true
     LaunchedEffect(settledHdr) { host.setHdrPhoto(settledHdr) }
 
     BackHandler(enabled = !morph.isInline) { collapse(fromSwipe = false) }
@@ -349,7 +363,10 @@ private fun ViewerContent(
     }
 
     // The single video surface (see ViewerVideoSurface): which page it belongs to, and its aspect.
-    val surfaceIndex = nowPlaying?.key?.let { k -> items.indexOfFirst { it.isVideo && it.key == k } } ?: -1
+    val nowPlayingKey = nowPlaying?.key
+    val surfaceIndex = remember(items, nowPlayingKey) {
+        nowPlayingKey?.let { k -> items.indexOfFirst { it.isVideo && it.key == k } } ?: -1
+    }
     val surfaceIndexState = rememberUpdatedState(surfaceIndex)
     val surfaceAspectState = rememberUpdatedState(
         if (videoSize.width > 0) {
@@ -364,9 +381,10 @@ private fun ViewerContent(
     val edgeLeftPx = maxOf(gestureInsets.getLeft(density, LayoutDirection.Ltr).toFloat(), with(density) { MIN_EDGE.toPx() })
     val edgeRightPx = maxOf(gestureInsets.getRight(density, LayoutDirection.Ltr).toFloat(), with(density) { MIN_EDGE.toPx() })
     val currentZoomed by rememberUpdatedState(zoomed)
+    val hasVideo = remember(items) { items.any { it.isVideo } }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (items.any { it.isVideo }) {
+        if (hasVideo) {
             ViewerVideoSurface(
                 controller = controller,
                 pager = pager,
@@ -382,6 +400,7 @@ private fun ViewerContent(
             state = pager,
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("viewer_pager")
                 .ignoreEdgeSwipes(edgeLeftPx, edgeRightPx, enabled = { !currentZoomed }),
             key = { items[it].key.value },
             beyondViewportPageCount = 1,
@@ -416,23 +435,30 @@ private fun ViewerContent(
                             morph.dragging = true
                             dragStart = morph.progress.value
                             dragTotal = 0f
+                            dragProgress = dragStart
                         }
                     },
                     onDrag = { delta ->
                         if (morph.dragging) {
                             dragTotal += delta
-                            val p = MorphMath.dragProgress(dragStart, dragTotal, dragDistance())
-                            scope.launch { morph.progress.snapTo(p) }
+                            dragProgress = MorphMath.dragProgress(dragStart, dragTotal, dragDistance())
+                            dragFeed.trySend(dragProgress)
                         }
                     },
                     onDragStopped = { v ->
                         if (morph.dragging) {
                             morph.dragging = false
+                            // Drop a snap still queued: it would cancel the settle below.
+                            dragFeed.tryReceive()
+                            val from = dragProgress
                             val pv = MorphMath.velocityToProgress(v, dragDistance())
-                            if (MorphMath.settleTarget(morph.progress.value, pv) == 1f) {
-                                expand(pv)
+                            if (MorphMath.settleTarget(from, pv) == 1f) {
+                                expand(pv, from = from)
                             } else {
-                                scope.launch { morph.progress.animateTo(0f, spec, initialVelocity = pv) }
+                                scope.launch {
+                                    morph.progress.snapTo(from)
+                                    morph.progress.animateTo(0f, spec, initialVelocity = pv)
+                                }
                             }
                         }
                     },
@@ -494,7 +520,7 @@ private fun ViewerContent(
     if (showInfo && morph.isInline) AppThemed {
         ViewerInfoSheet(
             item = settledItem,
-            meta = metas[settledItem.key],
+            meta = settledMeta,
             images = viewModel.images,
             controller = controller,
             videoLoaded = activeKey != null,

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -24,6 +25,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
@@ -46,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -194,7 +197,13 @@ internal fun BrowserContent(
                     action = if (state.serverMissing) {
                         null
                     } else {
-                        { FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.browser_retry)) } }
+                        {
+                            FilledTonalButton(onClick = onRetry) {
+                                Icon(RxIcons.Replay, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                                Text(stringResource(R.string.browser_retry))
+                            }
+                        }
                     },
                 )
                 is Listing.Loaded -> {
@@ -206,7 +215,13 @@ internal fun BrowserContent(
                             body = stringResource(if (state.hidesFiles) R.string.browser_no_media_body else R.string.browser_empty_body),
                             modifier = Modifier.padding(bottomOnly),
                             action = if (state.hidesFiles) {
-                                { FilledTonalButton(onClick = { onShowAll(true) }) { Text(stringResource(R.string.browser_show_all)) } }
+                                {
+                                    FilledTonalButton(onClick = { onShowAll(true) }) {
+                                        Icon(RxIcons.Visibility, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                                        Text(stringResource(R.string.browser_show_all))
+                                    }
+                                }
                             } else {
                                 null
                             },
@@ -214,6 +229,7 @@ internal fun BrowserContent(
                     } else {
                         EntryList(
                             rows = rows,
+                            subtitles = listing.subtitles,
                             state = listStates.getOrPut(state.path) { LazyListState() },
                             contentPadding = listPadding(bottomOnly),
                             onOpen = { if (it.isDirectory) onOpenFolder(it.path) else onOpenFile(it) },
@@ -293,7 +309,7 @@ private fun Breadcrumbs(crumbs: List<RemotePath.Crumb>, onOpen: (String) -> Unit
             .fillMaxWidth()
             .padding(bottom = 4.dp),
     ) {
-        itemsIndexed(crumbs, key = { _, c -> c.path }) { index, crumb ->
+        itemsIndexed(crumbs, key = { _, c -> c.path }, contentType = { _, _ -> "crumb" }) { index, crumb ->
             val last = index == crumbs.lastIndex
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (index > 0) {
@@ -320,6 +336,7 @@ private fun Breadcrumbs(crumbs: List<RemotePath.Crumb>, onOpen: (String) -> Unit
 @Composable
 private fun EntryList(
     rows: List<RemoteEntry>,
+    subtitles: Map<String, String>,
     state: LazyListState,
     contentPadding: PaddingValues,
     onOpen: (RemoteEntry) -> Unit,
@@ -335,6 +352,7 @@ private fun EntryList(
         itemsIndexed(rows, key = { _, e -> e.path }, contentType = { _, e -> e.isDirectory }) { index, entry ->
             EntryItem(
                 entry = entry,
+                subtitle = subtitles[entry.path],
                 index = index,
                 count = rows.size,
                 onClick = { onOpen(entry) },
@@ -348,6 +366,7 @@ private fun EntryList(
 @Composable
 private fun EntryItem(
     entry: RemoteEntry,
+    subtitle: String?,
     index: Int,
     count: Int,
     onClick: () -> Unit,
@@ -355,10 +374,18 @@ private fun EntryItem(
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    val context = LocalContext.current
     val type = entry.type
     val renameLabel = stringResource(R.string.browser_rename)
     val deleteLabel = stringResource(R.string.browser_delete)
+    // Built once per row, not on every recomposition; the callbacks are read when tapped.
+    val currentOnRename by rememberUpdatedState(onRename)
+    val currentOnDelete by rememberUpdatedState(onDelete)
+    val menuGroups = remember(renameLabel, deleteLabel) {
+        listOf(
+            listOf(RxMenuItem(renameLabel, { currentOnRename() }, RxIcons.DriveFileRenameOutline)),
+            listOf(RxMenuItem(deleteLabel, { currentOnDelete() }, RxIcons.Delete, destructive = true)),
+        )
+    }
     Box {
         SegmentedListItem(
             colors = RxBars.cardListItemColors(),
@@ -381,23 +408,14 @@ private fun EntryItem(
                     content = if (folder) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
-            supportingContent = {
-                val meta = listOfNotNull(
-                    if (entry.isDirectory) null else formatSize(context, entry.size),
-                    formatDate(context, entry.modifiedMs),
-                ).joinToString(" · ")
-                if (meta.isNotEmpty()) Text(meta, maxLines = 1)
-            },
+            supportingContent = subtitle?.let { { Text(it, maxLines = 1) } },
         ) {
             Text(entry.name, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         RxMenu(
             expanded = menu,
             onDismissRequest = { menu = false },
-            groups = listOf(
-                listOf(RxMenuItem(stringResource(R.string.browser_rename), onRename, RxIcons.DriveFileRenameOutline)),
-                listOf(RxMenuItem(stringResource(R.string.browser_delete), onDelete, RxIcons.Delete, destructive = true)),
-            ),
+            groups = menuGroups,
         )
     }
 }
@@ -442,6 +460,7 @@ private fun BrowserPreview() {
         RemoteEntry("Episode 2.mkv", "/Media/TV/Episode 2.mkv", false, 1_300_000_000, 1_793_613_600_000),
         RemoteEntry("poster.jpg", "/Media/TV/poster.jpg", false, 240_000, 1_793_613_600_000),
     )
+    val context = LocalContext.current
     RxTheme {
         BrowserContent(
             state = BrowserUiState(
@@ -449,7 +468,7 @@ private fun BrowserPreview() {
                 protocol = NetProtocol.SMB,
                 root = "/Media",
                 path = "/Media/TV",
-                listing = Listing.Loaded(entries),
+                listing = Listing.Loaded(entries, entrySubtitles(context, entries)),
             ),
             snackbar = remember { SnackbarHostState() },
             onBack = {}, onOpenFolder = {}, onOpenFile = {}, onRefresh = {}, onRetry = {},

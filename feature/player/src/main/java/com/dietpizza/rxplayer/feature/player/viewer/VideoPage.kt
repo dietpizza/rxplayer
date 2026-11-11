@@ -265,10 +265,9 @@ private fun InlineControlsRow(controller: PlaybackController, live: Boolean, mor
 
 @Composable
 private fun InlineScrubBar(controller: PlaybackController, live: Boolean, modifier: Modifier) {
-    val livePosition by controller.positionMs.collectAsStateWithLifecycle()
-    val liveDuration by controller.durationMs.collectAsStateWithLifecycle()
-    val position = if (live) livePosition else 0L
-    val duration = if (live) liveDuration else 0L
+    // Neighbour pages (not live) don't subscribe to the 250 ms position tick at all.
+    val position = if (live) controller.positionMs.collectAsStateWithLifecycle().value else 0L
+    val duration = if (live) controller.durationMs.collectAsStateWithLifecycle().value else 0L
     val max = duration.coerceAtLeast(1L).toFloat()
     val state = remember(max) { SliderState(value = 0f, trackRange = 0f..max) }
     var dragging by remember { mutableStateOf(false) }

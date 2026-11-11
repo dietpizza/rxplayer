@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.network
 
+import android.content.Context
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -12,8 +13,10 @@ import com.dietpizza.rxplayer.core.netfs.fs.NetFsErrors
 import com.dietpizza.rxplayer.core.netfs.model.NetProtocol
 import com.dietpizza.rxplayer.core.netfs.model.RemoteEntry
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,11 +24,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Immutable
 sealed interface Listing {
     data object Loading : Listing
-    data class Loaded(val entries: List<RemoteEntry>) : Listing
+    /** [subtitles]: each entry's "size · date" line by path, formatted off the main thread. */
+    data class Loaded(val entries: List<RemoteEntry>, val subtitles: Map<String, String> = emptyMap()) : Listing
     data class Failed(val kind: NetErrorKind, val detail: String) : Listing
 }
 
@@ -64,6 +69,7 @@ class RemoteBrowserViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val servers: ServerRepository,
     private val pool: NetFsPool,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     val serverId: Long = savedState[RemoteBrowserActivity.EXTRA_SERVER_ID] ?: 0L
@@ -80,7 +86,7 @@ class RemoteBrowserViewModel @Inject constructor(
     val effects = _effects.receiveAsFlow()
 
     /** Listings already fetched this session, so going back up is instant. */
-    private val cache = HashMap<String, List<RemoteEntry>>()
+    private val cache = HashMap<String, Listing.Loaded>()
     private var loadJob: Job? = null
 
     init {
@@ -103,7 +109,7 @@ class RemoteBrowserViewModel @Inject constructor(
         savedState[KEY_PATH] = p
         val cached = cache[p]
         _uiState.update {
-            it.copy(path = p, listing = cached?.let(Listing::Loaded) ?: Listing.Loading, refreshing = false)
+            it.copy(path = p, listing = cached ?: Listing.Loading, refreshing = false)
         }
         if (cached == null) load(p, refreshing = false)
     }
@@ -135,8 +141,8 @@ class RemoteBrowserViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             val listing = try {
                 val entries = pool.get(serverId).list(path)
-                cache[path] = entries
-                Listing.Loaded(entries)
+                val subtitles = withContext(Dispatchers.Default) { entrySubtitles(context, entries) }
+                Listing.Loaded(entries, subtitles).also { cache[path] = it }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

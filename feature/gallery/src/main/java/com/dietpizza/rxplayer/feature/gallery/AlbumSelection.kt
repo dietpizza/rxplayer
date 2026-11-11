@@ -1,6 +1,7 @@
 package com.dietpizza.rxplayer.feature.gallery
 
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,15 +11,19 @@ import androidx.compose.runtime.setValue
  * long-press a tile, then drag; every tile between the anchor and the finger takes the anchor's
  * new state, and moving back restores the tiles you un-cross.
  *
- * Lives in the ViewModel (survives rotation). Snapshot state, so tiles read [selected] directly
- * and only the tiles whose membership changed recompose their check mark.
+ * Lives in the ViewModel (survives rotation). [selected] is one snapshot state holding the whole
+ * set, so anything reading it recomposes on every change. Grid tiles therefore read it through a
+ * per-tile `derivedStateOf { key in selected }` and read [isActive] (itself derived), so a toggle
+ * or drag step only recomposes the tiles whose membership flipped, plus every tile once when
+ * selection mode starts or ends.
  */
 @Stable
 class AlbumSelection {
     var selected: Set<String> by mutableStateOf(emptySet())
         private set
 
-    val isActive: Boolean get() = selected.isNotEmpty()
+    /** Derived, so readers are invalidated only when selection mode starts or ends. */
+    val isActive: Boolean by derivedStateOf { selected.isNotEmpty() }
 
     private var anchor = -1
     private var lastHover = -1

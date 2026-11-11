@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import coil3.request.crossfade
 
 /**
  * A MediaStore thumbnail (video frame or photo) for [contentUri], over a `surfaceContainerHigh`
@@ -23,6 +24,9 @@ import coil3.request.ImageRequest
  * [requestWidth] is roughly how wide the thumbnail is drawn. It's rounded up to a small set of
  * pixel buckets so the same item shown in a list and a grid usually shares one memory-cache entry,
  * and the request is square so portrait and landscape media both come back sharp after cropping.
+ *
+ * [crossfade] = false skips the loader's default fade on memory-cache misses; dense grids turn it
+ * off so tiles loaded mid-fling don't animate.
  */
 @Composable
 fun MediaThumbnail(
@@ -31,6 +35,7 @@ fun MediaThumbnail(
     requestWidth: Dp = 160.dp,
     contentDescription: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
+    crossfade: Boolean = true,
 ) {
     val placeholder = modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
     if (contentUri == null || LocalInspectionMode.current) {
@@ -39,10 +44,11 @@ fun MediaThumbnail(
     }
     val context = LocalContext.current
     val px = with(LocalDensity.current) { requestWidth.roundToPx() }.toBucket()
-    val request = remember(contentUri, px) {
+    val request = remember(contentUri, px, crossfade) {
         ImageRequest.Builder(context)
             .data(MediaStoreThumbnail(contentUri))
             .size(px, px)
+            .apply { if (!crossfade) crossfade(false) }
             .build()
     }
     AsyncImage(

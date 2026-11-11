@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
  * `app/src/main/baselineProfiles/baseline-prof.txt` stays as a floor (it is merged too).
  *
  * Journeys mirror plan §10: cold start to Gallery, album grid scroll, album open + fling,
- * Videos folder list + folder, Settings.
+ * photo/video viewer (swipe, zoom, video page), Videos folder list + folder, Settings.
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -39,6 +39,7 @@ class BaselineProfileGenerator {
         startToGallery()
         scrollAlbums()
         openAlbumAndFling()
+        openViewer()
         browseVideos()
         openSettings()
     }

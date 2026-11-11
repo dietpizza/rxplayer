@@ -15,7 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.dietpizza.rxplayer.core.model.FileOpError
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,6 +45,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -443,8 +444,9 @@ private fun MediaGrid(
             },
         )
     }
-    // Two request sizes only (2–3 and 4–6 columns), so pinching doesn't refetch every thumbnail.
-    val requestWidth = (screenWidth / if (columns <= 3) 2 else 4).dp
+    // Three request sizes only (2, 3–4 and 5–6 columns), so pinching between neighbouring counts
+    // usually keeps the same MediaThumbnail bucket and doesn't refetch every thumbnail.
+    val requestWidth = (screenWidth / when { columns <= 2 -> 2; columns <= 4 -> 3; else -> 5 }).dp
     val scroller = rememberFastScrollerState(gridState)
     val drag = remember { DragSelectState() }
     val haptics = LocalHapticFeedback.current
@@ -542,13 +544,19 @@ private fun LazyGridScope.albumCells(
             contentType = { MEDIA_CONTENT_TYPE },
         ) { i ->
             val cell = cells[runStart + i] as MediaCell
+            // Derived per tile: a toggle or drag step recomposes only the tiles that flip.
+            val selected by remember(selection, cell.key) { derivedStateOf { cell.key in selection.selected } }
+            val onClick = remember(selection, cell, onOpen) {
+                { if (selection.isActive) selection.toggle(cell.key) else onOpen(cell.index) }
+            }
+            val onLongClick = remember(selection, cell.key) { { selection.toggle(cell.key) } }
             MediaTile(
                 cell = cell,
-                selected = cell.key in selection.selected,
+                selected = selected,
                 selectionMode = selection.isActive,
                 requestWidth = requestWidth,
-                onClick = { if (selection.isActive) selection.toggle(cell.key) else onOpen(cell.index) },
-                onLongClick = { selection.toggle(cell.key) },
+                onClick = onClick,
+                onLongClick = onLongClick,
             )
         }
         start = end
@@ -583,12 +591,19 @@ private fun MediaTile(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(if (selected) SELECTED_SCALE else 1f, label = "tileScale")
+    // No per-tile animateFloatAsState (it keeps a coroutine alive per cell): the Animatable is
+    // idle until [selected] flips, which only happens in selection mode (clearing it animates the
+    // selected tiles back out). Read in graphicsLayer, so frames don't recompose.
+    val target = if (selected) SELECTED_SCALE else 1f
+    val scale = remember { Animatable(target) }
+    val scope = rememberCoroutineScope() // outside the `if`: leaving it must not cancel the animation
+    if (scale.targetValue != target) SideEffect { scope.launch { scale.animateTo(target) } }
     val description = stringResource(if (cell.isVideo) R.string.album_video else R.string.album_photo)
     val selectLabel = stringResource(R.string.album_select)
     Box(
         Modifier
             .aspectRatio(1f)
+            .testTag(if (cell.isVideo) "album_video" else "album_photo")
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .semantics {
                 this.selected = selected
@@ -600,8 +615,8 @@ private fun MediaTile(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
+                    scaleX = scale.value
+                    scaleY = scale.value
                     shape = if (selected) SelectedShape else RectangleShape
                     clip = selected
                 },
@@ -611,6 +626,7 @@ private fun MediaTile(
                 requestWidth = requestWidth,
                 contentDescription = description,
                 modifier = Modifier.fillMaxSize(),
+                crossfade = false,
             )
             if (cell.duration != null) {
                 Text(

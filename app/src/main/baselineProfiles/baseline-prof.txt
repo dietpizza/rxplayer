@@ -3,6 +3,10 @@
 # once :baselineprofile has been run (./gradlew :app:generateReleaseBaselineProfile).
 #
 # H = hot, S = startup, P = post-startup. Wildcards are expanded by AGP against the dex.
+#
+# These wildcards are deliberately broad (whole packages, incl. kotlin/** and androidx/compose/**).
+# Do NOT narrow them until a generated profile exists and has been checked in; narrowing first
+# would leave paths no journey covers uncompiled.
 
 # --- Rx Player: everything on the cold-start -> Gallery / Videos / Settings paths -------------
 HSPLcom/dietpizza/rxplayer/*;->**(**)**
@@ -21,6 +25,10 @@ HSPLcom/dietpizza/rxplayer/feature/videos/**;->**(**)**
 HPLcom/dietpizza/rxplayer/feature/settings/**;->**(**)**
 HPLcom/dietpizza/rxplayer/feature/search/**;->**(**)**
 HPLcom/dietpizza/rxplayer/feature/network/**;->**(**)**
+# Viewer + player (PlayerActivity, viewer/, ui/) and the playback core. Not on cold start, so
+# HPL (no S) to keep them out of the startup set / primary dex.
+HPLcom/dietpizza/rxplayer/feature/player/**;->**(**)**
+HPLcom/dietpizza/rxplayer/core/player/**;->**(**)**
 Lcom/dietpizza/rxplayer/*;
 Lcom/dietpizza/rxplayer/ui/**;
 Lcom/dietpizza/rxplayer/core/ui/**;
@@ -49,6 +57,8 @@ HSPLandroidx/room/**;->**(**)**
 HSPLandroidx/sqlite/**;->**(**)**
 HSPLandroidx/datastore/**;->**(**)**
 HSPLandroidx/graphics/shapes/**;->**(**)**
+# Media3 (exoplayer, session, ui-compose, ffmpeg decoder) ships no profile we rely on.
+HPLandroidx/media3/**;->**(**)**
 
 # --- Compose / AndroidX (ship their own profiles; listed so hot paths survive a partial merge) --
 HSPLandroidx/compose/runtime/**;->**(**)**

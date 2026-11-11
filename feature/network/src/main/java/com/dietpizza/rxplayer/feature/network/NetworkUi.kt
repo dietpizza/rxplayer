@@ -32,6 +32,7 @@ import androidx.annotation.StringRes
 import com.dietpizza.rxplayer.core.netfs.fs.NetErrorKind
 import com.dietpizza.rxplayer.core.netfs.model.MediaType
 import com.dietpizza.rxplayer.core.netfs.model.NetProtocol
+import com.dietpizza.rxplayer.core.netfs.model.RemoteEntry
 import kotlinx.coroutines.delay
 
 internal fun NetProtocol.icon(): ImageVector = when (this) {
@@ -97,6 +98,18 @@ internal fun formatDate(context: Context, epochMs: Long): String? =
             epochMs,
             DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_ABBREV_MONTH or DateUtils.FORMAT_SHOW_YEAR,
         )
+    }
+
+/** The browser row's "size · date" line for each entry, by path; entries with neither are left out. */
+internal fun entrySubtitles(context: Context, entries: List<RemoteEntry>): Map<String, String> =
+    buildMap {
+        for (entry in entries) {
+            val meta = listOfNotNull(
+                if (entry.isDirectory) null else formatSize(context, entry.size),
+                formatDate(context, entry.modifiedMs),
+            ).joinToString(" · ")
+            if (meta.isNotEmpty()) put(entry.path, meta)
+        }
     }
 
 internal fun formatRelative(epochMs: Long): String =
