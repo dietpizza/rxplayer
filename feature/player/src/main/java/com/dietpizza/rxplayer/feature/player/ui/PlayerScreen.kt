@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
@@ -550,7 +551,11 @@ private fun ErrorPanel(error: PlayerError, controller: PlaybackController, onBac
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(onClick = onBack) { Text("Close") }
                 if (nowPlaying?.hasNext == true) {
-                    FilledTonalButton(onClick = controller::next) { Text("Play next") }
+                    FilledTonalButton(onClick = controller::next) {
+                        Icon(RxIcons.SkipNext, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                        Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                        Text("Play next")
+                    }
                 }
             }
         }

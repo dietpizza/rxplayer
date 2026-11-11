@@ -50,7 +50,11 @@ fun RxMenu(
             if (g > 0) Spacer(Modifier.height(MenuGroupGap))
             DropdownMenuGroup(shapes = MenuDefaults.groupShape(g, visible.size)) {
                 group.forEachIndexed { i, item ->
-                    val color = if (item.destructive) MaterialTheme.colorScheme.error else null
+                    val color = when {
+                        !item.enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = DisabledAlpha)
+                        item.destructive -> MaterialTheme.colorScheme.error
+                        else -> null
+                    }
                     val select = item.selected
                     val shapes = MenuDefaults.itemShape(i, group.size)
                     val text: @Composable () -> Unit = {
@@ -90,3 +94,4 @@ fun RxMenu(
 }
 
 private val MenuGroupGap = 2.dp
+private const val DisabledAlpha = 0.38f
