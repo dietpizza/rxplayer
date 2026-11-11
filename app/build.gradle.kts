@@ -26,6 +26,16 @@ android {
     }
 }
 
+// The baseline-profile plugin clones release into nonMinifiedRelease but doesn't undo the
+// `optimization` block, so R8 still obfuscated the profiling build and the captured profile was
+// full of scrambled names that match nothing in release. Force minification off at variant level.
+androidComponents {
+    beforeVariants(selector().withBuildType("nonMinifiedRelease")) {
+        it.isMinifyEnabled = false
+        it.shrinkResources = false
+    }
+}
+
 baselineProfile {
     // Generation needs a device; never run it implicitly from assembleRelease. Regenerate with
     // ./gradlew :app:generateReleaseBaselineProfile (see BaselineProfileGenerator KDoc).
