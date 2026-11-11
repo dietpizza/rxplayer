@@ -41,7 +41,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -350,12 +350,17 @@ private fun SpeedChip(controller: PlaybackController, ui: FullPlayerState) {
  */
 @Composable
 private fun SeekBar(controller: PlaybackController, ui: FullPlayerState) {
-    val position by controller.positionMs.collectAsStateWithLifecycle()
     val duration by controller.durationMs.collectAsStateWithLifecycle()
     val max = duration.coerceAtLeast(1L).toFloat()
     val state = remember(max) { SliderState(value = 0f, trackRange = 0f..max) }
-    SideEffect {
-        if (!ui.seekBarDragging) state.value = position.toFloat().coerceIn(0f, max)
+    // Follow the position stream straight into the slider. (A SideEffect reading it isn't a
+    // tracked read, so the bar only caught up when something else recomposed it: e.g. it stayed
+    // at the old spot after the resume prompt's "Start over" until the controls were re-shown.)
+    // Only the Slider recomposes per tick, not this whole bar.
+    LaunchedEffect(state, controller) {
+        controller.positionMs.collect { p ->
+            if (!ui.seekBarDragging) state.value = p.toFloat().coerceIn(0f, max)
+        }
     }
     Box(Modifier.fillMaxWidth()) {
         Slider(
