@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -27,7 +28,7 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,6 +43,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dietpizza.rxplayer.core.datastore.SubtitleSettings
 import com.dietpizza.rxplayer.core.model.LibrarySettings
@@ -537,7 +539,13 @@ internal fun SwitchRow(
     ) { Text(title) }
 }
 
-/** A slider row; the value is written when the drag ends, not on every frame. */
+/**
+ * A slider row; the value is written when the drag ends, not on every frame. The value label sits
+ * right after the slider, on the slider's line.
+ *
+ * After release, the row keeps showing the picked value until the saved value comes back from
+ * DataStore. Dropping it straight away made the thumb snap back to the old value for a few frames.
+ */
 @Composable
 private fun SliderRow(
     index: Int,
@@ -551,34 +559,47 @@ private fun SliderRow(
     onChange: (Float) -> Unit,
 ) {
     var dragging by remember { mutableStateOf(false) }
-    var local by remember { mutableFloatStateOf(value) }
-    val shown = if (dragging) local else value
+    // The value being dragged or waiting to be saved; null once the saved value has caught up.
+    var picked by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(value) { if (!dragging) picked = null }
+    val shown = picked ?: value
     val shownLabel = valueLabel(shown)
     SegmentedListItem(
         colors = RxBars.cardListItemColors(),
         shapes = ListItemDefaults.segmentedShapes(index = index, count = count),
         leadingContent = { Icon(icon, contentDescription = null) },
-        trailingContent = { Text(shownLabel, style = MaterialTheme.typography.labelLarge) },
         supportingContent = {
-            Slider(
-                value = shown,
-                onValueChange = {
-                    dragging = true
-                    local = it
-                },
-                onValueChangeFinished = {
-                    onChange(local)
-                    dragging = false
-                },
-                valueRange = range,
-                steps = steps,
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .semantics {
-                        contentDescription = title
-                        stateDescription = shownLabel
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(top = 4.dp),
+            ) {
+                Slider(
+                    value = shown,
+                    onValueChange = {
+                        dragging = true
+                        picked = it
                     },
-            )
+                    onValueChangeFinished = {
+                        dragging = false
+                        picked?.let { if (it != value) onChange(it) else picked = null }
+                    },
+                    valueRange = range,
+                    steps = steps,
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics {
+                            contentDescription = title
+                            stateDescription = shownLabel
+                        },
+                )
+                Text(
+                    shownLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier.widthIn(min = 44.dp),
+                )
+            }
         },
     ) { Text(title) }
 }

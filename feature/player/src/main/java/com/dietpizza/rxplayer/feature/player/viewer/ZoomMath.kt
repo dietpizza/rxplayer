@@ -42,8 +42,38 @@ internal object ZoomMath {
         return focus - (focus - offset) * (newScale / oldScale) + pan
     }
 
-    /** Target of a double tap: fit when zoomed in, else [DOUBLE_TAP_SCALE]. */
-    fun doubleTapScale(current: Float): Float = if (current > MIN_SCALE + 0.01f) MIN_SCALE else DOUBLE_TAP_SCALE
+    /** Pinching past [MAX_SCALE] rubber-bands up to this, then springs back on release. */
+    const val MAX_GESTURE_SCALE = MAX_SCALE * 1.25f
+
+    /** How much of a pinch still applies once past a limit (rubber band). */
+    const val OVER_LIMIT_RESISTANCE = 0.3f
+
+    /**
+     * Target of a double tap: fit when zoomed in. At fit, zoom to fill the screen ([fill], e.g. a
+     * landscape photo on a portrait phone), but at least [DOUBLE_TAP_SCALE] and at most [MAX_SCALE].
+     */
+    fun doubleTapScale(current: Float, fill: Float = MIN_SCALE): Float =
+        if (current > MIN_SCALE + 0.01f) MIN_SCALE else max(DOUBLE_TAP_SCALE, fill).coerceAtMost(MAX_SCALE)
+
+    /** Scale that makes fit-size content [contentW]×[contentH] cover the whole container. */
+    fun fillScale(contentW: Float, contentH: Float, containerW: Float, containerH: Float): Float {
+        if (contentW <= 0f || contentH <= 0f) return MIN_SCALE
+        return max(containerW / contentW, containerH / contentH)
+    }
+
+    /**
+     * One pinch step from [old] by factor [zoom]: free inside [MIN_SCALE]..[MAX_SCALE], damped by
+     * [OVER_LIMIT_RESISTANCE] past either limit, hard-stopped at the gesture limits.
+     */
+    fun rubberBandScale(old: Float, zoom: Float): Float {
+        val raw = old * zoom
+        val damped = when {
+            raw > MAX_SCALE && zoom > 1f -> old * (1f + (zoom - 1f) * OVER_LIMIT_RESISTANCE)
+            raw < MIN_SCALE && zoom < 1f -> old * (1f - (1f - zoom) * OVER_LIMIT_RESISTANCE)
+            else -> raw
+        }
+        return damped.coerceIn(MIN_GESTURE_SCALE, MAX_GESTURE_SCALE)
+    }
 
     /** Fit size of content with aspect [contentAspect] (w/h) inside the container: (w, h). */
     fun fitWidth(containerW: Float, containerH: Float, contentAspect: Float): Float {

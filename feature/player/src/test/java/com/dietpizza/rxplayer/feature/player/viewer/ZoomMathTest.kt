@@ -41,6 +41,32 @@ class ZoomMathTest {
     }
 
     @Test
+    fun doubleTapFillsTheScreenWhenThatZoomsFurther() {
+        // 4:3 photo fit to 1080x810 in a 1080x2400 window: filling the height takes 2400/810.
+        val fill = ZoomMath.fillScale(1080f, 810f, 1080f, 2400f)
+        assertEquals(2400f / 810f, fill, 0.001f)
+        assertEquals(fill, ZoomMath.doubleTapScale(1f, fill), 0.001f)
+        // A photo that nearly fills already still zooms by the default step.
+        assertEquals(ZoomMath.DOUBLE_TAP_SCALE, ZoomMath.doubleTapScale(1f, 1.1f), 0f)
+        // A panorama never zooms past the max.
+        assertEquals(ZoomMath.MAX_SCALE, ZoomMath.doubleTapScale(1f, 20f), 0f)
+    }
+
+    @Test
+    fun pinchPastLimitsIsDampedAndBounded() {
+        // Inside the range a pinch applies as is.
+        assertEquals(3f, ZoomMath.rubberBandScale(2f, 1.5f), 0.001f)
+        // Past the max only part of it applies.
+        val over = ZoomMath.rubberBandScale(ZoomMath.MAX_SCALE, 1.5f)
+        assertEquals(ZoomMath.MAX_SCALE * 1.15f, over, 0.001f)
+        // Never past the gesture limits.
+        assertEquals(ZoomMath.MAX_GESTURE_SCALE, ZoomMath.rubberBandScale(ZoomMath.MAX_GESTURE_SCALE, 3f), 0.001f)
+        assertEquals(ZoomMath.MIN_GESTURE_SCALE, ZoomMath.rubberBandScale(ZoomMath.MIN_GESTURE_SCALE, 0.2f), 0.001f)
+        // Pinching back in from past a limit isn't damped.
+        assertEquals(ZoomMath.MAX_SCALE * 1.1f * 0.8f, ZoomMath.rubberBandScale(ZoomMath.MAX_SCALE * 1.1f, 0.8f), 0.001f)
+    }
+
+    @Test
     fun scaleClamp() {
         assertEquals(1f, ZoomMath.clampScale(0.5f), 0f)
         assertEquals(ZoomMath.MAX_SCALE, ZoomMath.clampScale(40f), 0f)

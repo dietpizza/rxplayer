@@ -10,7 +10,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -23,8 +22,8 @@ import com.dietpizza.rxplayer.core.model.SlideshowMediaType
 import com.dietpizza.rxplayer.core.model.SlideshowOptions
 import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.core.ui.slideshow.SlideshowOptionsSheet
+import com.dietpizza.rxplayer.core.ui.slideshow.rememberSheetLauncher
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 /** Extra bottom padding for a grid under the slideshow FAB, so its last row can scroll clear. */
 internal val SlideshowFabClearance = 88.dp
@@ -63,17 +62,15 @@ internal fun SlideshowSheetHost(source: SlideshowSource, onDismiss: () -> Unit) 
     val options by source.options.collectAsStateWithLifecycle()
     val counts by source.counts.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val launcher = rememberSheetLauncher()
     SlideshowOptionsSheet(
         initial = options,
         counts = counts,
         onStart = { chosen ->
             onDismiss()
-            scope.launch {
+            launcher.launch {
                 val keys = source.prepare(chosen)
-                if (keys.isNotEmpty()) {
-                    context.startActivity(RxIntents.slideshow(context, keys, RxIntents.SLIDESHOW_ANY_START, chosen))
-                }
+                if (keys.isEmpty()) null else RxIntents.slideshow(context, keys, RxIntents.SLIDESHOW_ANY_START, chosen)
             }
         },
         onDismissRequest = onDismiss,

@@ -24,6 +24,7 @@ import com.dietpizza.rxplayer.core.model.SlideshowMediaType
 import com.dietpizza.rxplayer.core.model.filterForSlideshow
 import com.dietpizza.rxplayer.core.ui.RxIntents
 import com.dietpizza.rxplayer.core.ui.slideshow.SlideshowOptionsSheet
+import com.dietpizza.rxplayer.core.ui.slideshow.rememberSheetLauncher
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
@@ -616,6 +617,7 @@ private fun ViewerSlideshowSheet(viewModel: ViewerViewModel, items: List<ViewerI
     val context = LocalContext.current
     val typeOf: (ViewerItem) -> SlideshowMediaType = { SlideshowMediaType.of(it.mimeType, it.kind == PageKind.Video) }
     val counts = remember(items) { SlideshowCounts.of(items, typeOf) }
+    val launcher = rememberSheetLauncher()
     SlideshowOptionsSheet(
         initial = options,
         counts = counts,
@@ -626,7 +628,7 @@ private fun ViewerSlideshowSheet(viewModel: ViewerViewModel, items: List<ViewerI
             if (kept.isNotEmpty()) {
                 // Start on the page on screen when it's included; otherwise anywhere.
                 val start = kept.indexOfFirst { it.key == from.key }
-                context.startActivity(RxIntents.slideshow(context, kept.map { it.key }, start, chosen))
+                launcher.launch { RxIntents.slideshow(context, kept.map { it.key }, start, chosen) }
             }
         },
         onDismissRequest = onDismiss,

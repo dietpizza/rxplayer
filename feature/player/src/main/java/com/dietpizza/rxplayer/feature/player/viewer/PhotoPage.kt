@@ -1,13 +1,24 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.DecayAnimationSpec
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.util.fastAny
+import kotlin.math.exp
+import kotlin.math.hypot
 import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -94,15 +105,21 @@ internal class ZoomState {
     private val contentW get() = ZoomMath.fitWidth(containerW, containerH, contentAspect)
     private val contentH get() = ZoomMath.fitHeight(containerW, containerH, contentAspect)
 
+    /** Scale at which the photo covers the whole screen. */
+    val fillScale: Float get() = ZoomMath.fillScale(contentW, contentH, containerW, containerH)
+
     fun stopAnimation() {
         animation?.cancel()
         animation = null
     }
 
-    /** One gesture frame: zoom by [zoom] around [focusX]/[focusY] (from the centre) and pan. */
+    /**
+     * One gesture frame: zoom by [zoom] around [focusX]/[focusY] (from the centre) and pan. Past
+     * the zoom limits the pinch is damped (rubber band); [settle] brings it back.
+     */
     fun transform(focusX: Float, focusY: Float, panX: Float, panY: Float, zoom: Float) {
         val old = scale
-        val new = ZoomMath.clampScale(old * zoom, ZoomMath.MIN_GESTURE_SCALE, ZoomMath.MAX_SCALE)
+        val new = ZoomMath.rubberBandScale(old, zoom)
         val ox = ZoomMath.offsetAfterZoom(offsetX, focusX, old, new, panX)
         val oy = ZoomMath.offsetAfterZoom(offsetY, focusY, old, new, panY)
         scale = new
@@ -110,7 +127,11 @@ internal class ZoomState {
         offsetY = ZoomMath.clampOffset(oy, contentH, containerH, new)
     }
 
-    /** Animates to [target] scale keeping the point at [focusX]/[focusY] (from the centre) fixed. */
+    /**
+     * Animates to [target] scale around [focusX]/[focusY] (from the centre). The content point
+     * under the focus glides straight to where it ends up, so the tapped spot doesn't wander
+     * while the edges clamp.
+     */
     fun animateTo(scope: CoroutineScope, target: Float, focusX: Float, focusY: Float, spec: AnimationSpec<Float>) {
         stopAnimation()
         val fromS = scale
@@ -118,18 +139,55 @@ internal class ZoomState {
         val fromY = offsetY
         val toX = ZoomMath.clampOffset(ZoomMath.offsetAfterZoom(fromX, focusX, fromS, target, 0f), contentW, containerW, target)
         val toY = ZoomMath.clampOffset(ZoomMath.offsetAfterZoom(fromY, focusY, fromS, target, 0f), contentH, containerH, target)
+        // The content point under the focus, and where it lands on screen at the end.
+        val px = (focusX - fromX) / fromS
+        val py = (focusY - fromY) / fromS
+        val endX = px * target + toX
+        val endY = py * target + toY
         animation = scope.launch {
             animate(0f, 1f, animationSpec = spec) { t, _ ->
-                scale = MorphMath.lerp(fromS, target, t)
-                offsetX = MorphMath.lerp(fromX, toX, t)
-                offsetY = MorphMath.lerp(fromY, toY, t)
+                val s = MorphMath.lerp(fromS, target, t)
+                scale = s
+                offsetX = MorphMath.lerp(focusX, endX, t) - px * s
+                offsetY = MorphMath.lerp(focusY, endY, t) - py * s
             }
         }
     }
 
-    /** After a gesture: spring back from a below-fit pinch. */
-    fun settle(scope: CoroutineScope, spec: AnimationSpec<Float>) {
-        if (scale < ZoomMath.MIN_SCALE) animateTo(scope, ZoomMath.MIN_SCALE, 0f, 0f, spec)
+    /**
+     * Keeps a pan going after the finger lifts, with the platform's scroll deceleration, until it
+     * runs out or both axes hit an edge. [velocityX]/[velocityY] in px/s.
+     */
+    fun fling(scope: CoroutineScope, velocityX: Float, velocityY: Float, decay: DecayAnimationSpec<Float>) {
+        stopAnimation()
+        val speed = hypot(velocityX, velocityY)
+        if (speed < MIN_FLING_PX_S || !isZoomed) return
+        val ux = velocityX / speed
+        val uy = velocityY / speed
+        animation = scope.launch {
+            var last = 0f
+            AnimationState(0f, speed).animateDecay(decay) {
+                val d = value - last
+                last = value
+                val nx = ZoomMath.clampOffset(offsetX + ux * d, contentW, containerW, scale)
+                val ny = ZoomMath.clampOffset(offsetY + uy * d, contentH, containerH, scale)
+                val moved = abs(nx - offsetX) > 0.01f || abs(ny - offsetY) > 0.01f
+                offsetX = nx
+                offsetY = ny
+                if (!moved) cancelAnimation()
+            }
+        }
+    }
+
+    /** After a gesture: spring back from a pinch past either limit, around [focusX]/[focusY]. */
+    fun settle(scope: CoroutineScope, focusX: Float, focusY: Float, spec: AnimationSpec<Float>): Boolean {
+        val target = when {
+            scale < ZoomMath.MIN_SCALE -> ZoomMath.MIN_SCALE
+            scale > ZoomMath.MAX_SCALE -> ZoomMath.MAX_SCALE
+            else -> return false
+        }
+        animateTo(scope, target, focusX, focusY, spec)
+        return true
     }
 
     fun reset() {
@@ -137,6 +195,10 @@ internal class ZoomState {
         scale = 1f
         offsetX = 0f
         offsetY = 0f
+    }
+
+    private companion object {
+        const val MIN_FLING_PX_S = 50f
     }
 }
 
@@ -202,7 +264,9 @@ internal fun PhotoPage(
     }
 
     val scope = rememberCoroutineScope()
-    val spec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    // No bounce: an overshooting zoom flashes the black edges.
+    val spec = remember { spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = ZOOM_STIFFNESS) }
+    val decay = rememberSplineBasedDecay<Float>()
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnSwipeUp by rememberUpdatedState(onSwipeUp)
 
@@ -213,36 +277,7 @@ internal fun PhotoPage(
                 zoom.containerW = it.width.toFloat()
                 zoom.containerH = it.height.toFloat()
             }
-            .pointerInput(zoom) {
-                val slop = DOUBLE_TAP_SLOP.toPx()
-                var lastUpMs = 0L
-                var lastPos = Offset.Zero
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    // Null once a pan or pinch consumed the moves: not a tap.
-                    val up = waitForUpOrCancellation() ?: return@awaitEachGesture
-                    if (up.uptimeMillis - down.uptimeMillis > viewConfiguration.longPressTimeoutMillis) return@awaitEachGesture
-                    val quick = down.uptimeMillis - lastUpMs < viewConfiguration.doubleTapTimeoutMillis &&
-                        (up.position - lastPos).getDistance() < slop
-                    // Instant: on a double tap this second toggle puts the chrome back.
-                    currentOnTap()
-                    if (quick) {
-                        up.consume()
-                        zoom.animateTo(
-                            scope,
-                            ZoomMath.doubleTapScale(zoom.scale),
-                            up.position.x - size.width / 2f,
-                            up.position.y - size.height / 2f,
-                            spec,
-                        )
-                        lastUpMs = 0L
-                    } else {
-                        lastUpMs = up.uptimeMillis
-                        lastPos = up.position
-                    }
-                }
-            }
-            .zoomGestures(zoom, scope, spec) { currentOnSwipeUp() },
+            .photoGestures(zoom, scope, spec, decay, onTap = { currentOnTap() }, onSwipeUp = { currentOnSwipeUp() }),
         contentAlignment = Alignment.Center,
     ) {
         val img = image
@@ -298,59 +333,171 @@ private fun LoadFailed() {
 }
 
 /**
- * Pinch-zoom, pan and swipe-up. Moves are consumed only while transforming (two fingers, or one
- * while zoomed in), so at fit a horizontal drag reaches the pager and a vertical one is ours.
+ * All touch on a photo page, in one detector so taps, zoom and pan never fight:
+ * - Tap: toggles the chrome straight away (no double-tap wait).
+ * - Double tap: puts the chrome back and zooms in on the tapped point (to fill the screen, at
+ *   least [ZoomMath.DOUBLE_TAP_SCALE]), or back out to fit.
+ * - Double tap and drag (one finger): drag down zooms in, up zooms out, around the tapped point.
+ * - Pinch: zooms around the fingers, rubber-banding past the limits and springing back.
+ * - Drag while zoomed: pans, and keeps going after release (fling).
+ * - Swipe up at fit: [onSwipeUp] (info).
+ *
+ * At fit a one-finger horizontal drag isn't consumed, so it reaches the pager; once the pager
+ * takes it (consumed in the Final pass), the gesture is left alone.
  */
-private fun Modifier.zoomGestures(
+private fun Modifier.photoGestures(
     zoom: ZoomState,
     scope: CoroutineScope,
     spec: AnimationSpec<Float>,
+    decay: DecayAnimationSpec<Float>,
+    onTap: () -> Unit,
     onSwipeUp: () -> Unit,
 ): Modifier = pointerInput(zoom) {
     val swipeThreshold = SWIPE_UP_DP.dp.toPx()
+    val doubleTapSlop = DOUBLE_TAP_SLOP.toPx()
+    val quickZoomPx = QUICK_ZOOM_DP.dp.toPx()
+    val touchSlop = viewConfiguration.touchSlop
+    val tracker = VelocityTracker()
+    var lastTapUpMs = 0L
+    var lastTapPos = Offset.Zero
+
     awaitEachGesture {
-        awaitFirstDown(requireUnconsumed = false)
+        val down = awaitFirstDown(requireUnconsumed = false)
         zoom.stopAnimation()
-        var transforming = false
-        var dx = 0f
-        var dy = 0f
+        val secondTap = down.uptimeMillis - lastTapUpMs < viewConfiguration.doubleTapTimeoutMillis &&
+            (down.position - lastTapPos).getDistance() < doubleTapSlop
+        lastTapUpMs = 0L
+        val centre = Offset(size.width / 2f, size.height / 2f)
+        tracker.resetTracking()
+        tracker.addPosition(down.uptimeMillis, down.position)
+
+        var mode = Mode.Undecided
+        var trackedId = down.id
+        var lastCount = 1
+        var focus = down.position - centre
+        var travel = Offset.Zero
+        var swipeX = 0f
+        var swipeY = 0f
         var swiped = false
+        var upChange: PointerInputChange? = null
+
         while (true) {
             val event = awaitPointerEvent()
-            var anyPressed = false
             var pressedCount = 0
-            var consumedElsewhere = false
-            event.changes.fastForEach { c ->
-                if (c.pressed) {
-                    anyPressed = true
-                    pressedCount++
-                }
-                if (c.isConsumed) consumedElsewhere = true
+            event.changes.fastForEach { if (it.pressed) pressedCount++ }
+            if (pressedCount == 0) {
+                upChange = event.changes.firstOrNull { it.id == down.id } ?: event.changes.firstOrNull()
+                break
             }
-            if (!anyPressed) break
-            // The pager (or a tap detector cancelling) took this gesture.
-            if (consumedElsewhere && !transforming) break
-            if (pressedCount >= 2 || zoom.isZoomed) {
-                transforming = true
-                val z = event.calculateZoom()
-                val pan = event.calculatePan()
-                val c = event.calculateCentroid(useCurrent = true)
-                if (c.isSpecified) {
-                    zoom.transform(c.x - size.width / 2f, c.y - size.height / 2f, pan.x, pan.y, z)
+
+            // Velocity follows one finger; restart it whenever the fingers change.
+            val primary = event.changes.firstOrNull { it.id == trackedId && it.pressed }
+                ?: event.changes.first { it.pressed }
+            if (primary.id != trackedId || pressedCount != lastCount) {
+                trackedId = primary.id
+                tracker.resetTracking()
+            }
+            tracker.addPosition(primary.uptimeMillis, primary.position)
+            lastCount = pressedCount
+
+            val pan = event.calculatePan()
+            travel += pan
+            val moved = travel.getDistance() > touchSlop
+
+            if (mode == Mode.Undecided) {
+                mode = when {
+                    pressedCount >= 2 -> Mode.Transform
+                    secondTap && moved -> Mode.QuickZoom.also { onTap() } // undo the first tap's toggle
+                    zoom.isZoomed && moved -> Mode.Transform
+                    moved -> Mode.Fit
+                    else -> Mode.Undecided
                 }
-                event.changes.fastForEach { ch -> if (ch.positionChanged()) ch.consume() }
-            } else if (!swiped) {
-                val pan = event.calculatePan()
-                dx += pan.x
-                dy += pan.y
-                if (-dy > swipeThreshold && abs(dy) > 2f * abs(dx)) {
-                    swiped = true
-                    onSwipeUp()
+            }
+
+            when (mode) {
+                Mode.QuickZoom -> {
+                    if (pressedCount >= 2) {
+                        mode = Mode.Transform
+                    } else {
+                        val z = exp(pan.y / quickZoomPx)
+                        zoom.transform(focus.x, focus.y, 0f, 0f, z)
+                        event.changes.fastForEach { if (it.positionChanged()) it.consume() }
+                    }
+                }
+                Mode.Transform -> {
+                    val c = event.calculateCentroid(useCurrent = true)
+                    if (c.isSpecified) {
+                        focus = c - centre
+                        zoom.transform(focus.x, focus.y, pan.x, pan.y, event.calculateZoom())
+                    }
+                    event.changes.fastForEach { if (it.positionChanged()) it.consume() }
+                }
+                Mode.Fit -> {
+                    if (pressedCount >= 2) {
+                        mode = Mode.Transform
+                    } else if (!swiped) {
+                        swipeX += pan.x
+                        swipeY += pan.y
+                        if (-swipeY > swipeThreshold && abs(swipeY) > 2f * abs(swipeX)) {
+                            swiped = true
+                            onSwipeUp()
+                        }
+                    }
+                }
+                Mode.Undecided, Mode.Pager -> Unit
+            }
+
+            // Did a parent (the pager) take it? Seen only after everyone had the event.
+            val final = awaitPointerEvent(PointerEventPass.Final)
+            if (mode == Mode.Fit || mode == Mode.Undecided) {
+                if (final.changes.fastAny { it.isConsumed }) {
+                    mode = Mode.Pager
                 }
             }
         }
-        if (transforming) zoom.settle(scope, spec)
+
+        when (mode) {
+            Mode.Undecided -> {
+                val up = upChange ?: return@awaitEachGesture
+                if (up.uptimeMillis - down.uptimeMillis > viewConfiguration.longPressTimeoutMillis) return@awaitEachGesture
+                // Instant: on a double tap this second toggle puts the chrome back.
+                onTap()
+                if (secondTap) {
+                    up.consume()
+                    val target = ZoomMath.doubleTapScale(zoom.scale, zoom.fillScale)
+                    zoom.animateTo(scope, target, up.position.x - centre.x, up.position.y - centre.y, spec)
+                } else {
+                    lastTapUpMs = up.uptimeMillis
+                    lastTapPos = up.position
+                }
+            }
+            Mode.QuickZoom -> zoom.settle(scope, focus.x, focus.y, spec)
+            Mode.Transform -> {
+                if (!zoom.settle(scope, focus.x, focus.y, spec) && lastCount == 1) {
+                    val v = tracker.calculateVelocity()
+                    zoom.fling(scope, v.x, v.y, decay)
+                }
+            }
+            Mode.Fit, Mode.Pager -> Unit
+        }
     }
+}
+
+private enum class Mode {
+    /** Not moved past the touch slop yet: may still be a tap. */
+    Undecided,
+
+    /** One finger at fit: the pager's horizontal swipe, or our swipe up. */
+    Fit,
+
+    /** The pager took the gesture. */
+    Pager,
+
+    /** Pinch, or pan while zoomed. */
+    Transform,
+
+    /** Double tap and drag. */
+    QuickZoom,
 }
 
 // region animated images
@@ -415,5 +562,11 @@ private const val DETAIL_ZOOM = 1.6f
 private const val DETAIL_MAX_LONG_EDGE = 4096
 private const val PLACEHOLDER_PX = 512
 private const val SWIPE_UP_DP = 72
+
+/** Double tap and drag: dragging this far zooms by a factor of e (~2.7×). */
+private const val QUICK_ZOOM_DP = 160
+
+/** Zoom animations: quick, no overshoot. */
+private const val ZOOM_STIFFNESS = 500f
 
 private val DOUBLE_TAP_SLOP = 100.dp
