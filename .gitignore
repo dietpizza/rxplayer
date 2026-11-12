@@ -21,3 +21,5 @@ build/
 
 # Release signing secrets (see keystore.properties.example)
 keystore.properties
+/app/release
+/.idea
