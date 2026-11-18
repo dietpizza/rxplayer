@@ -6,9 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MediumExtendedFloatingActionButton
-import androidx.compose.material3.Text
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +34,10 @@ import com.dietpizza.rxplayer.core.ui.slideshow.rememberSheetLauncher
 import kotlinx.coroutines.flow.StateFlow
 
 /** Extra bottom padding for a grid under the slideshow FAB, so its last row can scroll clear. */
-internal val SlideshowFabClearance = 104.dp
+internal val SlideshowFabClearance = 96.dp
+
+/** A touch bigger than the standard 56 dp FAB. */
+private val SlideshowFabSize = 64.dp
 
 /**
  * Tracks scroll direction for [SlideshowFab]: hidden while the content scrolls down, shown again
@@ -65,10 +66,9 @@ internal class SlideshowFabState {
 internal fun rememberSlideshowFabState(): SlideshowFabState = remember { SlideshowFabState() }
 
 /**
- * The Gallery / album "Slideshow" FAB: a medium extended FAB that slides away while scrolling
+ * The Gallery / album "Slideshow" FAB: an icon-only FAB that slides away while scrolling
  * down ([state]) and while [visible] is false (selection mode), and back in otherwise.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SlideshowFab(
     visible: Boolean,
@@ -83,12 +83,13 @@ internal fun SlideshowFab(
         exit = slideOutVertically(motion.fastSpatialSpec()) { it } + fadeOut(motion.fastEffectsSpec()),
         modifier = modifier,
     ) {
-        MediumExtendedFloatingActionButton(
-            onClick = onClick,
-            expanded = true,
-            icon = { Icon(RxIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp)) },
-            text = { Text(stringResource(R.string.gallery_slideshow)) },
-        )
+        FloatingActionButton(onClick = onClick, modifier = Modifier.size(SlideshowFabSize)) {
+            Icon(
+                RxIcons.PlayArrow,
+                contentDescription = stringResource(R.string.gallery_slideshow),
+                modifier = Modifier.size(28.dp),
+            )
+        }
     }
 }
 
