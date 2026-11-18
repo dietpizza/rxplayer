@@ -1,5 +1,11 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Animatable
 import com.dietpizza.rxplayer.feature.player.AppThemed
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -338,6 +344,10 @@ private fun ViewerContent(
 
     // Slideshow advance: photos after N seconds, videos when they end (or fail). Restarts on any
     // page change (a manual swipe too); holds while paused, zoomed or in the full player.
+    // The current photo's timer, 0..1: it drives the advance and the pill's ring. Pausing (or
+    // zooming) holds it; a new page starts it over.
+    val photoProgress = remember { Animatable(0f) }
+    var photoProgressIndex by remember { mutableIntStateOf(-1) }
     if (slideshow != null) {
         val view = LocalView.current
         DisposableEffect(slideshowOn, slideshowPlaying) {
@@ -352,7 +362,13 @@ private fun ViewerContent(
                     (np?.key == key && ended) || err?.fatal == true
                 }.first { it }
             } else {
-                delay(slideshow.secondsPerPhoto * 1_000L)
+                if (photoProgressIndex != settledIndex) {
+                    photoProgress.snapTo(0f)
+                    photoProgressIndex = settledIndex
+                }
+                val totalMs = slideshow.secondsPerPhoto * 1_000
+                val remainingMs = ((1f - photoProgress.value) * totalMs).toInt()
+                if (remainingMs > 0) photoProgress.animateTo(1f, tween(remainingMs, easing = LinearEasing))
             }
             val next = settledIndex + 1
             when {
@@ -500,9 +516,24 @@ private fun ViewerContent(
         }
 
         if (slideshowOn && morph.isInline) {
+            val positionState = controller.positionMs.collectAsStateWithLifecycle()
+            val durationState = controller.durationMs.collectAsStateWithLifecycle()
+            val nowPlayingState = rememberUpdatedState(nowPlaying)
+            val currentItem = rememberUpdatedState(settledItem)
             SlideshowPill(
                 visible = chromeVisible,
                 playing = slideshowPlaying,
+                // Read in draw only: the ring moves without recomposing the viewer.
+                progress = {
+                    val item = currentItem.value
+                    if (!item.isVideo) {
+                        if (photoProgressIndex == settledIndex) photoProgress.value else 0f
+                    } else if (nowPlayingState.value?.key == item.key && durationState.value > 0) {
+                        (positionState.value.toFloat() / durationState.value).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                },
                 onPlayPause = {
                     slideshowPlaying = !slideshowPlaying
                     // Pausing the slideshow pauses the video on screen too, and vice versa.
@@ -586,6 +617,7 @@ private fun formatDate(epochMs: Long): String =
         .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
 
 private const val DEFAULT_ASPECT = 16f / 9f
+private val SlideshowRingSize = 38.dp
 private val CARD_SIDE = 12.dp
 private val CARD_RADIUS = 12.dp
 private val PAGE_SPACING = 16.dp
@@ -636,13 +668,15 @@ private fun ViewerSlideshowSheet(viewModel: ViewerViewModel, items: List<ViewerI
 }
 
 /**
- * The slideshow's only control: a small pill on the right edge with pause/resume and stop. It
+ * The slideshow's only control: a small pill on the right edge with pause/resume and stop. A ring
+ * round pause/resume fills with the current item's time (a photo's timer, a video's position). It
  * shows and hides with the viewer chrome (tap the photo), so the slideshow itself stays clean.
  */
 @Composable
 private fun SlideshowPill(
     visible: Boolean,
     playing: Boolean,
+    progress: () -> Float,
     onPlayPause: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
@@ -661,12 +695,23 @@ private fun SlideshowPill(
                 .padding(vertical = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            IconButton(onClick = onPlayPause) {
-                Icon(
-                    if (playing) RxIcons.Pause else RxIcons.PlayArrow,
-                    contentDescription = stringResource(if (playing) R.string.viewer_slideshow_pause else R.string.viewer_slideshow_resume),
-                    tint = Color.White,
+            Box(contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier.size(SlideshowRingSize),
+                    color = Color.White,
+                    strokeWidth = 2.5.dp,
+                    trackColor = Color.White.copy(alpha = 0.25f),
+                    strokeCap = StrokeCap.Round,
+                    gapSize = 0.dp,
                 )
+                IconButton(onClick = onPlayPause) {
+                    Icon(
+                        if (playing) RxIcons.Pause else RxIcons.PlayArrow,
+                        contentDescription = stringResource(if (playing) R.string.viewer_slideshow_pause else R.string.viewer_slideshow_resume),
+                        tint = Color.White,
+                    )
+                }
             }
             IconButton(onClick = onStop) {
                 Icon(RxIcons.Close, contentDescription = stringResource(R.string.viewer_slideshow_stop), tint = Color.White)
