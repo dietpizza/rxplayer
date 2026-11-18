@@ -276,7 +276,7 @@ private fun VideosScaffold(
                 title = { Text(stringResource(R.string.videos_title)) },
                 actions = {
                     val context = LocalContext.current
-                    IconButton(onClick = { context.startActivity(RxIntents.search(context)) }) {
+                    IconButton(onClick = { context.startActivity(RxIntents.search(context, RxIntents.SEARCH_SCOPE_VIDEOS)) }) {
                         Icon(RxIcons.Search, contentDescription = stringResource(R.string.videos_search))
                     }
                     sortAction()
@@ -401,6 +401,7 @@ private fun FolderCard(folder: FolderRow, selected: Boolean, selecting: Boolean,
                         .aspectRatio(1f)
                         .clip(MaterialTheme.shapes.largeIncreased),
                 )
+                if (folder.pinned) PinBadge()
                 if (folder.newBadge != null) {
                     NewBadge(
                         cornerRadius = CardThumbCorner,
@@ -499,6 +500,7 @@ private fun FolderListRow(folder: FolderRow, selected: Boolean, selecting: Boole
                         .size(FolderThumbWidth, FolderThumbWidth * 9 / 16)
                         .clip(MaterialTheme.shapes.extraSmall),
                 )
+                if (folder.pinned) PinBadge(compact = true)
                 if (folder.newBadge != null) NewBadge(cornerRadius = RowThumbCorner, ring = RxBars.pageColor)
                 if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(4.dp))
             }

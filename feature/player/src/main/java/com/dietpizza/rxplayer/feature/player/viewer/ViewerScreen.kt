@@ -161,7 +161,7 @@ private fun ViewerContent(
     val density = LocalDensity.current
     val windowSize by rememberUpdatedState(LocalWindowInfo.current.containerSize)
 
-    // Card geometry: under the top bar, above the slim controls; stable insets.
+    // Card geometry: under the top bar, above the slim controls and the action row; stable insets.
     val geo = remember { ViewerGeometry() }
     val statusTop = WindowInsets.statusBarsIgnoringVisibility.getTop(density)
     val navBottom = WindowInsets.navigationBarsIgnoringVisibility.getBottom(density)
@@ -169,7 +169,7 @@ private fun ViewerContent(
     remember(statusTop, navBottom, density) {
         with(density) {
             geo.top = statusTop + TopBarHeight.toPx()
-            geo.bottom = navBottom + InlineControlsBottomGap.toPx() + InlineControlsHeight.toPx()
+            geo.bottom = navBottom + ViewerToolbarHeight.toPx() + InlineControlsBottomGap.toPx() + InlineControlsHeight.toPx()
             geo.side = CARD_SIDE.toPx()
             geo.radius = CARD_RADIUS.toPx()
         }
@@ -515,7 +515,7 @@ private fun ViewerContent(
             )
         }
 
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp))
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp + ViewerToolbarHeight))
     }
 
     if (showInfo && morph.isInline) AppThemed {

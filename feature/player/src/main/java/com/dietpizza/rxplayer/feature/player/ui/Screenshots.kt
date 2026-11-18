@@ -38,11 +38,11 @@ import kotlinx.coroutines.withContext
 /**
  * Screenshot (decision 24): the current frame at full video resolution via PixelCopy from the
  * player's SurfaceView, falling back to MediaMetadataRetriever at the current position. Saved
- * to `Pictures/Rx Player/` through MediaStore (`IS_PENDING` while writing).
+ * to `Pictures/Wave Player/` through MediaStore (`IS_PENDING` while writing).
  */
 internal object Screenshots {
     private const val TAG = "Screenshot"
-    private const val ALBUM = "Rx Player"
+    private const val ALBUM = "Wave Player"
 
     suspend fun captureAndOffer(context: Context, view: View, controller: PlaybackController, snackbar: SnackbarHostState) {
         val uri = runCatching { capture(context, view, controller) }

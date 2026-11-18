@@ -23,10 +23,10 @@ class FolderActivity : RxActivity() {
 
     companion object {
         /** Absolute folder path (required). Read by [FolderViewModel] through SavedStateHandle. */
-        const val EXTRA_FOLDER_PATH = "rx.extra.FOLDER_PATH"
+        const val EXTRA_FOLDER_PATH = RxIntents.EXTRA_FOLDER_PATH
 
         /** Display name, so the app bar has a title on the first frame (optional). */
-        const val EXTRA_FOLDER_NAME = "rx.extra.FOLDER_NAME"
+        const val EXTRA_FOLDER_NAME = RxIntents.EXTRA_FOLDER_NAME
 
         fun intent(context: Context, folderPath: String, folderName: String? = null): Intent =
             Intent(context, FolderActivity::class.java)

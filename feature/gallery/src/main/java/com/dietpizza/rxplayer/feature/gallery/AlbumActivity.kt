@@ -62,10 +62,10 @@ class AlbumActivity : RxActivity() {
 
     companion object {
         /** Absolute folder path. Required unless [EXTRA_VIRTUAL_ALBUM] is set. */
-        const val EXTRA_ALBUM_PATH = "rx.extra.ALBUM_PATH"
+        const val EXTRA_ALBUM_PATH = RxIntents.EXTRA_ALBUM_PATH
 
         /** Display name, so the app bar has a title on the first frame (optional). */
-        const val EXTRA_ALBUM_NAME = "rx.extra.ALBUM_NAME"
+        const val EXTRA_ALBUM_NAME = RxIntents.EXTRA_ALBUM_NAME
 
         /** [VirtualAlbum.id] for built-in albums (optional). */
         const val EXTRA_VIRTUAL_ALBUM = "rx.extra.VIRTUAL_ALBUM"

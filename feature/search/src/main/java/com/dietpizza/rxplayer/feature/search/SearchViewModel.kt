@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.dietpizza.rxplayer.core.data.GalleryRepository
 import com.dietpizza.rxplayer.core.model.GalleryItem
 import com.dietpizza.rxplayer.core.model.MediaKey
+import com.dietpizza.rxplayer.core.ui.RxIntents
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.ZoneId
 import java.util.Locale
@@ -38,6 +39,30 @@ data class ResultTile(
     val duration: String?,
 )
 
+/** One folder result, pre-formatted. */
+@Immutable
+data class FolderTile(
+    val path: String,
+    val name: String,
+    val count: Int,
+    /** Newest item's thumbnail. */
+    val coverUri: String,
+)
+
+/** Which tab the search belongs to: what it searches and where results open. */
+enum class SearchScope {
+    /** Photos and videos; items open in the viewer, folders as Gallery albums. */
+    GALLERY,
+
+    /** Videos only; items open in the player, folders in the Videos tab's folder screen. */
+    VIDEOS;
+
+    companion object {
+        fun of(extra: String?): SearchScope =
+            if (extra == RxIntents.SEARCH_SCOPE_VIDEOS) VIDEOS else GALLERY
+    }
+}
+
 @Immutable
 sealed interface SearchUiState {
     /** Nothing typed and no filters: show the hint. */
@@ -46,12 +71,14 @@ sealed interface SearchUiState {
     data object Loading : SearchUiState
 
     data class Results(
+        /** Folders whose name matches the query (none for a filters-only search). */
+        val folders: List<FolderTile>,
         val tiles: List<ResultTile>,
         /** Same order as [tiles]: the viewer / player playlist. */
         val keys: List<MediaKey>,
-        /** Every result is a video: tapping opens the full player instead of the viewer. */
-        val allVideos: Boolean,
-    ) : SearchUiState
+    ) : SearchUiState {
+        val isEmpty: Boolean get() = folders.isEmpty() && tiles.isEmpty()
+    }
 }
 
 @HiltViewModel
@@ -60,6 +87,8 @@ class SearchViewModel @Inject constructor(
     repository: GalleryRepository,
 ) : ViewModel() {
 
+    val scope: SearchScope = SearchScope.of(savedStateHandle.get<String>(RxIntents.EXTRA_SEARCH_SCOPE))
+
     val query: StateFlow<String> = savedStateHandle.getStateFlow(KEY_QUERY, "")
 
     private val _filters = MutableStateFlow(SearchFilters())
@@ -67,7 +96,7 @@ class SearchViewModel @Inject constructor(
 
     /** Rebuilt only when the library changes. */
     private val index = repository.allItems()
-        .map { SearchIndex(it) }
+        .map { items -> SearchIndex(if (scope == SearchScope.VIDEOS) items.filter { it.isVideo } else items) }
         .flowOn(Dispatchers.Default)
 
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -84,9 +113,9 @@ class SearchViewModel @Inject constructor(
                 } else {
                     val results = search(i, q, f, System.currentTimeMillis(), ZoneId.systemDefault())
                     SearchUiState.Results(
+                        folders = searchFolders(i, q).map { FolderTile(it.path, it.name, it.count, it.coverUri) },
                         tiles = results.map { it.toTile() },
                         keys = results.map { it.key },
-                        allVideos = results.isNotEmpty() && results.all { it.isVideo },
                     )
                 }
             }

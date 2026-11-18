@@ -1,6 +1,7 @@
 package com.dietpizza.rxplayer.feature.videos
 
 import kotlin.math.sqrt
+import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.background
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -154,6 +156,27 @@ internal fun BoxScope.NewBadge(cornerRadius: Dp, ring: Color) {
 
 private val NewBadgeSize = 15.dp
 private val NewBadgeRing = 2.5.dp
+
+/**
+ * Pin mark on a pinned folder's thumbnail, top-right: a white pin on a dark disc. Compose it
+ * before [NewBadge] so the new dot (cut out by its ring) sits on top where they meet.
+ */
+@Composable
+internal fun BoxScope.PinBadge(compact: Boolean = false) {
+    Icon(
+        RxIcons.Keep,
+        contentDescription = stringResource(R.string.videos_pinned_badge),
+        tint = Color.White,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(if (compact) 4.dp else 8.dp)
+            .background(PinBadgeScrim, CircleShape)
+            .padding(if (compact) 3.dp else 4.dp)
+            .size(if (compact) 12.dp else 16.dp),
+    )
+}
+
+private val PinBadgeScrim = Color.Black.copy(alpha = 0.5f)
 
 /** A card/row title: the grid's titleSmall everywhere. */
 @Composable

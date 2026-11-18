@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -74,14 +76,17 @@ import androidx.compose.ui.semantics.selected
 
 @Composable
 internal fun SearchScreen(
+    scope: SearchScope,
     onBack: () -> Unit,
-    onOpen: (keys: List<MediaKey>, index: Int, allVideos: Boolean) -> Unit,
+    onOpen: (keys: List<MediaKey>, index: Int) -> Unit,
+    onOpenFolder: (FolderTile) -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val filters by viewModel.filters.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     SearchContent(
+        scope = scope,
         query = query,
         filters = filters,
         uiState = uiState,
@@ -89,19 +94,23 @@ internal fun SearchScreen(
         onFiltersChange = viewModel::setFilters,
         onBack = onBack,
         onOpen = onOpen,
+        onOpenFolder = onOpenFolder,
     )
 }
 
 @Composable
 internal fun SearchContent(
+    scope: SearchScope,
     query: String,
     filters: SearchFilters,
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
     onFiltersChange: (SearchFilters) -> Unit,
     onBack: () -> Unit,
-    onOpen: (keys: List<MediaKey>, index: Int, allVideos: Boolean) -> Unit,
+    onOpen: (keys: List<MediaKey>, index: Int) -> Unit,
+    onOpenFolder: (FolderTile) -> Unit,
 ) {
+    val videosOnly = scope == SearchScope.VIDEOS
     val background = RxBars.pageColor
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
@@ -130,7 +139,7 @@ internal fun SearchContent(
                             value = query,
                             onValueChange = onQueryChange,
                             singleLine = true,
-                            placeholder = { Text(stringResource(R.string.search_hint), maxLines = 1) },
+                            placeholder = { Text(stringResource(if (videosOnly) R.string.search_hint_videos else R.string.search_hint), maxLines = 1) },
                             textStyle = MaterialTheme.typography.bodyLarge,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -159,7 +168,7 @@ internal fun SearchContent(
                     colors = RxBars.headerColors(),
                     modifier = Modifier.rxHeader(),
                 )
-                FilterRow(filters, onFiltersChange, onPickDates = { pickDates = true })
+                FilterRow(filters, videosOnly, onFiltersChange, onPickDates = { pickDates = true })
             }
         },
     ) { innerPadding ->
@@ -173,10 +182,10 @@ internal fun SearchContent(
             SearchUiState.Idle -> RxEmptyState(
                 icon = RxIcons.Search,
                 title = stringResource(R.string.search_idle_title),
-                body = stringResource(R.string.search_idle_body),
+                body = stringResource(if (videosOnly) R.string.search_idle_body_videos else R.string.search_idle_body),
                 modifier = modifier,
             )
-            is SearchUiState.Results -> if (uiState.tiles.isEmpty()) {
+            is SearchUiState.Results -> if (uiState.isEmpty) {
                 RxEmptyState(
                     icon = RxIcons.SearchOff,
                     title = stringResource(R.string.search_no_results_title),
@@ -186,7 +195,8 @@ internal fun SearchContent(
             } else {
                 ResultsGrid(
                     results = uiState,
-                    onOpen = { index -> onOpen(uiState.keys, index, uiState.allVideos) },
+                    onOpen = { index -> onOpen(uiState.keys, index) },
+                    onOpenFolder = onOpenFolder,
                     onScroll = { keyboard?.hide() },
                     modifier = modifier,
                 )
@@ -241,7 +251,12 @@ private val DurationChoices = listOf(
 )
 
 @Composable
-private fun FilterRow(filters: SearchFilters, onChange: (SearchFilters) -> Unit, onPickDates: () -> Unit) {
+private fun FilterRow(
+    filters: SearchFilters,
+    videosOnly: Boolean,
+    onChange: (SearchFilters) -> Unit,
+    onPickDates: () -> Unit,
+) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -249,7 +264,8 @@ private fun FilterRow(filters: SearchFilters, onChange: (SearchFilters) -> Unit,
             .fillMaxWidth()
             .padding(bottom = 8.dp),
     ) {
-        item(key = "type") {
+        // The Videos tab's search has nothing but videos: no type to pick.
+        if (!videosOnly) item(key = "type") {
             FilterMenuChip(R.string.filter_type, TypeChoices, filters.type, TypeFilter.ALL) {
                 // Photos only rules out a duration bound.
                 onChange(filters.copy(type = it, duration = if (it == TypeFilter.PHOTOS) DurationFilter.ANY else filters.duration))
@@ -370,6 +386,7 @@ private val ChipScrim = Color.Black.copy(alpha = 0.55f)
 private fun ResultsGrid(
     results: SearchUiState.Results,
     onOpen: (Int) -> Unit,
+    onOpenFolder: (FolderTile) -> Unit,
     onScroll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -388,13 +405,24 @@ private fun ResultsGrid(
         verticalArrangement = Arrangement.spacedBy(TileGap),
         modifier = modifier,
     ) {
-        item(key = "count", span = { GridItemSpan(maxLineSpan) }, contentType = "count") {
-            Text(
-                text = pluralStringResource(R.plurals.search_result_count, results.tiles.size, results.tiles.size),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+        if (results.folders.isNotEmpty()) {
+            item(key = "folders", span = { GridItemSpan(maxLineSpan) }, contentType = "count") {
+                SectionLabel(stringResource(R.string.search_section_folders))
+            }
+            items(
+                results.folders.size,
+                key = { "folder:" + results.folders[it].path },
+                span = { GridItemSpan(maxLineSpan) },
+                contentType = { "folder" },
+            ) { index ->
+                val folder = results.folders[index]
+                FolderRow(folder) { onOpenFolder(folder) }
+            }
+        }
+        if (results.tiles.isNotEmpty()) {
+            item(key = "count", span = { GridItemSpan(maxLineSpan) }, contentType = "count") {
+                SectionLabel(pluralStringResource(R.plurals.search_result_count, results.tiles.size, results.tiles.size))
+            }
         }
         items(results.tiles.size, key = { results.tiles[it].key }, contentType = { "result" }) { index ->
             ResultTileView(results.tiles[index], requestWidth) { onOpen(index) }
@@ -403,6 +431,64 @@ private fun ResultsGrid(
 }
 
 private val MinCell = 104.dp
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+private val FolderThumb = 56.dp
+private val FolderThumbShape = RoundedCornerShape(12.dp)
+
+/** A matching folder: newest item's thumbnail, name and item count. Tapping opens it. */
+@Composable
+private fun FolderRow(folder: FolderTile, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        MediaThumbnail(
+            contentUri = folder.coverUri,
+            requestWidth = FolderThumb,
+            contentDescription = null,
+            modifier = Modifier
+                .size(FolderThumb)
+                .clip(FolderThumbShape),
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(start = 16.dp),
+        ) {
+            Text(
+                folder.name,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                pluralStringResource(R.plurals.search_folder_items, folder.count, folder.count),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+        Icon(
+            RxIcons.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
 
 @Composable
 private fun ResultTileView(tile: ResultTile, requestWidth: androidx.compose.ui.unit.Dp, onClick: () -> Unit) {

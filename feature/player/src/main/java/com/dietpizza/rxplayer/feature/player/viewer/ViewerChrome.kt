@@ -1,6 +1,5 @@
 package com.dietpizza.rxplayer.feature.player.viewer
 
-import com.dietpizza.rxplayer.feature.player.AppThemed
 import com.dietpizza.rxplayer.core.designsystem.icon.RxIcons
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -38,9 +37,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,16 +44,18 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
-import com.dietpizza.rxplayer.core.designsystem.component.RxMenuItem
 import com.dietpizza.rxplayer.core.player.PlaybackController
 import com.dietpizza.rxplayer.feature.player.R
 
 /** Top bar height (below the status bar). */
 internal val TopBarHeight = 64.dp
+
+/** Bottom action row height (above the navigation bar). */
+internal val ViewerToolbarHeight = 64.dp
 
 private val Scrim = Color.Black.copy(alpha = 0.55f)
 
@@ -68,9 +66,8 @@ private fun Modifier.chromeInsets(): Modifier =
     windowInsetsPadding(WindowInsets.systemBarsIgnoringVisibility.union(WindowInsets.displayCutout))
 
 /**
- * Viewer chrome (plan §4 #4): one top bar with back, title and date, a favourite heart, and an
- * overflow menu holding the rest (slideshow, share, details, delete). There's no bottom action
- * row; the bottom scrim only keeps the navigation bar (and a video's inline controls) legible.
+ * Viewer chrome (plan §4 #4): a top bar with back, title and date, and a bottom action row
+ * (favourite, slideshow, share, details, delete). A video's inline controls sit just above it.
  * Fades in and out with a tap, and out with the morph (alpha in a layer, read per frame in draw
  * only).
  */
@@ -112,7 +109,7 @@ internal fun ViewerChrome(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(120.dp)
+                    .height(180.dp)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Scrim))),
             )
             Row(
@@ -144,57 +141,66 @@ internal fun ViewerChrome(
                         )
                     }
                 }
-                if (item != null) {
-                    if (item.canFavourite) {
-                        IconButton(onClick = onFavourite, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
-                            Icon(
-                                if (isFavourite) RxIcons.Favorite else RxIcons.FavoriteBorder,
-                                contentDescription = stringResource(
-                                    if (isFavourite) R.string.viewer_unfavourite else R.string.viewer_favourite,
-                                ),
-                                tint = Color.White,
-                            )
-                        }
-                    }
-                    ViewerOverflowMenu(item, onSlideshow, onShare, onInfo, onDelete)
-                }
+            }
+            if (item != null) {
+                ViewerToolbar(
+                    item = item,
+                    isFavourite = isFavourite,
+                    onFavourite = onFavourite,
+                    onSlideshow = onSlideshow,
+                    onShare = onShare,
+                    onInfo = onInfo,
+                    onDelete = onDelete,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .chromeInsets(),
+                )
             }
         }
     }
 }
 
-/** The top bar's three-dot button and its menu: slideshow, share, details; delete on its own. */
+/**
+ * The bottom action row: favourite, slideshow, share, details, delete, spread evenly across the
+ * width. Actions an item can't do (a network file can't be favourited or deleted) are left out.
+ */
 @Composable
-private fun ViewerOverflowMenu(
+private fun ViewerToolbar(
     item: ViewerItem,
+    isFavourite: Boolean,
+    onFavourite: () -> Unit,
     onSlideshow: () -> Unit,
     onShare: () -> Unit,
     onInfo: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val slideshow = stringResource(R.string.viewer_slideshow)
-    val share = stringResource(R.string.viewer_share)
-    val details = stringResource(R.string.viewer_details)
-    val delete = stringResource(R.string.viewer_delete)
-    Box {
-        IconButton(onClick = { expanded = true }, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
-            Icon(RxIcons.MoreVert, contentDescription = stringResource(R.string.viewer_more_options), tint = Color.White)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(ViewerToolbarHeight)
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (item.canFavourite) {
+            ToolbarButton(
+                if (isFavourite) RxIcons.Favorite else RxIcons.FavoriteBorder,
+                stringResource(if (isFavourite) R.string.viewer_unfavourite else R.string.viewer_favourite),
+                onFavourite,
+            )
         }
-        AppThemed {
-        RxMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            groups = listOf(
-                buildList {
-                    add(RxMenuItem(slideshow, onSlideshow, RxIcons.Slideshow))
-                    if (item.shareUri != null) add(RxMenuItem(share, onShare, RxIcons.Share))
-                    add(RxMenuItem(details, onInfo, RxIcons.Info))
-                },
-                if (item.canDelete) listOf(RxMenuItem(delete, onDelete, RxIcons.Delete, destructive = true)) else emptyList(),
-            ),
-        )
-        }
+        ToolbarButton(RxIcons.Slideshow, stringResource(R.string.viewer_slideshow), onSlideshow)
+        if (item.shareUri != null) ToolbarButton(RxIcons.Share, stringResource(R.string.viewer_share), onShare)
+        ToolbarButton(RxIcons.Info, stringResource(R.string.viewer_details), onInfo)
+        if (item.canDelete) ToolbarButton(RxIcons.Delete, stringResource(R.string.viewer_delete), onDelete)
+    }
+}
+
+@Composable
+private fun ToolbarButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(IconButtonDefaults.mediumContainerSize())) {
+        Icon(icon, contentDescription = label, tint = Color.White)
     }
 }
 

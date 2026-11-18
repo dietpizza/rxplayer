@@ -77,9 +77,62 @@ class SearchIndex(items: List<GalleryItem>) {
 
     val size: Int get() = items.size
 
+    /** One entry per folder holding indexed items, in first-seen (newest item) order. */
+    internal val folderEntries: List<FolderEntry> by lazy {
+        val byPath = LinkedHashMap<String, FolderEntry>()
+        for (i in items.indices) {
+            val item = items[i]
+            val entry = byPath[item.folderPath]
+            if (entry == null) {
+                byPath[item.folderPath] = FolderEntry(
+                    path = item.folderPath,
+                    name = item.folderPath.substringAfterLast('/').ifEmpty { item.folderPath },
+                    normalizedName = folders[i],
+                    count = 1,
+                    coverUri = item.contentUri,
+                )
+            } else {
+                entry.count++
+            }
+        }
+        byPath.values.toList()
+    }
+
     companion object {
         val EMPTY = SearchIndex(emptyList())
     }
+}
+
+/** A folder in a [SearchIndex]: [count] items, [coverUri] is its newest one. */
+class FolderEntry internal constructor(
+    val path: String,
+    val name: String,
+    internal val normalizedName: String,
+    count: Int,
+    val coverUri: String,
+) {
+    var count: Int = count
+        internal set
+}
+
+/**
+ * Folders whose name contains every query token: names starting with the first token first,
+ * then the rest; bigger folders first within each. A blank query returns nothing.
+ */
+fun searchFolders(index: SearchIndex, query: String): List<FolderEntry> {
+    val tokens = tokenize(query)
+    if (tokens.isEmpty()) return emptyList()
+    val prefix = ArrayList<FolderEntry>()
+    val rest = ArrayList<FolderEntry>()
+    for (entry in index.folderEntries) {
+        val name = entry.normalizedName
+        if (tokens.all { name.contains(it) }) {
+            if (name.startsWith(tokens[0])) prefix += entry else rest += entry
+        }
+    }
+    prefix.sortByDescending { it.count }
+    rest.sortByDescending { it.count }
+    return prefix + rest
 }
 
 /**

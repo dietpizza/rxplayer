@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="app/src/main/ic_launcher-playstore.png" alt="RX Player icon" width="112" />
+<img src="app/src/main/ic_launcher-playstore.png" alt="Wave Player icon" width="112" />
 
-# RX Player
+# Wave Player
 
 **Your photos and videos, one beautiful player.**
 
@@ -16,7 +16,7 @@ Browse your photos, watch your videos, and stream from your NAS, all in one app.
 ![Version](https://img.shields.io/badge/version-0.1.6-blue)
 
 <!-- TODO: replace with a hero image or a short GIF of the app -->
-<img src="docs/screenshots/hero.png" alt="RX Player hero" width="720" />
+<img src="docs/screenshots/hero.png" alt="Wave Player hero" width="720" />
 
 </div>
 
@@ -45,7 +45,7 @@ Browse your photos, watch your videos, and stream from your NAS, all in one app.
 
 - 🖼️ **One app for photos and videos.** A full gallery with albums, favourites and slideshows, plus an MX-style video library.
 - 🎬 **A player that feels fast.** Gesture-driven controls, seek-bar frame previews, swipe-to-seek, hold-to-speed-up and pinch-to-zoom.
-- 🔊 **Never fights other apps for audio.** RX Player doesn't take audio focus, so Spotify or a YouTube PiP keep playing. Mute is a first-class control.
+- 🔊 **Never fights other apps for audio.** Wave Player doesn't take audio focus, so Spotify or a YouTube PiP keep playing. Mute is a first-class control.
 - 🌐 **Stream from your network.** SMB, SFTP, FTP/FTPS and WebDAV servers, browsed like local folders.
 - 🎧 **Plays almost anything.** Media3 ExoPlayer with the FFmpeg audio decoder for AC3, EAC3, DTS, TrueHD and more.
 - 📱 **Native Android feel.** One Activity per screen, system transitions, predictive back, dynamic colour and a pure-black theme.
@@ -294,4 +294,4 @@ The baseline profile needs a connected device.
 | Notifications | *Optional.* Playback controls in picture-in-picture. |
 | Internet / network state | Streaming from network servers. |
 
-RX Player is a personal, sideloaded app. It isn't published on Google Play.
+Wave Player is a personal, sideloaded app. It isn't published on Google Play.

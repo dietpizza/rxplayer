@@ -151,7 +151,7 @@ internal fun VideoPage(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .windowInsetsPadding(WindowInsets.navigationBarsIgnoringVisibility)
-                .padding(bottom = InlineControlsBottomGap),
+                .padding(bottom = InlineControlsBottomGap + ViewerToolbarHeight),
         )
     }
 }

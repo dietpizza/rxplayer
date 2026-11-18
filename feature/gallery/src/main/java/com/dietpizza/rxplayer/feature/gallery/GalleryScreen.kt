@@ -425,6 +425,19 @@ private fun PinnedRow(pinned: List<AlbumTile>, onOpenAlbum: (AlbumTile) -> Unit,
                                 .size(16.dp),
                         )
                     }
+                    if (album.pinned) {
+                        Icon(
+                            imageVector = RxIcons.Keep,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .background(BadgeScrim, CircleShape)
+                                .padding(4.dp)
+                                .size(16.dp),
+                        )
+                    }
                 }
                 AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 4.dp))
             }
@@ -517,6 +530,19 @@ private fun AlbumCard(album: AlbumTile, selected: Boolean, selecting: Boolean, o
                     }
                     .clip(MaterialTheme.shapes.largeIncreased),
             )
+            if (album.pinned) {
+                Icon(
+                    imageVector = RxIcons.Keep,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .background(BadgeScrim, CircleShape)
+                        .padding(4.dp)
+                        .size(16.dp),
+                )
+            }
             if (selecting) SelectionCheck(selected, Modifier.align(Alignment.TopStart).padding(8.dp))
         }
         AlbumLabels(album, Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 4.dp))

@@ -14,6 +14,21 @@ import java.util.UUID
 object RxIntents {
     const val PLAYER_ACTIVITY = "com.dietpizza.rxplayer.feature.player.PlayerActivity"
     const val SEARCH_ACTIVITY = "com.dietpizza.rxplayer.feature.search.SearchActivity"
+    const val ALBUM_ACTIVITY = "com.dietpizza.rxplayer.feature.gallery.AlbumActivity"
+    const val FOLDER_ACTIVITY = "com.dietpizza.rxplayer.feature.videos.FolderActivity"
+
+    /** Which tab a search belongs to: [SEARCH_SCOPE_GALLERY] (default) or [SEARCH_SCOPE_VIDEOS]. */
+    const val EXTRA_SEARCH_SCOPE = "rx.extra.SEARCH_SCOPE"
+    const val SEARCH_SCOPE_GALLERY = "gallery"
+    const val SEARCH_SCOPE_VIDEOS = "videos"
+
+    /** Gallery album extras (AlbumActivity): absolute folder path and display name. */
+    const val EXTRA_ALBUM_PATH = "rx.extra.ALBUM_PATH"
+    const val EXTRA_ALBUM_NAME = "rx.extra.ALBUM_NAME"
+
+    /** Videos folder extras (FolderActivity): absolute folder path and display name. */
+    const val EXTRA_FOLDER_PATH = "rx.extra.FOLDER_PATH"
+    const val EXTRA_FOLDER_NAME = "rx.extra.FOLDER_NAME"
 
     /** Ordered playlist of media keys (strings); next/prev and auto-next follow this order. */
     const val EXTRA_PLAYLIST = "rx.extra.PLAYLIST"
@@ -121,8 +136,25 @@ object RxIntents {
 
     private const val INLINE_PLAYLIST_BYTES = 128 * 1024L
 
-    /** Opens search (filename + folder, plan §4 screen 11). */
-    fun search(context: Context): Intent = Intent().setClassName(context, SEARCH_ACTIVITY)
+    /**
+     * Opens search (filename + folder, plan §4 screen 11) over one tab's library: [scope] is
+     * [SEARCH_SCOPE_GALLERY] (photos and videos, opens in the viewer and gallery albums) or
+     * [SEARCH_SCOPE_VIDEOS] (videos only, opens in the player and video folders).
+     */
+    fun search(context: Context, scope: String = SEARCH_SCOPE_GALLERY): Intent =
+        Intent().setClassName(context, SEARCH_ACTIVITY).putExtra(EXTRA_SEARCH_SCOPE, scope)
+
+    /** Opens a folder as a Gallery album. */
+    fun galleryAlbum(context: Context, folderPath: String, name: String?): Intent =
+        Intent().setClassName(context, ALBUM_ACTIVITY)
+            .putExtra(EXTRA_ALBUM_PATH, folderPath)
+            .putExtra(EXTRA_ALBUM_NAME, name)
+
+    /** Opens a folder in the Videos tab's folder screen. */
+    fun videoFolder(context: Context, folderPath: String, name: String?): Intent =
+        Intent().setClassName(context, FOLDER_ACTIVITY)
+            .putExtra(EXTRA_FOLDER_PATH, folderPath)
+            .putExtra(EXTRA_FOLDER_NAME, name)
 }
 
 /** In-process store for playlists too large to put in an Intent. Keeps the last few. */
