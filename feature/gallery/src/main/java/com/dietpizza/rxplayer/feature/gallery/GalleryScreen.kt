@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import android.widget.Toast
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.Immutable
@@ -210,8 +211,9 @@ internal fun GalleryContent(
     val selecting = selection.isNotEmpty()
     BackHandler(enabled = selecting, onBack = albumActions.onClear)
     val dir = LocalLayoutDirection.current
+    val fabState = rememberSlideshowFabState()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(fabState.connection),
         containerColor = background,
         // Every gallery item; hidden while selecting. The Scaffold keeps it above the insets the
         // navigation suite leaves unconsumed; contentPadding is the shell's extra.
@@ -219,6 +221,7 @@ internal fun GalleryContent(
             SlideshowFab(
                 visible = uiState is GalleryUiState.Content && !selecting,
                 onClick = onSlideshow,
+                state = fabState,
                 modifier = Modifier.padding(
                     end = contentPadding.calculateEndPadding(dir),
                     bottom = contentPadding.calculateBottomPadding(),

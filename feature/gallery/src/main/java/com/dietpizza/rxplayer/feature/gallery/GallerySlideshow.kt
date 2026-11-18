@@ -5,7 +5,17 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MediumExtendedFloatingActionButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -26,11 +36,46 @@ import com.dietpizza.rxplayer.core.ui.slideshow.rememberSheetLauncher
 import kotlinx.coroutines.flow.StateFlow
 
 /** Extra bottom padding for a grid under the slideshow FAB, so its last row can scroll clear. */
-internal val SlideshowFabClearance = 88.dp
+internal val SlideshowFabClearance = 104.dp
 
-/** The Gallery / album "Slideshow" FAB; scales away while [visible] is false (selection mode). */
+/**
+ * Tracks scroll direction for [SlideshowFab]: collapsed to its icon while the content scrolls
+ * down, expanded with its label again on any scroll back up. Attach [connection] with
+ * `Modifier.nestedScroll` around the scrolling content.
+ */
+@Stable
+internal class SlideshowFabState {
+    var expanded by mutableStateOf(true)
+        private set
+
+    val connection = object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (available.y < -SCROLL_SLOP) expanded = false
+            else if (available.y > SCROLL_SLOP) expanded = true
+            return Offset.Zero
+        }
+    }
+
+    private companion object {
+        const val SCROLL_SLOP = 1f
+    }
+}
+
 @Composable
-internal fun SlideshowFab(visible: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun rememberSlideshowFabState(): SlideshowFabState = remember { SlideshowFabState() }
+
+/**
+ * The Gallery / album "Slideshow" FAB: a medium extended FAB that folds to its icon while
+ * scrolling down ([state]) and scales away while [visible] is false (selection mode).
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+internal fun SlideshowFab(
+    visible: Boolean,
+    onClick: () -> Unit,
+    state: SlideshowFabState,
+    modifier: Modifier = Modifier,
+) {
     val motion = MaterialTheme.motionScheme
     AnimatedVisibility(
         visible = visible,
@@ -38,9 +83,12 @@ internal fun SlideshowFab(visible: Boolean, onClick: () -> Unit, modifier: Modif
         exit = scaleOut(motion.fastSpatialSpec()) + fadeOut(motion.fastEffectsSpec()),
         modifier = modifier,
     ) {
-        FloatingActionButton(onClick = onClick) {
-            Icon(RxIcons.PlayArrow, contentDescription = stringResource(R.string.gallery_slideshow))
-        }
+        MediumExtendedFloatingActionButton(
+            onClick = onClick,
+            expanded = state.expanded,
+            icon = { Icon(RxIcons.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp)) },
+            text = { Text(stringResource(R.string.gallery_slideshow)) },
+        )
     }
 }
 

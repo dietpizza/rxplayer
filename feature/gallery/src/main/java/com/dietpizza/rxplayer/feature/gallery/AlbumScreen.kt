@@ -1,5 +1,6 @@
 package com.dietpizza.rxplayer.feature.gallery
 
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.dietpizza.rxplayer.core.designsystem.component.RxBars
 import com.dietpizza.rxplayer.core.designsystem.component.rxHeader
 import com.dietpizza.rxplayer.core.designsystem.component.RxMenu
@@ -341,8 +342,9 @@ internal fun AlbumContent(
     val content = uiState as? AlbumUiState.Content
     BackHandler(enabled = selection.isActive) { selection.clear() }
 
+    val fabState = rememberSlideshowFabState()
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(fabState.connection),
         containerColor = background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         // This album's items in its sort order; hidden while selecting or when empty.
@@ -350,6 +352,7 @@ internal fun AlbumContent(
             SlideshowFab(
                 visible = content != null && content.grid.mediaCount > 0 && !selection.isActive,
                 onClick = onSlideshow,
+                state = fabState,
             )
         },
         topBar = {
